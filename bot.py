@@ -1,4 +1,5 @@
 import time
+from datetime import datetime, timezone
 from typing import Optional
 
 from config import Config
@@ -6,6 +7,7 @@ from exchange import ExchangeClient
 from logger import get_logger
 from risk_manager import RiskManager
 from strategy import Signal, get_strategy
+from trade_log import trade_log
 
 log = get_logger("TradingBot")
 
@@ -13,6 +15,7 @@ log = get_logger("TradingBot")
 class TradingBot:
     def __init__(self, config: Config = None):
         cfg = config or Config()
+        self.cfg = cfg
 
         self.pair = cfg.TRADING_PAIR
         self.timeframe = cfg.TIMEFRAME
@@ -35,6 +38,14 @@ class TradingBot:
         )
 
         self.running = False
+        trade_log.update_status(
+            started_at=datetime.now(timezone.utc).isoformat(),
+            strategy=cfg.STRATEGY,
+            pair=self.pair,
+            timeframe=self.timeframe,
+            dry_run=self.dry_run,
+        )
+
         log.info(
             f"Bot initialized | Pair: {self.pair} | TF: {self.timeframe} | "
             f"Strategy: {cfg.STRATEGY} | DryRun: {self.dry_run}"
@@ -51,18 +62,41 @@ class TradingBot:
             exit_reason = self.risk.check_exits(self.pair, current_price)
             if exit_reason:
                 self._close_trade(current_price, exit_reason)
+                self._sync_status(current_price)
                 return
 
             result = self.strategy.analyze(df)
             log.info(f"Signal: {result.signal.value} | {result.reason}")
+            trade_log.add_signal(result.signal.value, current_price, result.reason)
 
             if result.signal == Signal.BUY and self.pair not in self.risk.positions:
                 self._open_long(current_price)
             elif result.signal == Signal.SELL and self.pair in self.risk.positions:
                 self._close_trade(current_price, "strategy_signal")
 
+            self._sync_status(current_price)
+
         except Exception as e:
             log.error(f"Tick error: {e}", exc_info=True)
+
+    def _sync_status(self, current_price: float):
+        pos = self.risk.positions.get(self.pair)
+        pos_dict = None
+        if pos:
+            pos_dict = {
+                "side": pos.side,
+                "entry_price": pos.entry_price,
+                "amount": pos.amount,
+                "stop_loss": pos.stop_loss,
+                "take_profit": pos.take_profit,
+                "current_pnl_pct": pos.current_pnl(current_price) * 100,
+            }
+        equity = self.exchange.get_free_balance("USDT")
+        trade_log.update_status(
+            current_position=pos_dict,
+            equity=equity,
+            last_price=current_price,
+        )
 
     def _open_long(self, price: float):
         balance = self.exchange.get_free_balance("USDT")
@@ -88,6 +122,15 @@ class TradingBot:
             log.info(
                 f"Trade closed [{reason}] | Entry: {pos.entry_price:.4f} | "
                 f"Exit: {price:.4f} | PnL: {pnl_pct:+.2f}% ({pnl_usdt:+.4f} USDT)"
+            )
+            trade_log.add_trade(
+                side=pos.side,
+                entry_price=pos.entry_price,
+                exit_price=price,
+                amount=pos.amount,
+                pnl_usdt=pnl_usdt,
+                pnl_pct=pnl_pct,
+                reason=reason,
             )
             self.risk.close_position(self.pair)
 

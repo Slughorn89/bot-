@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trading Bot Dashboard</title>
+  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #131722;
+      color: #d1d4dc;
+      overflow: hidden;
+    }
+    header {
+      padding: 10px 20px;
+      background: #1e222d;
+      border-bottom: 1px solid #2a2e39;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      height: 52px;
+    }
+    h1 { margin: 0; font-size: 16px; color: #f5f5f5; font-weight: 600; }
+    .pill {
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+    .pill-long  { background: #26a69a; color: #fff; }
+    .pill-short { background: #ef5350; color: #fff; }
+    .pill-flat  { background: #434651; color: #d1d4dc; }
+    .pill-info  { background: #2962ff; color: #fff; }
+    .pill-paper { background: #ff9800; color: #fff; }
+    .pill-live  { background: #d32f2f; color: #fff; }
+    main {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      height: calc(100vh - 52px);
+    }
+    #chart {
+      width: 100%;
+      height: 100%;
+    }
+    .sidebar {
+      background: #1e222d;
+      border-left: 1px solid #2a2e39;
+      overflow-y: auto;
+      padding: 14px;
+    }
+    .panel { margin-bottom: 22px; }
+    .panel h2 {
+      font-size: 11px;
+      text-transform: uppercase;
+      color: #787b86;
+      margin: 0 0 10px 0;
+      letter-spacing: 1.2px;
+      border-bottom: 1px solid #2a2e39;
+      padding-bottom: 6px;
+    }
+    .stat {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 0;
+      font-size: 13px;
+    }
+    .stat-label { color: #787b86; }
+    .stat-value { font-weight: 600; color: #d1d4dc; }
+    .item {
+      padding: 8px 10px;
+      margin-bottom: 6px;
+      background: #131722;
+      border-radius: 4px;
+      font-size: 12px;
+      border-left: 3px solid #434651;
+    }
+    .item-buy  { border-left-color: #26a69a; }
+    .item-sell { border-left-color: #ef5350; }
+    .item-hold { border-left-color: #434651; opacity: 0.7; }
+    .item-row { display: flex; justify-content: space-between; align-items: center; }
+    .item-time { color: #6c757d; font-size: 10px; margin-top: 4px; }
+    .pnl-pos { color: #26a69a; font-weight: 600; }
+    .pnl-neg { color: #ef5350; font-weight: 600; }
+    .empty { color: #6c757d; font-style: italic; font-size: 12px; }
+    #last-update { margin-left: auto; font-size: 11px; color: #6c757d; }
+    .badge-strategy {
+      background: #2962ff;
+      color: #fff;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📊 Trading Bot</h1>
+    <span id="pair-pill" class="pill pill-info">— · —</span>
+    <span id="strategy-pill" class="pill pill-info">—</span>
+    <span id="mode-pill" class="pill pill-paper">PAPER</span>
+    <span id="position-pill" class="pill pill-flat">FLAT</span>
+    <span id="last-update">—</span>
+  </header>
+
+  <main>
+    <div id="chart"></div>
+    <aside class="sidebar">
+      <div class="panel">
+        <h2>Status</h2>
+        <div class="stat"><span class="stat-label">Equity (free USDT)</span><span class="stat-value" id="equity">—</span></div>
+        <div class="stat"><span class="stat-label">Ostatnia cena</span><span class="stat-value" id="last-price">—</span></div>
+        <div class="stat"><span class="stat-label">P&L (otwarte)</span><span class="stat-value" id="open-pnl">—</span></div>
+        <div class="stat"><span class="stat-label">Entry</span><span class="stat-value" id="pos-entry">—</span></div>
+        <div class="stat"><span class="stat-label">Stop Loss</span><span class="stat-value" id="pos-sl">—</span></div>
+        <div class="stat"><span class="stat-label">Take Profit</span><span class="stat-value" id="pos-tp">—</span></div>
+      </div>
+
+      <div class="panel">
+        <h2>Statystyki</h2>
+        <div class="stat"><span class="stat-label">Liczba transakcji</span><span class="stat-value" id="trades-count">0</span></div>
+        <div class="stat"><span class="stat-label">Win rate</span><span class="stat-value" id="win-rate">—</span></div>
+        <div class="stat"><span class="stat-label">PnL łączny</span><span class="stat-value" id="total-pnl">—</span></div>
+      </div>
+
+      <div class="panel">
+        <h2>Ostatnie sygnały</h2>
+        <div id="signals"><div class="empty">brak sygnałów</div></div>
+      </div>
+
+      <div class="panel">
+        <h2>Historia transakcji</h2>
+        <div id="trades"><div class="empty">brak transakcji</div></div>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    // ---------- Chart setup ----------
+    const chartEl = document.getElementById('chart');
+    const chart = LightweightCharts.createChart(chartEl, {
+      layout: { background: { color: '#131722' }, textColor: '#d1d4dc' },
+      grid: {
+        vertLines: { color: '#2a2e39' },
+        horzLines: { color: '#2a2e39' },
+      },
+      crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+      rightPriceScale: { borderColor: '#2a2e39' },
+      timeScale: {
+        borderColor: '#2a2e39',
+        timeVisible: true,
+        secondsVisible: false,
+      },
+      width: chartEl.clientWidth,
+      height: chartEl.clientHeight,
+    });
+
+    const candleSeries = chart.addCandlestickSeries({
+      upColor: '#26a69a',
+      downColor: '#ef5350',
+      borderUpColor: '#26a69a',
+      borderDownColor: '#ef5350',
+      wickUpColor: '#26a69a',
+      wickDownColor: '#ef5350',
+    });
+
+    const slLine = candleSeries.createPriceLine({
+      price: 0, color: '#ef5350', lineWidth: 1,
+      lineStyle: LightweightCharts.LineStyle.Dashed,
+      axisLabelVisible: false, title: 'SL',
+    });
+    const tpLine = candleSeries.createPriceLine({
+      price: 0, color: '#26a69a', lineWidth: 1,
+      lineStyle: LightweightCharts.LineStyle.Dashed,
+      axisLabelVisible: false, title: 'TP',
+    });
+    const entryLine = candleSeries.createPriceLine({
+      price: 0, color: '#2962ff', lineWidth: 1,
+      lineStyle: LightweightCharts.LineStyle.Solid,
+      axisLabelVisible: false, title: 'Entry',
+    });
+
+    new ResizeObserver(() => {
+      chart.applyOptions({ width: chartEl.clientWidth, height: chartEl.clientHeight });
+    }).observe(chartEl);
+
+    // ---------- Helpers ----------
+    function fmtNum(n, d = 2) {
+      if (n === null || n === undefined || isNaN(n)) return '—';
+      return Number(n).toLocaleString('pl-PL', { minimumFractionDigits: d, maximumFractionDigits: d });
+    }
+    function fmtTime(iso) {
+      if (!iso) return '—';
+      return new Date(iso).toLocaleString('pl-PL');
+    }
+    function setText(id, v) { document.getElementById(id).textContent = v; }
+    function setPill(id, text, cls) {
+      const el = document.getElementById(id);
+      el.textContent = text;
+      el.className = 'pill ' + cls;
+    }
+
+    // ---------- Data loading ----------
+    async function loadCandles() {
+      try {
+        const r = await fetch('/api/candles?limit=300');
+        const data = await r.json();
+        if (data.error) return;
+        candleSeries.setData(data.candles);
+        setPill('pair-pill', `${data.pair} · ${data.timeframe}`, 'pill-info');
+      } catch (e) {
+        console.error('candles error', e);
+      }
+    }
+
+    async function loadState() {
+      try {
+        const r = await fetch('/api/state');
+        const state = await r.json();
+
+        // Status
+        const s = state.status;
+        setPill('strategy-pill', s.strategy || '—', 'pill-info');
+        setPill('mode-pill', s.dry_run ? 'PAPER' : 'LIVE', s.dry_run ? 'pill-paper' : 'pill-live');
+        setText('equity', '$' + fmtNum(s.equity));
+        setText('last-price', fmtNum(s.last_price, 4));
+
+        const pos = s.current_position;
+        if (pos) {
+          setPill('position-pill', pos.side.toUpperCase(), pos.side === 'long' ? 'pill-long' : 'pill-short');
+          setText('pos-entry', fmtNum(pos.entry_price, 4));
+          setText('pos-sl', fmtNum(pos.stop_loss, 4));
+          setText('pos-tp', fmtNum(pos.take_profit, 4));
+          const pnl = pos.current_pnl_pct;
+          const pnlEl = document.getElementById('open-pnl');
+          pnlEl.textContent = (pnl >= 0 ? '+' : '') + fmtNum(pnl, 2) + '%';
+          pnlEl.className = 'stat-value ' + (pnl >= 0 ? 'pnl-pos' : 'pnl-neg');
+
+          entryLine.applyOptions({ price: pos.entry_price });
+          slLine.applyOptions({ price: pos.stop_loss });
+          tpLine.applyOptions({ price: pos.take_profit });
+        } else {
+          setPill('position-pill', 'FLAT', 'pill-flat');
+          setText('pos-entry', '—');
+          setText('pos-sl', '—');
+          setText('pos-tp', '—');
+          setText('open-pnl', '—');
+          entryLine.applyOptions({ price: 0 });
+          slLine.applyOptions({ price: 0 });
+          tpLine.applyOptions({ price: 0 });
+        }
+
+        // Markers from BUY/SELL signals
+        const tradeMarkers = state.trades.flatMap(t => {
+          const arr = [{
+            time: Math.floor(new Date(t.timestamp).getTime() / 1000),
+            position: t.pnl_usdt >= 0 ? 'aboveBar' : 'belowBar',
+            color: t.pnl_usdt >= 0 ? '#26a69a' : '#ef5350',
+            shape: t.pnl_usdt >= 0 ? 'arrowDown' : 'arrowDown',
+            text: (t.pnl_usdt >= 0 ? '+' : '') + fmtNum(t.pnl_pct, 1) + '%',
+          }];
+          return arr;
+        });
+        const signalMarkers = state.signals
+          .filter(sig => sig.signal === 'BUY' || sig.signal === 'SELL')
+          .slice(-50)
+          .map(sig => ({
+            time: Math.floor(new Date(sig.timestamp).getTime() / 1000),
+            position: sig.signal === 'BUY' ? 'belowBar' : 'aboveBar',
+            color: sig.signal === 'BUY' ? '#26a69a' : '#ef5350',
+            shape: sig.signal === 'BUY' ? 'arrowUp' : 'arrowDown',
+            text: sig.signal,
+          }));
+        const allMarkers = [...signalMarkers, ...tradeMarkers]
+          .sort((a, b) => a.time - b.time);
+        candleSeries.setMarkers(allMarkers);
+
+        // Stats
+        const trades = state.trades;
+        setText('trades-count', trades.length);
+        if (trades.length > 0) {
+          const wins = trades.filter(t => t.pnl_usdt > 0).length;
+          const wr = (wins / trades.length * 100);
+          setText('win-rate', fmtNum(wr, 1) + '%');
+          const totalPnl = trades.reduce((sum, t) => sum + t.pnl_usdt, 0);
+          const totalEl = document.getElementById('total-pnl');
+          totalEl.textContent = (totalPnl >= 0 ? '+' : '') + fmtNum(totalPnl, 2) + ' USDT';
+          totalEl.className = 'stat-value ' + (totalPnl >= 0 ? 'pnl-pos' : 'pnl-neg');
+        } else {
+          setText('win-rate', '—');
+          setText('total-pnl', '—');
+        }
+
+        // Signals list (last 10, newest first)
+        const sigDiv = document.getElementById('signals');
+        if (state.signals.length === 0) {
+          sigDiv.innerHTML = '<div class="empty">brak sygnałów</div>';
+        } else {
+          sigDiv.innerHTML = state.signals.slice(-10).reverse().map(sig => `
+            <div class="item item-${sig.signal.toLowerCase()}">
+              <div class="item-row">
+                <span><b>${sig.signal}</b> @ ${fmtNum(sig.price, 4)}</span>
+              </div>
+              <div>${sig.reason}</div>
+              <div class="item-time">${fmtTime(sig.timestamp)}</div>
+            </div>
+          `).join('');
+        }
+
+        // Trades list
+        const trDiv = document.getElementById('trades');
+        if (trades.length === 0) {
+          trDiv.innerHTML = '<div class="empty">brak transakcji</div>';
+        } else {
+          trDiv.innerHTML = trades.slice(-10).reverse().map(t => {
+            const pnlCls = t.pnl_usdt >= 0 ? 'pnl-pos' : 'pnl-neg';
+            const sign = t.pnl_usdt >= 0 ? '+' : '';
+            return `
+              <div class="item item-${t.pnl_usdt >= 0 ? 'buy' : 'sell'}">
+                <div class="item-row">
+                  <span><b>${t.side.toUpperCase()}</b></span>
+                  <span class="${pnlCls}">${sign}${fmtNum(t.pnl_pct, 2)}%</span>
+                </div>
+                <div>${fmtNum(t.entry_price, 4)} → ${fmtNum(t.exit_price, 4)} · ${sign}${fmtNum(t.pnl_usdt, 2)} USDT</div>
+                <div class="item-time">${t.reason} · ${fmtTime(t.timestamp)}</div>
+              </div>
+            `;
+          }).join('');
+        }
+
+        setText('last-update', 'updated ' + new Date().toLocaleTimeString('pl-PL'));
+      } catch (e) {
+        console.error('state error', e);
+      }
+    }
+
+    // Initial + interval
+    loadCandles();
+    loadState();
+    setInterval(loadCandles, 30000);
+    setInterval(loadState, 5000);
+  </script>
+</body>
+</html>
