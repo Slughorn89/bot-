@@ -1,6 +1,6 @@
 import logging
+import os
 import colorlog
-from config import Config
 
 
 def get_logger(name: str) -> logging.Logger:
@@ -24,7 +24,8 @@ def get_logger(name: str) -> logging.Logger:
     ))
 
     logger = logging.getLogger(name)
-    logger.setLevel(getattr(logging, Config.LOG_LEVEL.upper(), logging.INFO))
+    level_name = os.getenv("LOG_LEVEL", "INFO").upper()
+    logger.setLevel(getattr(logging, level_name, logging.INFO))
     if not logger.handlers:
         logger.addHandler(handler)
         logger.addHandler(file_handler)

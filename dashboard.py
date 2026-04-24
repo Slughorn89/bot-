@@ -65,8 +65,9 @@ def index():
 
 @app.route("/api/candles")
 def api_candles():
-    pair = request.args.get("pair", Config.TRADING_PAIR)
-    timeframe = request.args.get("timeframe", Config.TIMEFRAME)
+    cfg = Config()
+    pair = request.args.get("pair", cfg.TRADING_PAIR)
+    timeframe = request.args.get("timeframe", cfg.TIMEFRAME)
     limit = int(request.args.get("limit", 200))
 
     try:
