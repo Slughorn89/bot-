@@ -13,7 +13,7 @@ class Position:
     entry_price: float
     amount: float
     stop_loss: float
-    take_profit: float
+    take_profit: Optional[float]
     cost: float = 0.0
 
     def current_pnl(self, current_price: float) -> float:
@@ -54,13 +54,24 @@ class RiskManager:
             return entry_price * (1 + self.take_profit_pct)
         return entry_price * (1 - self.take_profit_pct)
 
+    @staticmethod
+    def size_by_risk(equity: float, price: float, stop_distance: float,
+                     risk: float, max_alloc: float) -> float:
+        """Units such that hitting the stop loses `risk` of equity, capped at max_alloc."""
+        if stop_distance <= 0:
+            return 0.0
+        return min(equity * risk / stop_distance, equity * max_alloc / price)
+
     def open_position(self, pair: str, side: str, entry_price: float,
-                      amount: float) -> Optional[Position]:
+                      amount: float, stop_loss: Optional[float] = None,
+                      take_profit: Optional[float] = None,
+                      custom_exits: bool = False) -> Optional[Position]:
         if not self.can_open_trade(pair):
             return None
 
-        stop_loss = self.calculate_stop_loss(entry_price, side)
-        take_profit = self.calculate_take_profit(entry_price, side)
+        if not custom_exits:
+            stop_loss = self.calculate_stop_loss(entry_price, side)
+            take_profit = self.calculate_take_profit(entry_price, side)
 
         position = Position(
             pair=pair,
@@ -74,7 +85,8 @@ class RiskManager:
         self.positions[pair] = position
         log.info(
             f"Opened {side.upper()} position: {pair} | Entry: {entry_price:.4f} | "
-            f"Amount: {amount:.6f} | SL: {stop_loss:.4f} | TP: {take_profit:.4f}"
+            f"Amount: {amount:.6f} | SL: {stop_loss:.4f} | "
+            f"TP: {'none' if take_profit is None else format(take_profit, '.4f')}"
         )
         return position
 
@@ -94,7 +106,7 @@ class RiskManager:
                 pct = pos.current_pnl(current_price) * 100
                 log.warning(f"Stop loss triggered for {pair}: {pct:.2f}%")
                 return "stop_loss"
-            if current_price >= pos.take_profit:
+            if pos.take_profit is not None and current_price >= pos.take_profit:
                 pct = pos.current_pnl(current_price) * 100
                 log.info(f"Take profit triggered for {pair}: +{pct:.2f}%")
                 return "take_profit"

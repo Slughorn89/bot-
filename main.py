@@ -21,7 +21,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Automated Trading Bot")
     parser.add_argument("--pair", help="Trading pair (e.g. BTC/USDT)")
     parser.add_argument("--timeframe", help="Candle timeframe (e.g. 1h)")
-    parser.add_argument("--strategy", choices=["MA_CROSSOVER", "RSI", "MACD"],
+    parser.add_argument("--strategy", choices=["MA_CROSSOVER", "RSI", "MACD", "OPTIMIZED"],
                         help="Trading strategy")
     parser.add_argument("--dry-run", action="store_true",
                         help="Paper trading mode (no real orders)")

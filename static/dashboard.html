@@ -122,6 +122,16 @@
       </div>
 
       <div class="panel">
+        <h2>Wieloryby (publiczne dane)</h2>
+        <div class="stat"><span class="stat-label">Wynik (-1..+1)</span><span class="stat-value" id="whale-score">—</span></div>
+        <div class="stat"><span class="stat-label">Przepływ dużych transakcji</span><span class="stat-value" id="whale-flow">—</span></div>
+        <div class="stat"><span class="stat-label">Hyperliquid (netto 1h)</span><span class="stat-value" id="whale-hl">—</span></div>
+        <div class="stat"><span class="stat-label">Top traderzy Binance</span><span class="stat-value" id="whale-top">—</span></div>
+        <div class="stat"><span class="stat-label">Głębokość orderbooku</span><span class="stat-value" id="whale-book">—</span></div>
+        <div id="whale-events" style="margin-top:8px"><div class="empty">brak zdarzeń</div></div>
+      </div>
+
+      <div class="panel">
         <h2>Statystyki</h2>
         <div class="stat"><span class="stat-label">Liczba transakcji</span><span class="stat-value" id="trades-count">0</span></div>
         <div class="stat"><span class="stat-label">Win rate</span><span class="stat-value" id="win-rate">—</span></div>
@@ -243,7 +253,7 @@
 
           entryLine.applyOptions({ price: pos.entry_price });
           slLine.applyOptions({ price: pos.stop_loss });
-          tpLine.applyOptions({ price: pos.take_profit });
+          tpLine.applyOptions({ price: pos.take_profit ?? 0 });
         } else {
           setPill('position-pill', 'FLAT', 'pill-flat');
           setText('pos-entry', '—');
@@ -254,6 +264,25 @@
           slLine.applyOptions({ price: 0 });
           tpLine.applyOptions({ price: 0 });
         }
+
+        // Whales
+        const w = s.whale;
+        const usd = v => (v >= 0 ? '+' : '-') + '$' + fmtNum(Math.abs(v), 0);
+        if (w) {
+          const sc = document.getElementById('whale-score');
+          sc.textContent = (w.score >= 0 ? '+' : '') + fmtNum(w.score, 2);
+          sc.className = 'stat-value ' + (w.score >= 0 ? 'pnl-pos' : 'pnl-neg');
+          setText('whale-flow', usd(w.flow_usd));
+          setText('whale-hl', usd(w.hl_net_usd_1h) + ' (' + w.hl_tracked + ' kont)');
+          setText('whale-top', (w.top_trader_shift >= 0 ? '+' : '') + fmtNum(w.top_trader_shift, 2));
+          setText('whale-book', (w.book_imbalance >= 0 ? '+' : '') + fmtNum(w.book_imbalance * 100, 0) + '%');
+        }
+        const wev = (state.whale_events || []).slice(-8).reverse();
+        document.getElementById('whale-events').innerHTML = wev.length ? wev.map(e => `
+          <div class="item ${e.usd >= 0 ? 'item-buy' : 'item-sell'}">
+            <div class="item-row"><span><b>${e.kind}</b> ${e.coin || ''}</span><span>${usd(e.usd)}</span></div>
+            <div class="item-time">${e.source} · ${fmtTime(new Date(e.ts * 1000).toISOString())}</div>
+          </div>`).join('') : '<div class="empty">brak zdarzeń</div>';
 
         // Markers from BUY/SELL signals
         const tradeMarkers = state.trades.flatMap(t => {

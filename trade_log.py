@@ -15,6 +15,7 @@ class TradeLog:
         self._lock = threading.Lock()
         self._signals: deque = deque(maxlen=max_signals)
         self._trades: deque = deque(maxlen=max_trades)
+        self._whale_events: deque = deque(maxlen=200)
         self._status: dict = {
             "started_at": None,
             "last_tick": None,
@@ -35,6 +36,7 @@ class TradeLog:
                 data = json.load(f)
             self._signals.extend(data.get("signals", []))
             self._trades.extend(data.get("trades", []))
+            self._whale_events.extend(data.get("whale_events", []))
             self._status.update(data.get("status", {}))
         except Exception:
             pass
@@ -44,6 +46,7 @@ class TradeLog:
             json.dump({
                 "signals": list(self._signals),
                 "trades": list(self._trades),
+                "whale_events": list(self._whale_events),
                 "status": self._status,
             }, f, indent=2)
 
@@ -76,6 +79,11 @@ class TradeLog:
             })
             self._save()
 
+    def add_whale_event(self, event: dict):
+        with self._lock:
+            self._whale_events.append(event)
+            self._save()
+
     def update_status(self, **kwargs):
         with self._lock:
             self._status.update(kwargs)
@@ -87,6 +95,7 @@ class TradeLog:
             return {
                 "signals": list(self._signals),
                 "trades": list(self._trades),
+                "whale_events": list(self._whale_events),
                 "status": dict(self._status),
             }
 

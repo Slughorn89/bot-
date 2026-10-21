@@ -1,109 +1,75 @@
 # Trading Bot
 
-Automatyczny bot handlowy oparty na analizie technicznej, obsługujący wiele giełd kryptowalut poprzez bibliotekę `ccxt`.
+Bot spot (ccxt) z backtestem walk-forward, monitoringiem dużych graczy ("wielorybów")
+i dashboardem na żywo. Domyślnie **paper trading** (`DRY_RUN=true`).
 
-## Funkcje
+> **Uczciwie:** żadna strategia nie gwarantuje zysku. Ten projekt nie obiecuje rentowności –
+> daje narzędzia, które pokazują, czy dane ustawienia miały przewagę **poza próbą**
+> (na danych, których nie widziały przy doborze), i **nie pozwalają botowi handlować, jeśli jej nie mają**.
 
-- **3 strategie handlowe**: MA Crossover, RSI, MACD
-- **Zarządzanie ryzykiem**: Stop Loss, Take Profit, limity pozycji
-- **Tryb DRY RUN**: Paper trading bez ryzyka utraty środków
-- **Obsługa wielu giełd**: Binance, Kraken, Coinbase i inne (przez ccxt)
-- **Kolorowe logi**: Czytelny output w konsoli + zapis do pliku
+## Szybki start (Windows)
 
-## Instalacja
-
-```bash
+```powershell
 pip install -r requirements.txt
-cp .env.example .env
-# Uzupełnij .env swoimi danymi API
+copy .env.example .env
+python optimize.py --symbol BTC/USDT --timeframe 1h --days 1095   # ~minuty, pobiera dane z giełdy
+python dashboard.py                                               # http://localhost:5000
 ```
 
-## Konfiguracja
+## 1. Dobór wskaźników i ustawień: `optimize.py`
 
-Edytuj plik `.env`:
+* Strategie (`signals.py`): `ema_trend` (EMA cross + filtr EMA200), `rsi_revert` (RSI w trendzie), `donchian` (wybicie kanału).
+* Każda ma siatkę parametrów + stop/target oparty o ATR.
+* **Walk-forward**: parametry wybierane na 365 dniach, oceniane na kolejnych 90 niewidzianych dniach, okno się przesuwa.
+  Raportowany jest tylko zszyty wynik **out-of-sample** (OOS) i porównanie z buy&hold.
+* Model kosztów: prowizja 0,1%/stronę, poślizg 0,02%, wejście na otwarciu następnej świecy, przy wspólnym
+  dotknięciu stopu i targetu wygrywa stop, luka przez stop = fill po cenie otwarcia.
+* Sizing: strata przy stopie = 2% kapitału (`--risk`), pozycja ≤ `--max-alloc` kapitału.
+* **Bramki jakości** (OOS): zwrot > 0, profit factor ≥ 1,2, ≥ 20 transakcji, max drawdown ≤ 30%, ≥ 50% foldów na plusie.
+  Jeśli żadna strategia nie przejdzie, `best_params.json` mówi „brak” i `STRATEGY=OPTIMIZED` **nie handluje**.
 
-| Zmienna | Opis | Domyślnie |
-|---------|------|-----------|
-| `EXCHANGE` | ID giełdy (ccxt) | `binance` |
-| `API_KEY` | Klucz API | – |
-| `API_SECRET` | Secret API | – |
-| `TRADING_PAIR` | Para handlowa | `BTC/USDT` |
-| `TIMEFRAME` | Interwał świec | `1h` |
-| `DRY_RUN` | Tryb paper trading | `true` |
-| `STRATEGY` | Strategia | `MA_CROSSOVER` |
-| `MAX_POSITION_SIZE` | Max % salda na trade | `0.1` |
-| `STOP_LOSS_PCT` | Stop loss % | `0.02` |
-| `TAKE_PROFIT_PCT` | Take profit % | `0.04` |
-| `MAX_OPEN_TRADES` | Max otwartych pozycji | `3` |
+Wyniki zależą od okresu i pary – uruchom dla swoich par/interwałów (`--symbol ETH/USDT --timeframe 4h`).
+Przeszłość nie gwarantuje przyszłości; wynik OOS to nadal tylko próba historyczna.
 
-## Uruchomienie
+`python optimize.py --synthetic` testuje kod na losowych danych (nic nie zapisuje).
 
-### Tryb konsolowy
+## 2. Wieloryby: `whales.py`
+
+Tylko **publiczne** dane (nie widać pojedynczych kont Binance):
+
+| Źródło | Co daje |
+|---|---|
+| Taśma transakcji giełdy | alerty dla pojedynczych transakcji ≥ `WHALE_MIN_USD`, przepływ netto dużych zleceń z ostatniej godziny |
+| Orderbook | nierównowaga głębokości ±1%, duże ściany (mogą być spoofingiem – mała waga) |
+| Binance Futures | przesunięcie pozycji "top traderów" (long/short) względem ich historii |
+| Hyperliquid | pozycje największych kont z leaderboardu + Twoje `WHALE_ADDRESSES`: otwarcie/zwiększenie/zamknięcie/odwrócenie ≥ `WHALE_MIN_USD` |
+
+Wynik łączny −1…+1 (heurystyka, **nie da się jej cofnąć w czasie ani zbacktestować**).
+`WHALE_MODE=filter` blokuje wejścia BUY, gdy wynik ≤ `−WHALE_BLOCK_SCORE`; `alert` tylko loguje.
+Zdarzenia widać w panelu dashboardu. Szukanie "pozycji za miliony" na zewnętrznych portfelach
+(np. on-chain przez Whale Alert/Arkham) wymaga płatnych kluczy API – nie jest wbudowane.
+
+## 3. Bot
+
+* Strategia reaguje **raz na zamkniętą świecę** (tak jak w backteście, brak repaintingu); stopy/targety sprawdzane co `POLL_SECONDS`.
+* Stop w trybie LIVE jest sprawdzany co kilkadziesiąt sekund po stronie bota (nie jako zlecenie na giełdzie) – przy gwałtownym ruchu fill może być gorszy niż w backteście.
+* `python main.py` – konsola, `python dashboard.py` – wykres (lightweight-charts) + panel wielorybów.
+
+## Testy
 
 ```bash
-# Paper trading (domyślny)
-python main.py
-
-# Wybór strategii przez CLI
-python main.py --strategy RSI --pair ETH/USDT --timeframe 15m
-
-# Tryb LIVE (uwaga: prawdziwe środki!)
-python main.py --live
+pip install pytest && python -m pytest -q tests
 ```
-
-### Live dashboard (TradingView lightweight-charts)
-
-```bash
-python dashboard.py
-# Otwórz w przeglądarce: http://localhost:5000
-```
-
-Dashboard pokazuje:
-- Świece OHLCV pobierane na żywo z giełdy
-- Markery BUY/SELL z sygnałów bota
-- Linie Entry / Stop Loss / Take Profit aktywnej pozycji
-- Statystyki (equity, win rate, łączny PnL)
-- Historię ostatnich sygnałów i transakcji
-
-Dodatkowe opcje:
-
-```bash
-python dashboard.py --port 8080         # inny port
-python dashboard.py --host 0.0.0.0      # dostęp z sieci
-python dashboard.py --no-bot            # tylko wykres, bez bota
-```
-
-## Strategie
-
-### MA_CROSSOVER (Golden/Death Cross)
-Kupuje gdy szybka EMA(20) przebija wolną EMA(50) od dołu (Golden Cross).
-Sprzedaje przy Death Cross.
-
-### RSI
-Kupuje gdy RSI wychodzi ze strefy wyprzedania (<30).
-Sprzedaje gdy RSI opuszcza strefę wykupienia (>70).
-
-### MACD
-Kupuje gdy histogram MACD zmienia znak na dodatni.
-Sprzedaje przy zmianie na ujemny.
 
 ## Architektura
 
 ```
-main.py            # Punkt wejścia konsolowy
-dashboard.py       # Flask + live wykres (lightweight-charts)
-bot.py             # Główna pętla bota
-strategy.py        # Strategie: MA, RSI, MACD
-risk_manager.py    # Zarządzanie ryzykiem i pozycjami
-exchange.py        # Wrapper ccxt (spot orders, OHLCV)
-trade_log.py       # Logowanie sygnałów i transakcji do JSON
-config.py          # Konfiguracja z .env
-logger.py          # Kolorowe logi
-static/
-└── dashboard.html # Frontend dashboardu
+signals.py     wspólna logika sygnałów (backtest = live)
+backtest.py    silnik backtestu     optimize.py  walk-forward + bramki
+data.py        pobieranie historii  whales.py    monitoring dużych graczy
+strategy.py    strategie + OPTIMIZED  risk_manager.py  sizing/stopy
+bot.py         pętla bota           exchange.py  wrapper ccxt
+dashboard.py + static/dashboard.html   trade_log.py   config.py   logger.py
 ```
 
-## Ostrzeżenie
-
-Bot handlowy wiąże się z ryzykiem utraty środków. Używaj go na własną odpowiedzialność.
-Zawsze testuj w trybie DRY_RUN przed przejściem na handel LIVE.
+**Ostrzeżenie:** handel wiąże się z ryzykiem utraty środków. Zaczynaj od `DRY_RUN=true`.

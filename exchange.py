@@ -25,12 +25,15 @@ class ExchangeClient:
         mode = "DRY RUN (paper trading)" if dry_run else "LIVE trading"
         log.info(f"Connected to {exchange_id} [{mode}]")
 
-    def fetch_ohlcv(self, pair: str, timeframe: str = "1h", limit: int = 200) -> pd.DataFrame:
+    def fetch_ohlcv(self, pair: str, timeframe: str = "1h", limit: int = 200,
+                    closed_only: bool = False) -> pd.DataFrame:
         raw = self.client.fetch_ohlcv(pair, timeframe=timeframe, limit=limit)
         df = pd.DataFrame(raw, columns=["timestamp", "open", "high", "low", "close", "volume"])
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
         df.set_index("timestamp", inplace=True)
-        return df
+        # The last row is the still-forming candle; strategies must only see closed ones
+        # (acting on a forming candle = repainting signals that backtests never saw).
+        return df.iloc[:-1] if closed_only else df
 
     def fetch_ticker(self, pair: str) -> dict:
         return self.client.fetch_ticker(pair)

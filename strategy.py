@@ -1,8 +1,13 @@
+import json
+import os
 from dataclasses import dataclass
 from enum import Enum
+from typing import Optional
 
 import numpy as np
 import pandas as pd
+
+from signals import ATR_LEN, atr, compute_signals
 
 
 class Signal(Enum):
@@ -16,6 +21,8 @@ class StrategyResult:
     signal: Signal
     reason: str
     confidence: float = 0.0
+    stop_distance: Optional[float] = None    # price distance below the fill (ATR based)
+    target_distance: Optional[float] = None  # price distance above the fill, None = no target
 
 
 def _ema(series: pd.Series, period: int) -> pd.Series:
@@ -117,12 +124,45 @@ class MACDStrategy:
         return StrategyResult(Signal.HOLD, f"MACD histogram unchanged ({curr_hist:.6f})")
 
 
-def get_strategy(name: str):
+class OptimizedStrategy:
+    """Runs the strategy + parameters selected by optimize.py (walk-forward validated).
+
+    If no strategy passed the out-of-sample quality gates, best_params.json says so
+    and this strategy always returns HOLD - i.e. the bot stays out of the market.
+    """
+
+    def __init__(self, path: str):
+        if not os.path.exists(path):
+            raise FileNotFoundError(
+                f"{path} not found. Run `python optimize.py` first (needs exchange data).")
+        cfg = json.load(open(path))
+        self.name = cfg.get("strategy")
+        self.params = cfg.get("params", {})
+        self.note = cfg.get("note", "no optimized strategy")
+
+    def analyze(self, df: pd.DataFrame) -> StrategyResult:
+        if not self.name:
+            return StrategyResult(Signal.HOLD, self.note)
+        entry, exit_ = compute_signals(self.name, df, self.params)
+        a = atr(df, ATR_LEN).iloc[-1]
+        if entry.iloc[-1] and a == a and a > 0:
+            tp = self.params.get("tp_atr") or 0
+            return StrategyResult(Signal.BUY, f"{self.name} entry {self.params}",
+                                  stop_distance=self.params["sl_atr"] * a,
+                                  target_distance=tp * a if tp else None)
+        if exit_.iloc[-1]:
+            return StrategyResult(Signal.SELL, f"{self.name} exit signal")
+        return StrategyResult(Signal.HOLD, f"{self.name}: no signal")
+
+
+def get_strategy(name: str, params_file: str = "best_params.json"):
+    if name == "OPTIMIZED":
+        return OptimizedStrategy(params_file)
     strategies = {
         "MA_CROSSOVER": MACrossoverStrategy(),
         "RSI": RSIStrategy(),
         "MACD": MACDStrategy(),
     }
     if name not in strategies:
-        raise ValueError(f"Unknown strategy '{name}'. Available: {list(strategies.keys())}")
+        raise ValueError(f"Unknown strategy '{name}'. Available: {list(strategies) + ['OPTIMIZED']}")
     return strategies[name]

@@ -3,6 +3,5 @@ pandas
 numpy
 python-dotenv
 requests
-schedule
 colorlog
 flask
