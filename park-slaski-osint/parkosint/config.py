@@ -27,11 +27,12 @@ LANDMARKS = {
 }
 
 DEFAULT_DATE = date(2026, 10, 17)
-DEFAULT_START = time(16, 15)
-DEFAULT_END = time(18, 0)
+DEFAULT_START = time(16, 5)
+DEFAULT_END = time(17, 30)
 
-# Punkt odniesienia do liczenia odległości. Nadpiszesz go przez REFERENCE_POINT w .env albo --point.
-DEFAULT_POINT = (50.2795, 18.9902)
+# Punkt odniesienia do liczenia odległości: --point albo REFERENCE_POINT w .env. Bez nich, gdy podano
+# trasę, liczymy od jej startu. Współrzędnych z okolic domu nie wpisujemy tutaj, bo repo jest publiczne.
+DEFAULT_POINT = None
 
 # Obiekty w parku: nazwy do linków Google Maps i fraz wyszukiwania.
 POIS = [
@@ -87,6 +88,8 @@ class Settings:
     bbox: BBox = field(default_factory=lambda: BBox.parse(DEFAULT_BBOX))
     instagram_location_ids: list[str] = field(default_factory=list)
     route_file: str = ""
+    route_start: str = ""
+    route_end: str = ""
 
     @classmethod
     def from_env(cls, env_file: Path | None = None) -> "Settings":
@@ -103,4 +106,6 @@ class Settings:
             bbox=BBox.parse(os.getenv("PARK_BBOX", DEFAULT_BBOX)),
             instagram_location_ids=[x.strip() for x in ig.split(",") if x.strip()],
             route_file=os.getenv("ROUTE_FILE", "").strip(),
+            route_start=os.getenv("ROUTE_START", "").strip(),
+            route_end=os.getenv("ROUTE_END", "").strip(),
         )

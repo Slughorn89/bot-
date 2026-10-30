@@ -1,13 +1,13 @@
 # Plan: park-slaski-osint
 
 Cel: zebrać w jednym raporcie PUBLICZNIE dostępne zdjęcia i nagrania z Parku Śląskiego
-w Chorzowie z soboty 17.10.2026, okno 16:15 do 18:00 czasu Europe/Warsaw.
+w Chorzowie z soboty 17.10.2026, okno 16:05 do 17:30 czasu Europe/Warsaw (pierwotnie 16:15 do 18:00, zawężone do czasu spaceru).
 
 ## Fakty, które wpływają na kod
 
 | Fakt | Konsekwencja |
 |---|---|
-| 17.10.2026 to sobota, obowiązuje jeszcze czas letni CEST (UTC+2, zmiana dopiero 25.10.2026) | okno w UTC to 14:15 do 16:00 |
+| 17.10.2026 to sobota, obowiązuje jeszcze czas letni CEST (UTC+2, zmiana dopiero 25.10.2026) | okno w UTC to 14:05 do 15:30 |
 | Zachód słońca w Chorzowie ok. 17:49 CEST | końcówka okna to zmierzch, mniej zdjęć i prawie zero Mapillary po 17:30 |
 | Flickr i EXIF zapisują czas "lokalny aparatu" bez strefy | czasy bez strefy traktujemy jako Europe/Warsaw; domyślny margines zapytań 30 min, bo zegary aparatów się rozjeżdżają (aparat bez zmiany czasu na letni pokaże godzinę mniej, wtedy `--margin 75`) |
 | YouTube nie ma czasu wykonania, tylko publikację (czasem `recordingDate` albo start transmisji live) | filtrujemy po treści tytułu i opisu, w raporcie oznaczamy, skąd jest czas |
@@ -22,7 +22,7 @@ w Chorzowie z soboty 17.10.2026, okno 16:15 do 18:00 czasu Europe/Warsaw.
    Limit Flickra: 3600 zapytań/h, my robimy max 1/s.
 2. **Mapillary v4** (`/images`): kafelki bbox, `start_captured_at`/`end_captured_at` w UTC,
    `captured_at` to czas z urządzenia (odpowiednik EXIF).
-3. **YouTube Data API v3**: `search.list` po frazach z `publishedAfter=2026-10-17T14:15:00Z`,
+3. **YouTube Data API v3**: `search.list` po frazach z `publishedAfter=2026-10-17T14:05:00Z`,
    potem `videos.list` (recordingDetails, liveStreamingDetails) i filtr po tytule/opisie:
    wymagana fraza miejsca, punkty za wzmiankę o dacie. Pilnujemy kwoty (search = 100 jednostek).
 4. **Wikimedia Commons**: kategorie parku (rekurencyjnie, z podkategoriami) z plikami dodanymi

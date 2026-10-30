@@ -14,10 +14,12 @@ ADRESAT_NAZWA: "Park Śląski S.A."
 ADRESAT_ADRES:
 ADRESAT_IOD_EMAIL:
 
+GODZINA_OD: "16:05"
+GODZINA_DO: "17:30"
 CZAS_OD_Z_ZAPASEM: "15:45"
-CZAS_DO_Z_ZAPASEM: "18:30"
+CZAS_DO_Z_ZAPASEM: "17:50"
 OPIS_MIEJSCA:          # np. "aleja przy Rosarium, odcinek od ... do ..., Park Śląski w Chorzowie"
-WSPOLRZEDNE: "50.2795, 18.9902"
+WSPOLRZEDNE:           # miejsce zdarzenia, np. z Google Maps (przytrzymaj palec na mapie)
 OPIS_TRASY:            # np. "wejście od strony Stadionu Śląskiego, aleja ..., parking przy ..."
 OPIS_ZDARZENIA:        # krótko i rzeczowo, bez ocen
 DODATKOWY_CEL: ""      # np. ", a także jako dowód w postępowaniu prowadzonym przez KMP w Chorzowie, sygn. ..."

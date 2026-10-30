@@ -9,7 +9,8 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from . import __version__
-from .geo import BBox, fmt_distance
+from .config import LANDMARKS
+from .geo import BBox, fmt_distance, haversine_m
 from .http import Http
 from .models import TIME_KINDS, Item, SourceResult
 from .timeutil import TZ, Window, fmt_local
@@ -47,6 +48,11 @@ def write_exports(out_dir: Path, items: list[Item]) -> None:
             w.writerow(r)
 
 
+def describe_position(lat: float, lon: float) -> str:
+    name, (plat, plon) = min(LANDMARKS.items(), key=lambda kv: haversine_m(lat, lon, *kv[1]))
+    return f"{fmt_distance(haversine_m(lat, lon, plat, plon))} od: {name}"
+
+
 def _route_line(route, max_points: int = 1500) -> list[list[float]]:
     if route is None:
         return []
@@ -56,7 +62,7 @@ def _route_line(route, max_points: int = 1500) -> list[list[float]]:
 
 
 def render(out_dir: Path, window: Window, point, bbox: BBox, results: list[SourceResult],
-           events, webcams, link_groups, today, route=None) -> Path:
+           events, webcams, link_groups, today, route=None, point_label: str = "") -> Path:
     items = sort_items([i for r in results for i in r.items])
     env = Environment(loader=FileSystemLoader(TEMPLATES), autoescape=select_autoescape(["html", "j2"]))
     env.filters["local"] = fmt_local
@@ -73,6 +79,9 @@ def render(out_dir: Path, window: Window, point, bbox: BBox, results: list[Sourc
         map_points=json.dumps(map_points, ensure_ascii=False),
         route=route,
         route_line=json.dumps(_route_line(route)),
+        timetable=[(t, lat, lon, describe_position(lat, lon)) for t, lat, lon in (route.timetable(5) if route else [])],
+        window_hours=f"{window.start.astimezone(TZ):%H:%M} do {window.end.astimezone(TZ):%H:%M}",
+        point_label=point_label,
         in_window=sum(1 for i in items if i.window_status == "in"),
     )
     out_dir.mkdir(parents=True, exist_ok=True)

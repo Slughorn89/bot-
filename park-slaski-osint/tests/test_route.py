@@ -66,3 +66,21 @@ def test_cli_with_route_points(tmp_path, monkeypatch):
     assert rc == 0
     html = (tmp_path / "report.html").read_text(encoding="utf-8")
     assert "punkty wpisane ręcznie" in html and "czasy przybliżone" in html and "od trasy" in html
+
+
+def test_timetable_aligned_to_step():
+    r = route_mod.parse_points("50.2800,18.9900; 50.2750,18.9900").with_times(
+        datetime(2026, 10, 17, 16, 5, tzinfo=TZ), datetime(2026, 10, 17, 16, 32, tzinfo=TZ))
+    times = [t.astimezone(TZ).strftime("%H:%M") for t, _, _ in r.timetable(10)]
+    assert times == ["16:05", "16:10", "16:20", "16:30", "16:32"]
+
+
+def test_cli_uses_route_start_as_reference_point(tmp_path, monkeypatch):
+    for k in ("ROUTE_FILE", "REFERENCE_POINT", "ROUTE_START", "ROUTE_END"):
+        monkeypatch.setenv(k, "")
+    rc = cli.main(["run", "--sources", "none", "--no-pages", "--out", str(tmp_path),
+                   "--route-points", "50.2880,18.9800; 50.2850,18.9850", "--route-start", "16:05", "--route-end", "16:35"])
+    assert rc == 0
+    html = (tmp_path / "report.html").read_text(encoding="utf-8")
+    assert "Punkt odniesienia (start trasy)" in html and "50.288000, 18.980000" in html
+    assert "Gdzie byłeś o której" in html and "w oknie 16:05 do 17:30" in html

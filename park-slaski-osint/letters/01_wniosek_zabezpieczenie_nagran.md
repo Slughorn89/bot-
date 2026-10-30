@@ -17,7 +17,7 @@ do wiadomości: Inspektor Ochrony Danych, {{ADRESAT_IOD_EMAIL}}
 Na podstawie art. 18 ust. 1 lit. c Rozporządzenia Parlamentu Europejskiego i Rady (UE) 2016/679 (RODO) wnoszę o ograniczenie przetwarzania moich danych osobowych w postaci wizerunku utrwalonego przez Państwa system monitoringu wizyjnego, to znaczy o **niezwłoczne zabezpieczenie nagrań przed usunięciem lub nadpisaniem**, w następującym zakresie:
 
 1. **Data:** 17 października 2026 r. (sobota).
-2. **Godziny:** od 16:15 do 18:00 czasu urzędowego (czas letni, CEST). Ze względu na możliwe różnice ustawień zegarów rejestratorów proszę o zabezpieczenie z zapasem: od {{CZAS_OD_Z_ZAPASEM}} do {{CZAS_DO_Z_ZAPASEM}}.
+2. **Godziny:** od {{GODZINA_OD}} do {{GODZINA_DO}} czasu urzędowego (czas letni, CEST). Ze względu na możliwe różnice ustawień zegarów rejestratorów proszę o zabezpieczenie z zapasem: od {{CZAS_OD_Z_ZAPASEM}} do {{CZAS_DO_Z_ZAPASEM}}.
 3. **Miejsce:** {{OPIS_MIEJSCA}}
    (współrzędne: {{WSPOLRZEDNE}}).
 4. **Kamery:** wszystkie kamery, które mogły zarejestrować powyższe miejsce oraz moją drogę dojścia i wyjścia: {{OPIS_TRASY}}.

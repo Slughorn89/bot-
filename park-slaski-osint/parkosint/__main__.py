@@ -37,9 +37,10 @@ def _route(args, settings: Settings, window: Window):
         route = route_mod.load(Path(args.route or settings.route_file))
     else:
         return None
-    if not route.timed and args.route_start and args.route_end:
-        route = route.with_times(datetime.combine(window.day, time.fromisoformat(args.route_start), TZ),
-                                 datetime.combine(window.day, time.fromisoformat(args.route_end), TZ))
+    start, end = args.route_start or settings.route_start, args.route_end or settings.route_end
+    if not route.timed and start and end:
+        route = route.with_times(datetime.combine(window.day, time.fromisoformat(start), TZ),
+                                 datetime.combine(window.day, time.fromisoformat(end), TZ))
     info = f"Trasa: {route.source}, {len(route.points)} punktów, {route.length_m() / 1000:.2f} km"
     if route.timed:
         info += f", {route.start.astimezone(TZ):%d.%m %H:%M} do {route.end.astimezone(TZ):%H:%M}"
@@ -54,13 +55,19 @@ def _route(args, settings: Settings, window: Window):
 def cmd_run(args) -> int:
     settings = Settings.from_env()
     window = _window(args)
-    point = _point(args, settings)
     route = _route(args, settings, window)
+    point = _point(args, settings)
+    point_label = "podany" if point else "brak"
+    if point is None and route is not None:
+        point, point_label = (route.points[0].lat, route.points[0].lon), "start trasy"
     bbox = route.bbox(args.route_buffer) if route and not args.whole_park else settings.bbox
     selected = {s.strip() for s in args.sources.split(",") if s.strip()}
     http = Http(contact=settings.contact, default_interval=args.interval)
     out = Path(args.out)
-    log.info("Okno: %s, punkt: %s", window.label(), point or "brak")
+    log.info("Okno: %s, punkt odniesienia: %s", window.label(), point_label)
+    if route is not None and route.timed:
+        for t, lat, lon in route.timetable(15):
+            log.info("  %s  %s", t.astimezone(TZ).strftime("%H:%M"), report.describe_position(lat, lon))
 
     results = []
     if "flickr" in selected:
@@ -100,7 +107,7 @@ def cmd_run(args) -> int:
         log.info("Miniatury (%d)...", len(all_items))
         report.download_thumbs(http, all_items, out)
     path = report.render(out, window, point, bbox, results, ev, cams, groups, today=datetime.now(TZ).date(),
-                         route=route)
+                         route=route, point_label=point_label)
 
     print(f"\nRaport: {path}")
     for r in results:
@@ -135,7 +142,8 @@ def cmd_doctor(args) -> int:
     print("Klucze w .env:")
     for k, v in keys.items():
         print(f"  {k:24s} {'ustawiony' if v else 'BRAK'}")
-    print(f"  REFERENCE_POINT          {settings.point[0]}, {settings.point[1]}")
+    print(f"  REFERENCE_POINT          {'ustawiony' if settings.point else 'brak (z trasą: start trasy)'}")
+    print(f"  ROUTE_FILE               {settings.route_file or 'brak'}  {settings.route_start} {settings.route_end}")
     checks = [
         ("Flickr", "https://api.flickr.com/services/rest/",
          {"method": "flickr.test.echo", "api_key": settings.flickr_key, "format": "json", "nojsoncallback": 1}, None),
@@ -187,7 +195,7 @@ def main(argv=None) -> int:
         sp.add_argument("--start", default=DEFAULT_START.strftime("%H:%M"), help="początek okna, czas Warszawy")
         sp.add_argument("--end", default=DEFAULT_END.strftime("%H:%M"), help="koniec okna, czas Warszawy")
         sp.add_argument("--margin", type=int, default=30, help="margines zapytań w minutach (zegary aparatów się mylą)")
-        sp.add_argument("--point", help="punkt odniesienia 'lat,lon' (domyślnie 50.2795,18.9902)")
+        sp.add_argument("--point", help="punkt odniesienia 'lat,lon' (domyślnie start trasy, jeśli jest)")
 
     run = sub.add_parser("run", help="przeszukaj źródła i zbuduj report.html")
     window_args(run)

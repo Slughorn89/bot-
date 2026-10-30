@@ -10,7 +10,7 @@ import json
 import math
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from .geo import BBox, haversine_m
@@ -82,6 +82,18 @@ class Route:
                 f = 0.0 if span == 0 else (when - a.time).total_seconds() / span
                 return a.lat + f * (b.lat - a.lat), a.lon + f * (b.lon - a.lon)
         return None
+
+    def timetable(self, step_min: int = 5) -> list[tuple[datetime, float, float]]:
+        """Pozycja co step_min minut, od startu do mety (pierwszy i ostatni punkt zawsze)."""
+        if not self.timed:
+            return []
+        out, t = [], self.start
+        while t < self.end:
+            lat, lon = self.position_at(t)
+            out.append((t, lat, lon))
+            t = t + timedelta(minutes=step_min) - timedelta(minutes=t.minute % step_min, seconds=t.second)
+        out.append((self.end, self.points[-1].lat, self.points[-1].lon))
+        return out
 
     def with_times(self, start: datetime, end: datetime) -> "Route":
         """Dla punktów wpisanych ręcznie: rozkłada czas proporcjonalnie do przebytej drogi

@@ -61,7 +61,7 @@ td.thumb img { width: 160px; height: auto; border-radius: 6px; display: block; }
 <h1>Park Śląski, Chorzów: publiczne zdjęcia i nagrania</h1>
 <div class="muted">
   Okno: <b>{{ window.label() }}</b>, margines zapytań ±{{ (window.margin.total_seconds() // 60)|int }} min.
-  {% if point %}Punkt odniesienia: <a href="https://www.openstreetmap.org/?mlat={{ point[0] }}&mlon={{ point[1] }}#map=17/{{ point[0] }}/{{ point[1] }}">{{ '%.6f'|format(point[0]) }}, {{ '%.6f'|format(point[1]) }}</a>.
+  {% if point %}Punkt odniesienia{% if point_label %} ({{ point_label }}){% endif %}: <a href="https://www.openstreetmap.org/?mlat={{ point[0] }}&mlon={{ point[1] }}#map=17/{{ point[0] }}/{{ point[1] }}">{{ '%.6f'|format(point[0]) }}, {{ '%.6f'|format(point[1]) }}</a>.
   {% else %}Nie podano punktu odniesienia (--point), odległości nie są liczone.{% endif %}
   Wygenerowano {{ generated.strftime('%d.%m.%Y %H:%M') }}, park-slaski-osint {{ version }}.
   {% if route %}<br>Trasa: <b>{{ route.source }}</b>, {{ '%.2f'|format(route.length_m() / 1000) }} km{% if route.timed %},
@@ -71,7 +71,7 @@ td.thumb img { width: 160px; height: auto; border-radius: 6px; display: block; }
 
 <div class="chips">
   <div class="chip"><span class="muted">wszystkie wyniki</span><b>{{ items|length }}</b></div>
-  <div class="chip"><span class="muted">w oknie 16:15 do 18:00</span><b>{{ in_window }}</b></div>
+  <div class="chip"><span class="muted">w oknie {{ window_hours }}</span><b>{{ in_window }}</b></div>
   {% for r in results %}
   <div class="chip"><span class="muted">{{ r.name }}</span><b class="st-{{ r.status }}">{{ r.items|length }} · {{ r.status }}</b>
     {% if r.skipped %}<span class="muted" style="font-size:.8rem">{{ r.skipped }}</span>{% endif %}</div>
@@ -81,6 +81,21 @@ td.thumb img { width: 160px; height: auto; border-radius: 6px; display: block; }
 <details><summary class="muted">Szczegóły zapytań</summary>
 <ul>{% for r in results %}{% for n in r.notes %}<li><b>{{ r.name }}</b>: {{ n }}</li>{% endfor %}{% endfor %}</ul>
 </details>
+
+{% if timetable %}
+<h2>Gdzie byłeś o której</h2>
+<p class="muted">{% if route.approx_times %}Przybliżenie: czas rozłożony na trasie przy stałym tempie, błąd zwykle kilka minut.{% else %}Z czasów zapisanych w pliku trasy.{% endif %}
+Przydaje się do pism o monitoring i do ręcznego przeglądania nagrań.</p>
+<table>
+<thead><tr><th>Godzina</th><th>Gdzie mniej więcej</th><th>Współrzędne</th></tr></thead>
+<tbody class="tt">
+{% for t, lat, lon, desc in timetable %}
+<tr><td class="time">{{ t|local }}</td><td>{{ desc }}</td>
+<td><a href="https://www.openstreetmap.org/?mlat={{ lat }}&mlon={{ lon }}#map=18/{{ lat }}/{{ lon }}">{{ '%.5f'|format(lat) }}, {{ '%.5f'|format(lon) }}</a></td></tr>
+{% endfor %}
+</tbody>
+</table>
+{% endif %}
 
 <h2>Wyniki posortowane po czasie</h2>
 <div class="controls">
@@ -206,7 +221,7 @@ function applyFilters() {
   const hideFar = document.getElementById('hideFar').checked;
   const maxDist = parseFloat(document.getElementById('maxDist').value) || 0;
   const srcs = new Set([...document.querySelectorAll('.src:checked')].map(x => x.value));
-  for (const tr of document.querySelectorAll('tbody tr')) {
+  for (const tr of document.querySelectorAll('tbody:not(.tt) tr')) {
     const d = tr.dataset.dist === '' ? null : parseFloat(tr.dataset.dist);
     let show = srcs.has(tr.dataset.src);
     if (onlyIn && tr.dataset.in !== '1') show = false;

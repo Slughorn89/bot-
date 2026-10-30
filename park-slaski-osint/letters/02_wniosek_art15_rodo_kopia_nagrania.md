@@ -16,7 +16,7 @@ do wiadomości: Inspektor Ochrony Danych, {{ADRESAT_IOD_EMAIL}}
 
 Na podstawie art. 15 Rozporządzenia Parlamentu Europejskiego i Rady (UE) 2016/679 (RODO) wnoszę o:
 
-1. **potwierdzenie**, czy przetwarzają Państwo moje dane osobowe w postaci wizerunku utrwalonego przez system monitoringu wizyjnego w dniu **17 października 2026 r. w godzinach od 16:15 do 18:00** (czas letni, CEST) na terenie: {{OPIS_MIEJSCA}};
+1. **potwierdzenie**, czy przetwarzają Państwo moje dane osobowe w postaci wizerunku utrwalonego przez system monitoringu wizyjnego w dniu **17 października 2026 r. w godzinach od {{GODZINA_OD}} do {{GODZINA_DO}}** (czas letni, CEST) na terenie: {{OPIS_MIEJSCA}};
 2. **wydanie kopii tych danych** (art. 15 ust. 3 RODO), czyli kopii fragmentów nagrań, na których utrwalono mój wizerunek, ze wszystkich kamer, które mnie zarejestrowały, wraz z oznaczeniem kamery oraz daty i godziny zapisu;
 3. przekazanie informacji, o których mowa w art. 15 ust. 1 lit. a do h RODO, w szczególności:
    * celów przetwarzania i podstawy prawnej,

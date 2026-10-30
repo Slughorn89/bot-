@@ -1,7 +1,7 @@
 # park-slaski-osint
 
 Narzędzie zbiera w jednym raporcie **publiczne** zdjęcia i nagrania z Parku Śląskiego w Chorzowie
-z soboty **17.10.2026, 16:15 do 18:00** (Europe/Warsaw). Korzysta tylko z oficjalnych API,
+z soboty **17.10.2026, 16:05 do 17:30** (Europe/Warsaw). Korzysta tylko z oficjalnych API,
 a resztę serwisów daje jako gotowe linki do kliknięcia samemu.
 
 Wynik: `output/report.html` z miniaturami, linkiem do źródła, czasem wykonania (EXIF, jeśli jest),
@@ -18,7 +18,7 @@ source .venv/bin/activate            # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 python -m parkosint keys             # kreator kluczy: YouTube sam, resztę wklejasz (niżej)
 python -m parkosint doctor           # sprawdza klucze i połączenia
-python -m parkosint run              # punkt odniesienia domyślnie 50.2795, 18.9902
+python -m parkosint run              # z trasą punkt odniesienia to jej start
 ```
 
 Raport otwierasz w przeglądarce: `output/report.html`. Działa bez kluczy (wtedy dostajesz Commons,
@@ -57,7 +57,8 @@ Program rozłoży czas na trasie przy założeniu stałego tempa, więc „gdzie
 **C. Narysuj trasę** na https://geojson.io (narzędzie linii), zapisz jako GeoJSON i podaj `--route private/trasa.geojson`
 plus `--route-start` i `--route-end` jak w B.
 
-Na stałe: wpisz `ROUTE_FILE=private/spacer.gpx` w `.env`. Cały park mimo trasy: `--whole-park`.
+Na stałe: wpisz `ROUTE_FILE=private/spacer.gpx`, `ROUTE_START=16:05` i `ROUTE_END=17:30` w `.env`.
+Raport pokaże wtedy tabelkę „Gdzie byłeś o której” co 5 minut, z odległością od najbliższego obiektu w parku. Cały park mimo trasy: `--whole-park`.
 
 ## Źródła
 
@@ -130,7 +131,7 @@ kontaktu w nagłówku User-Agent. Ten e-mail nie trafia nigdzie indziej.
 ## Polecenia
 
 ```bash
-python -m parkosint run                                   # pełny przebieg, punkt 50.2795,18.9902
+python -m parkosint run                                   # pełny przebieg
 python -m parkosint run --point 50.2801,18.9915          # inny punkt jednorazowo
 python -m parkosint run --sources commons,events          # tylko wybrane źródła
 python -m parkosint run --margin 75                       # gdy podejrzewasz aparat bez zmiany czasu na letni
@@ -145,8 +146,8 @@ Najważniejsze opcje `run`:
 
 | Opcja | Domyślnie | Po co |
 |---|---|---|
-| `--point LAT,LON` | 50.2795,18.9902 | punkt, od którego liczona jest odległość. Kolejność: `--point`, potem `REFERENCE_POINT` z `.env`, potem domyślny |
-| `--date / --start / --end` | 2026-10-17, 16:15, 18:00 | inne okno, gdyby było potrzebne |
+| `--point LAT,LON` | start trasy | punkt, od którego liczona jest odległość. Kolejność: `--point`, potem `REFERENCE_POINT` z `.env`, potem start trasy |
+| `--date / --start / --end` | 2026-10-17, 16:05, 17:30 | inne okno, gdyby było potrzebne |
 | `--margin` | 30 | minuty zapasu w zapytaniach. Wyniki z marginesu mają żółtą etykietę |
 | `--keep-out` | wyłączone | zostawia wyniki z dokładnym czasem spoza okna (np. ten sam dzień, inna godzina) |
 | `--no-thumbs` | wyłączone | nie pobiera miniatur (część linków Mapillary szybko wygasa, więc lepiej pobierać) |
@@ -157,7 +158,7 @@ Najważniejsze opcje `run`:
 * **Czas** zawsze w czasie Warszawy. Etykieta mówi, skąd jest:
   *EXIF DateTimeOriginal* (najlepszy), *czas wykonania wg serwisu*, *czas z urządzenia* (Mapillary),
   *start transmisji na żywo*, *data nagrania od autora*, albo **czas publikacji, NIE wykonania** (YouTube bez metadanych).
-* **Zielona etykieta „w oknie”** to 16:15 do 18:00. Żółta to margines.
+* **Zielona etykieta „w oknie”** to 16:05 do 17:30. Żółta to margines (domyślnie 30 min z każdej strony).
 * Aparaty zapisują czas bez strefy. Zakładamy czas polski. Jeśli aparat nie przestawił się na czas letni,
   zdjęcie pokaże godzinę mniej. 17.10.2026 obowiązywał jeszcze czas letni (zmiana dopiero 25.10).
 * **Zachód słońca** 17.10 w Chorzowie był ok. 17:49, więc po 17:30 zdjęć będzie mniej i będą ciemne.
