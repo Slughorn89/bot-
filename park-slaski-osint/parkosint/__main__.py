@@ -7,7 +7,7 @@ import sys
 from datetime import date, datetime, time
 from pathlib import Path
 
-from . import letters, links, report
+from . import keys, letters, links, report
 from . import route as route_mod
 from .config import (COMMONS_CATEGORIES, DEFAULT_DATE, DEFAULT_END, DEFAULT_START, FLICKR_TEXT_QUERIES, ROOT,
                      YOUTUBE_PHRASES, Settings)
@@ -163,6 +163,14 @@ def cmd_doctor(args) -> int:
     return 0 if ok else 1
 
 
+def cmd_keys(args) -> int:
+    settings = Settings.from_env()
+    http = Http(contact=settings.contact, max_retries=0, timeout=20)
+    services = [s.strip() for s in args.only.split(",") if s.strip()]
+    saved = keys.run_wizard(services, http, open_browser=not args.no_browser, use_gcloud=not args.no_gcloud)
+    return 0 if saved else 1
+
+
 def cmd_letters(args) -> int:
     written = letters.render_all(Path(args.data), Path(args.out))
     for path, missing in written:
@@ -207,6 +215,12 @@ def main(argv=None) -> int:
 
     dr = sub.add_parser("doctor", help="sprawdź klucze i dostęp do API")
     dr.set_defaults(func=cmd_doctor)
+
+    ks = sub.add_parser("keys", help="kreator kluczy API (YouTube automatycznie przez gcloud)")
+    ks.add_argument("--only", default="youtube,mapillary,flickr,windy", help="które klucze (po przecinku)")
+    ks.add_argument("--no-browser", action="store_true", help="nie otwieraj stron w przeglądarce")
+    ks.add_argument("--no-gcloud", action="store_true", help="YouTube też ręcznie, bez gcloud")
+    ks.set_defaults(func=cmd_keys)
 
     lt = sub.add_parser("letters", help="wypełnij szablony pism danymi z pliku YAML")
     lt.add_argument("--data", default=str(ROOT / "letters" / "dane.yaml"))

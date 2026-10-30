@@ -16,7 +16,7 @@ cd park-slaski-osint
 python -m venv .venv
 source .venv/bin/activate            # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env                 # wpisz klucze (instrukcja niżej)
+python -m parkosint keys             # kreator kluczy: YouTube sam, resztę wklejasz (niżej)
 python -m parkosint doctor           # sprawdza klucze i połączenia
 python -m parkosint run              # punkt odniesienia domyślnie 50.2795, 18.9902
 ```
@@ -31,6 +31,7 @@ drogi i jak daleko od miejsca, w którym byłeś **dokładnie w chwili zrobienia
 byłeś bliżej niż 150 m, dostają zieloną etykietę. Przeszukiwany obszar zawęża się do trasy z zapasem 300 m.
 
 Pliki z trasą trzymaj w `private/` (jest w `.gitignore`), bo start i koniec spaceru to zwykle okolice domu.
+To repozytorium jest publiczne, więc trasy nigdy nie commituj.
 
 **A. Plik GPX/TCX z aplikacji** (najlepiej, bo ma prawdziwe czasy):
 
@@ -72,7 +73,21 @@ Na stałe: wpisz `ROUTE_FILE=private/spacer.gpx` w `.env`. Cały park mimo trasy
 
 ## Jak zdobyć klucze
 
-Wszystkie są darmowe do użytku prywatnego.
+Wszystkie są darmowe do użytku prywatnego. Najprościej przez kreator:
+
+```bash
+python -m parkosint keys
+```
+
+* **YouTube robi się sam.** Jeśli masz zainstalowane [Google Cloud CLI](https://cloud.google.com/sdk/docs/install),
+  kreator otworzy logowanie Google (jedyny krok dla Ciebie), a potem sam założy projekt, włączy YouTube Data API,
+  utworzy klucz ograniczony do tego API i wpisze go do `.env`. Przy zupełnie nowym koncie Google może poprosić,
+  żebyś raz wszedł na console.cloud.google.com i zaakceptował regulamin.
+* **Mapillary, Flickr, Windy** nie mają API do zakładania kluczy. Kreator otwiera właściwą stronę, mówi co kliknąć,
+  Ty wklejasz klucz, a kreator go sprawdza i zapisuje. W pełni automatycznie się nie da bez podania programowi
+  Twojego hasła i przeklikania za Ciebie logowania i regulaminu, a tego celowo nie robimy.
+
+Ręcznie, krok po kroku:
 
 **Flickr**
 

@@ -12,10 +12,19 @@ from .geo import BBox, parse_point
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# Przybliżony prostokąt Parku Śląskiego z zapasem (ok. 4 x 4 km). Park ma ok. 600 ha,
-# więc bbox łapie też fragmenty Chorzowa i Katowic przy granicach. Odległość od Twojego
-# punktu w raporcie pozwala to odsiać. Zmienisz go przez PARK_BBOX w .env.
-DEFAULT_BBOX = "50.2600,18.9600,50.2960,19.0150"
+# Prostokąt Parku Śląskiego z zapasem (ok. 4,3 x 3,9 km), dobrany do obiektów z LANDMARKS
+# i do północnego skraju parku przy ul. Siemianowickiej. Łapie też fragmenty Chorzowa i Katowic
+# przy granicach, odległość od trasy w raporcie pozwala to odsiać. Zmienisz go przez PARK_BBOX w .env.
+DEFAULT_BBOX = "50.2660,18.9600,50.3050,19.0150"
+
+# Współrzędne obiektów z Wikipedii / Wikidata (sprawdzone 30.10.2026)
+LANDMARKS = {
+    "Stadion Śląski": (50.288333, 18.973611),
+    "Planetarium Śląskie": (50.290653, 18.992303),
+    "Kąpielisko Fala": (50.285965, 18.985703),
+    "Śląski Ogród Zoologiczny": (50.281661, 18.993473),
+    "Legendia": (50.273763, 18.990555),
+}
 
 DEFAULT_DATE = date(2026, 10, 17)
 DEFAULT_START = time(16, 15)
@@ -24,7 +33,7 @@ DEFAULT_END = time(18, 0)
 # Punkt odniesienia do liczenia odległości. Nadpiszesz go przez REFERENCE_POINT w .env albo --point.
 DEFAULT_POINT = (50.2795, 18.9902)
 
-# Obiekty w parku: nazwy do linków i fraz wyszukiwania (bez współrzędnych, żeby nie zgadywać).
+# Obiekty w parku: nazwy do linków Google Maps i fraz wyszukiwania.
 POIS = [
     "Park Śląski Chorzów",
     "Stadion Śląski Chorzów",
