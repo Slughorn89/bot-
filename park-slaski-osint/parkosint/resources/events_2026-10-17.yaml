@@ -1,0 +1,47 @@
+# Ustalenia z researchu (wyszukiwarka, 30.10.2026). Strony obiektów nie były dostępne
+# bezpośrednio, więc to są informacje z indeksu wyszukiwarki: traktuj je jako tropy.
+# pewnosc: 0.0 do 1.0
+events:
+  - miejsce: Planetarium Śląskie
+    co: "Dzień Planetariów (wizyta przedstawicieli planetariów, centrów nauki i producentów filmów fulldome)"
+    kiedy: "17.10.2026, godziny nieznane"
+    pewnosc: 0.5
+    uwagi: "Wpis z kalendarza na planetarium.edu.pl widoczny w wyszukiwarce, nie udało się otworzyć strony."
+    zrodla: [planetarium]
+  - miejsce: Śląski Ogród Zoologiczny
+    co: "Wystawa modliszek"
+    kiedy: "16 do 25.10.2026"
+    pewnosc: 0.5
+    uwagi: "Z przeglądu weekendowego dla Chorzowa w wynikach wyszukiwania."
+    zrodla: [tuba_weekend]
+  - miejsce: Legendia
+    co: "Prawdopodobnie otwarta (sezon weekendowy do ok. 25.10)"
+    kiedy: "sobota 17.10.2026, godziny nieznane"
+    pewnosc: 0.5
+    uwagi: "Przewodniki podają różne daty końca sezonu, sprawdź na legendia.pl."
+    zrodla: [twojslask_park]
+  - miejsce: Stadion Śląski
+    co: "Brak potwierdzonej imprezy 17.10. Dzień wcześniej, w piątek 16.10.2026 o 20:30, mecz Ruch Chorzów vs Odra Opole (1. liga)."
+    kiedy: "16.10.2026 20:30 (dzień przed oknem)"
+    pewnosc: 0.7
+    uwagi: "Następny mecz domowy Ruchu: 25.10.2026 14:30. Reprezentacja Polski nie grała tego dnia na Stadionie Śląskim."
+    zrodla: [mecze24, ksruch_terminarz, flashscore_ln]
+  - miejsce: Muzeum GPE (skansen)
+    co: "Nie znaleziono wydarzenia na 17.10."
+    kiedy: ""
+    pewnosc: 0.3
+    uwagi: "Brak danych, nie znaczy że nic nie było."
+    zrodla: []
+  - miejsce: Chorzów poza parkiem (kontekst)
+    co: "Koncert orkiestry Tramwajów Śląskich 17:00 (Starochorzowski Dom Kultury), ekoPiknik 12:00 (pl. przy Łagiewnickiej)"
+    kiedy: "17.10.2026"
+    pewnosc: 0.6
+    uwagi: "Poza parkiem, ale ludzie mogli przechodzić przez park."
+    zrodla: [tuba_weekend]
+sources:
+  planetarium: https://www.planetarium.edu.pl/
+  tuba_weekend: https://www.tubachorzowa.pl/artykul/20486,dzieje-sie-w-chorzowie-co-robic-w-weekend-16-18-pazdziernika
+  twojslask_park: https://twojslask.pl/park-slaski-przewodnik/
+  mecze24: https://www.mecze24.pl/aktualnosci/godzina-i-data-kiedy-mecz-ruch-chorzow-odra-opole-16-10-2026
+  ksruch_terminarz: https://www.ksruch.com/terminarz
+  flashscore_ln: https://www.flashscore.pl/wiadomosci/liga-narodow-uefa-2026-27-polska-kadra-terminarz-transmisje/Kb6dLHee/

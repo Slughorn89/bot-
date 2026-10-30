@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Park Śląski: raport {{ window.day.strftime('%d.%m.%Y') }}</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root {
+  --bg: #f7f7f5; --card: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #e3e3de;
+  --accent: #1f6f5c; --in: #e2f3ea; --in-text: #135c3a; --margin: #fff4d6; --margin-text: #7a5600;
+  --out: #f1f1ee; --warn: #fde8e6; --warn-text: #8a2216;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161715; --card: #1f201e; --text: #ececea; --muted: #a2a29c; --line: #34352f;
+    --accent: #6cc5a8; --in: #173a2a; --in-text: #9fe0be; --margin: #3a2f12; --margin-text: #f0cf7a;
+    --out: #262724; --warn: #3d1d19; --warn-text: #f3a69c;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1200px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font-size: 1.6rem; margin: 0 0 4px; }
+h2 { font-size: 1.2rem; margin: 40px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+a { color: var(--accent); }
+.muted { color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.chip { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; min-width: 150px; }
+.chip b { display: block; font-size: 1.1rem; }
+.st-ok { color: var(--in-text); } .st-błąd { color: var(--warn-text); } .st-pominięte { color: var(--muted); } .st-częściowo { color: var(--margin-text); }
+.err { background: var(--warn); color: var(--warn-text); border-radius: 8px; padding: 8px 12px; margin: 6px 0; font-size: .9rem; overflow-wrap: anywhere; }
+.controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin: 12px 0; }
+#map { height: 380px; border-radius: 10px; border: 1px solid var(--line); margin: 12px 0; }
+table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 10px; overflow: hidden; }
+th, td { text-align: left; vertical-align: top; padding: 10px; border-bottom: 1px solid var(--line); }
+th { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+td.thumb img { width: 160px; height: auto; border-radius: 6px; display: block; }
+.badge { display: inline-block; font-size: .75rem; border-radius: 999px; padding: 1px 8px; margin: 2px 2px 0 0; background: var(--out); }
+.b-in { background: var(--in); color: var(--in-text); font-weight: 600; }
+.b-margin { background: var(--margin); color: var(--margin-text); }
+.b-published { background: var(--warn); color: var(--warn-text); }
+.notes { font-size: .8rem; color: var(--muted); }
+.time { font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.card ul { margin: 6px 0 0; padding-left: 18px; }
+.snip { font-size: .8rem; color: var(--muted); background: var(--out); border-radius: 6px; padding: 6px 8px; margin: 4px 0; }
+.empty { padding: 24px; text-align: center; color: var(--muted); background: var(--card); border-radius: 10px; }
+@media (max-width: 720px) {
+  table, thead, tbody, tr, td, th { display: block; }
+  thead { display: none; }
+  tr { border-bottom: 1px solid var(--line); padding: 8px 0; }
+  td { border: 0; padding: 4px 10px; }
+  td.thumb img { width: 100%; max-width: 320px; }
+}
+</style>
+</head>
+<body>
+<main>
+<h1>Park Śląski, Chorzów: publiczne zdjęcia i nagrania</h1>
+<div class="muted">
+  Okno: <b>{{ window.label() }}</b>, margines zapytań ±{{ (window.margin.total_seconds() // 60)|int }} min.
+  {% if point %}Punkt odniesienia: <a href="https://www.openstreetmap.org/?mlat={{ point[0] }}&mlon={{ point[1] }}#map=17/{{ point[0] }}/{{ point[1] }}">{{ '%.6f'|format(point[0]) }}, {{ '%.6f'|format(point[1]) }}</a>.
+  {% else %}Nie podano punktu odniesienia (--point), odległości nie są liczone.{% endif %}
+  Wygenerowano {{ generated.strftime('%d.%m.%Y %H:%M') }}, park-slaski-osint {{ version }}.
+</div>
+
+<div class="chips">
+  <div class="chip"><span class="muted">wszystkie wyniki</span><b>{{ items|length }}</b></div>
+  <div class="chip"><span class="muted">w oknie 16:15 do 18:00</span><b>{{ in_window }}</b></div>
+  {% for r in results %}
+  <div class="chip"><span class="muted">{{ r.name }}</span><b class="st-{{ r.status }}">{{ r.items|length }} · {{ r.status }}</b>
+    {% if r.skipped %}<span class="muted" style="font-size:.8rem">{{ r.skipped }}</span>{% endif %}</div>
+  {% endfor %}
+</div>
+{% for r in results %}{% for e in r.errors %}<div class="err"><b>{{ r.name }}:</b> {{ e }}</div>{% endfor %}{% endfor %}
+<details><summary class="muted">Szczegóły zapytań</summary>
+<ul>{% for r in results %}{% for n in r.notes %}<li><b>{{ r.name }}</b>: {{ n }}</li>{% endfor %}{% endfor %}</ul>
+</details>
+
+<h2>Wyniki posortowane po czasie</h2>
+<div class="controls">
+  <label><input type="checkbox" id="onlyIn"> tylko w oknie</label>
+  <label><input type="checkbox" id="hideFar"> ukryj dalej niż</label>
+  <input type="number" id="maxDist" value="500" min="50" step="50" style="width:80px"> m
+  {% for r in results %}<label><input type="checkbox" class="src" value="{{ r.name }}" checked> {{ r.name }}</label>{% endfor %}
+</div>
+<div id="map"></div>
+
+{% if items %}
+<table>
+<thead><tr><th>Czas (Warszawa)</th><th>Podgląd</th><th>Opis</th><th>Odległość</th></tr></thead>
+<tbody>
+{% for i in items %}
+<tr data-src="{{ i.source }}" data-in="{{ 1 if i.window_status == 'in' else 0 }}" data-dist="{{ i.distance_m if i.distance_m is not none else '' }}">
+  <td>
+    <div class="time">{{ i.sort_time|local or 'brak' }}</div>
+    <span class="badge {{ 'b-published' if i.time_kind == 'published' else '' }}">{{ time_kinds.get(i.time_kind, i.time_kind) }}</span>
+    {% if i.window_status == 'in' %}<span class="badge b-in">w oknie</span>
+    {% elif i.window_status == 'margin' %}<span class="badge b-margin">w marginesie</span>
+    {% elif i.window_status == 'out' %}<span class="badge">poza oknem</span>{% endif %}
+    {% if i.published_at and i.time_kind != 'published' %}<div class="notes">publikacja: {{ i.published_at|local }}</div>{% endif %}
+  </td>
+  <td class="thumb">{% if i.local_thumb or i.thumb_url %}<a href="{{ i.url }}" target="_blank" rel="noopener"><img loading="lazy" src="{{ i.local_thumb or i.thumb_url }}" alt="{{ i.title }}"></a>{% endif %}</td>
+  <td>
+    <span class="badge">{{ i.source }}</span><span class="badge">{{ i.media_type }}</span>{% if i.score is not none %}<span class="badge">trafność {{ i.score }}</span>{% endif %}
+    <div><a href="{{ i.url }}" target="_blank" rel="noopener"><b>{{ i.title or i.url }}</b></a></div>
+    <div class="muted">{{ i.author }}{% if i.license %} · {{ i.license }}{% endif %}</div>
+    {% if i.description %}<div class="notes">{{ i.description[:240] }}</div>{% endif %}
+    {% if i.notes %}<div class="notes">{{ i.notes|join(' · ') }}</div>{% endif %}
+  </td>
+  <td>{{ i.distance_m|dist if point else ('jest geotag' if i.lat is not none else 'brak geolokalizacji') }}
+    {% if i.lat is not none %}<div class="notes"><a href="https://www.openstreetmap.org/?mlat={{ i.lat }}&mlon={{ i.lon }}#map=18/{{ i.lat }}/{{ i.lon }}">{{ '%.5f'|format(i.lat) }}, {{ '%.5f'|format(i.lon) }}</a></div>{% endif %}
+  </td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+{% else %}
+<div class="empty">Brak wyników z API. Sprawdź błędy powyżej i linki do ręcznego sprawdzenia na dole raportu.</div>
+{% endif %}
+
+<h2>Wydarzenia w parku {{ window.day.strftime('%d.%m.%Y') }}</h2>
+<p class="muted">Przy wydarzeniach ludzie publikują najwięcej. Pewność od 0 do 1, to tropy do weryfikacji, nie fakty.</p>
+<div class="cards">
+{% for e in events.known %}
+  <div class="card"><b>{{ e.miejsce }}</b> <span class="badge">pewność {{ e.pewnosc }}</span>
+    <div>{{ e.co }}</div><div class="muted">{{ e.kiedy }}</div>
+    {% if e.uwagi %}<div class="notes">{{ e.uwagi }}</div>{% endif %}
+    {% for s in e.zrodla or [] %}{% if events.sources.get(s) %}<div class="notes"><a href="{{ events.sources[s] }}" target="_blank" rel="noopener">{{ s }}</a></div>{% endif %}{% endfor %}
+  </div>
+{% endfor %}
+</div>
+<h3>Strony obiektów (robots.txt respektowany)</h3>
+<div class="cards">
+{% for p in events.pages %}
+  <div class="card"><a href="{{ p.url }}" target="_blank" rel="noopener"><b>{{ p.venue }}</b></a>
+    <div class="notes">{{ p.status }}</div>
+    {% for s in p.snippets %}<div class="snip">…{{ s }}…</div>{% endfor %}
+  </div>
+{% endfor %}
+</div>
+
+<h2>Kamery internetowe</h2>
+{% if webcams.skipped %}<p class="muted">{{ webcams.skipped }}</p>{% endif %}
+{% for e in webcams.errors %}<div class="err">{{ e }}</div>{% endfor %}
+{% if webcams.cams %}
+<div class="cards">
+{% for c in webcams.cams %}
+  <div class="card">
+    {% if c.preview %}<img src="{{ c.preview }}" alt="" style="width:100%;border-radius:6px">{% endif %}
+    <a href="{{ c.detail_url }}" target="_blank" rel="noopener"><b>{{ c.title }}</b></a>
+    <div class="muted">{{ c.distance_center_m|dist }} od środka parku{% if c.distance_point_m is not none %}, {{ c.distance_point_m|dist }} od punktu{% endif %} · {{ c.status }}</div>
+    <div class="notes">{{ c.archive_note(window.day, today) }}</div>
+    {% for k, u in c.players.items() %}<a class="badge" href="{{ u }}" target="_blank" rel="noopener">timelapse {{ k }}</a>{% endfor %}
+    <div class="notes">Kierunek widoku sprawdź wzrokowo, odległość nie mówi, czy kamera patrzy na park.</div>
+  </div>
+{% endfor %}
+</div>
+{% elif not webcams.skipped and not webcams.errors %}<p class="muted">API nie zwróciło żadnej kamery w promieniu parku.</p>{% endif %}
+
+<h2>Do ręcznego sprawdzenia</h2>
+<p class="muted">Narzędzie nie otwiera tych stron i nigdzie się nie loguje. Klikasz sam, w swojej przeglądarce.</p>
+<div class="cards">
+{% for g in link_groups %}
+  <div class="card"><b>{{ g.name }}</b><div class="notes">{{ g.note }}</div>
+    <ul>{% for label, url in g.links %}<li><a href="{{ url }}" target="_blank" rel="noopener">{{ label }}</a></li>{% endfor %}</ul>
+  </div>
+{% endfor %}
+</div>
+
+<h2>Zasady</h2>
+<p class="muted">Tylko publiczne materiały z oficjalnych API. Bez logowania, bez omijania zabezpieczeń, bez rozpoznawania twarzy.
+Raport zawiera wizerunki innych osób: używaj go wyłącznie do własnej sprawy, nie publikuj go dalej. Prawa autorskie do zdjęć mają ich autorzy.</p>
+</main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const POINTS = {{ map_points|safe }};
+const REF = {{ ([point[0], point[1]] if point else none)|tojson }};
+const BBOX = [[{{ bbox.min_lat }}, {{ bbox.min_lon }}], [{{ bbox.max_lat }}, {{ bbox.max_lon }}]];
+(function () {
+  const box = document.getElementById('map');
+  if (!window.L) { box.textContent = 'Mapa wymaga internetu (Leaflet + OpenStreetMap).'; box.style.height = 'auto'; box.style.padding = '12px'; return; }
+  const map = L.map('map');
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+  L.rectangle(BBOX, { color: '#888', weight: 1, fill: false, dashArray: '4' }).addTo(map);
+  if (REF) L.circleMarker(REF, { radius: 9, color: '#c0392b', fillOpacity: .9 }).addTo(map).bindPopup('Twój punkt');
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  for (const p of POINTS) {
+    L.circleMarker([p.lat, p.lon], { radius: 6, color: p.in ? '#1f6f5c' : '#999', fillOpacity: .7 })
+      .addTo(map).bindPopup(`<b>${esc(p.source)}</b> ${esc(p.time)}<br><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.title || 'otwórz')}</a>`);
+  }
+  map.fitBounds(BBOX);
+})();
+function applyFilters() {
+  const onlyIn = document.getElementById('onlyIn').checked;
+  const hideFar = document.getElementById('hideFar').checked;
+  const maxDist = parseFloat(document.getElementById('maxDist').value) || 0;
+  const srcs = new Set([...document.querySelectorAll('.src:checked')].map(x => x.value));
+  for (const tr of document.querySelectorAll('tbody tr')) {
+    const d = tr.dataset.dist === '' ? null : parseFloat(tr.dataset.dist);
+    let show = srcs.has(tr.dataset.src);
+    if (onlyIn && tr.dataset.in !== '1') show = false;
+    if (hideFar && d !== null && d > maxDist) show = false;
+    tr.style.display = show ? '' : 'none';
+  }
+}
+document.querySelectorAll('.controls input').forEach(el => el.addEventListener('input', applyFilters));
+</script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+# Skopiuj do letters/dane.yaml (plik jest w .gitignore) i uzupełnij.
+# Pole puste (null) = w piśmie zostanie [NAZWA_POLA] do ręcznego wpisania.
+# Pole z "" = celowo puste, zniknie z pisma.
+
+MIEJSCOWOSC:
+DATA_PISMA:
+IMIE_NAZWISKO:
+ADRES:
+EMAIL:
+TELEFON:
+
+# Adresat: sprawdź na stronie podmiotu (zakładka Kontakt / RODO / Polityka prywatności)
+ADRESAT_NAZWA: "Park Śląski S.A."
+ADRESAT_ADRES:
+ADRESAT_IOD_EMAIL:
+
+CZAS_OD_Z_ZAPASEM: "15:45"
+CZAS_DO_Z_ZAPASEM: "18:30"
+OPIS_MIEJSCA:          # np. "aleja przy Rosarium, odcinek od ... do ..., Park Śląski w Chorzowie"
+WSPOLRZEDNE:           # np. "50.2790, 18.9890" (z Google Maps: prawy klik na mapie)
+OPIS_TRASY:            # np. "wejście od strony Stadionu Śląskiego, aleja ..., parking przy ..."
+OPIS_ZDARZENIA:        # krótko i rzeczowo, bez ocen
+DODATKOWY_CEL: ""      # np. ", a także jako dowód w postępowaniu prowadzonym przez KMP w Chorzowie, sygn. ..."
+OPIS_UBIORU:
+OSOBY_PRZEDMIOTY: ""
+PRZEBIEG_GODZINY:      # np. "ok. 16:20 wejście od ..., ok. 16:40 przy ..., ok. 17:30 wyjście ..."
+
+SKLADAM_ROWNOCZESNIE_LUB_ZLOZE: "składam równocześnie"
+INFORMACJA_O_ZGLOSZENIU: ""   # np. "Zdarzenie zgłosiłem/am Policji (KMP w Chorzowie) dnia ..., nr sprawy ..."
+SPOSOB_PRZEKAZANIA: "przez link do pobrania lub na nośniku do odbioru osobistego"
+ZALACZNIKI: "brak"
