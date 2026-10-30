@@ -17,7 +17,7 @@ ADRESAT_IOD_EMAIL:
 CZAS_OD_Z_ZAPASEM: "15:45"
 CZAS_DO_Z_ZAPASEM: "18:30"
 OPIS_MIEJSCA:          # np. "aleja przy Rosarium, odcinek od ... do ..., Park Śląski w Chorzowie"
-WSPOLRZEDNE:           # np. "50.2790, 18.9890" (z Google Maps: prawy klik na mapie)
+WSPOLRZEDNE: "50.2795, 18.9902"
 OPIS_TRASY:            # np. "wejście od strony Stadionu Śląskiego, aleja ..., parking przy ..."
 OPIS_ZDARZENIA:        # krótko i rzeczowo, bez ocen
 DODATKOWY_CEL: ""      # np. ", a także jako dowód w postępowaniu prowadzonym przez KMP w Chorzowie, sygn. ..."

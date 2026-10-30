@@ -21,6 +21,9 @@ DEFAULT_DATE = date(2026, 10, 17)
 DEFAULT_START = time(16, 15)
 DEFAULT_END = time(18, 0)
 
+# Punkt odniesienia do liczenia odległości. Nadpiszesz go przez REFERENCE_POINT w .env albo --point.
+DEFAULT_POINT = (50.2795, 18.9902)
+
 # Obiekty w parku: nazwy do linków i fraz wyszukiwania (bez współrzędnych, żeby nie zgadywać).
 POIS = [
     "Park Śląski Chorzów",
@@ -71,7 +74,7 @@ class Settings:
     youtube_key: str = ""
     windy_key: str = ""
     contact: str = ""
-    point: tuple[float, float] | None = None
+    point: tuple[float, float] | None = DEFAULT_POINT
     bbox: BBox = field(default_factory=lambda: BBox.parse(DEFAULT_BBOX))
     instagram_location_ids: list[str] = field(default_factory=list)
 
@@ -86,7 +89,7 @@ class Settings:
             youtube_key=os.getenv("YOUTUBE_API_KEY", "").strip(),
             windy_key=os.getenv("WINDY_WEBCAMS_API_KEY", "").strip(),
             contact=os.getenv("CONTACT_EMAIL", "").strip(),
-            point=parse_point(point) if point else None,
+            point=parse_point(point) if point else DEFAULT_POINT,
             bbox=BBox.parse(os.getenv("PARK_BBOX", DEFAULT_BBOX)),
             instagram_location_ids=[x.strip() for x in ig.split(",") if x.strip()],
         )

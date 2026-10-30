@@ -18,7 +18,7 @@ source .venv/bin/activate            # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 cp .env.example .env                 # wpisz klucze (instrukcja niżej)
 python -m parkosint doctor           # sprawdza klucze i połączenia
-python -m parkosint run --point 50.2790,18.9890
+python -m parkosint run              # punkt odniesienia domyślnie 50.2795, 18.9902
 ```
 
 Raport otwierasz w przeglądarce: `output/report.html`. Działa bez kluczy (wtedy dostajesz Commons,
@@ -68,7 +68,8 @@ kontaktu w nagłówku User-Agent. Ten e-mail nie trafia nigdzie indziej.
 ## Polecenia
 
 ```bash
-python -m parkosint run --point 50.2790,18.9890          # pełny przebieg
+python -m parkosint run                                   # pełny przebieg, punkt 50.2795,18.9902
+python -m parkosint run --point 50.2801,18.9915          # inny punkt jednorazowo
 python -m parkosint run --sources commons,events          # tylko wybrane źródła
 python -m parkosint run --margin 75                       # gdy podejrzewasz aparat bez zmiany czasu na letni
 python -m parkosint run --commons-geo-scan                # dodatkowy (wolniejszy) skan Commons po geotagach
@@ -82,7 +83,7 @@ Najważniejsze opcje `run`:
 
 | Opcja | Domyślnie | Po co |
 |---|---|---|
-| `--point LAT,LON` | z `.env` | punkt, od którego liczona jest odległość |
+| `--point LAT,LON` | 50.2795,18.9902 | punkt, od którego liczona jest odległość. Kolejność: `--point`, potem `REFERENCE_POINT` z `.env`, potem domyślny |
 | `--date / --start / --end` | 2026-10-17, 16:15, 18:00 | inne okno, gdyby było potrzebne |
 | `--margin` | 30 | minuty zapasu w zapytaniach. Wyniki z marginesu mają żółtą etykietę |
 | `--keep-out` | wyłączone | zostawia wyniki z dokładnym czasem spoza okna (np. ten sam dzień, inna godzina) |

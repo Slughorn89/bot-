@@ -96,3 +96,12 @@ def test_robots_rules_crawl_delay_and_unreachable(monkeypatch):
     assert http.allowed_by_robots("https://nofile.example/x")
     assert not http.allowed_by_robots("https://blocked.example/x")
     assert "robots.txt" in http._robots_reason["https://blocked.example"]
+
+
+def test_default_point_and_env_override(monkeypatch, tmp_path):
+    from parkosint.config import DEFAULT_POINT, Settings
+
+    monkeypatch.setenv("REFERENCE_POINT", "")
+    assert Settings.from_env(tmp_path / "brak.env").point == DEFAULT_POINT == (50.2795, 18.9902)
+    monkeypatch.setenv("REFERENCE_POINT", "50.28,18.99")
+    assert Settings.from_env(tmp_path / "brak.env").point == (50.28, 18.99)

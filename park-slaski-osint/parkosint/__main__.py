@@ -111,7 +111,7 @@ def cmd_doctor(args) -> int:
     print("Klucze w .env:")
     for k, v in keys.items():
         print(f"  {k:24s} {'ustawiony' if v else 'BRAK'}")
-    print(f"  REFERENCE_POINT          {settings.point or 'brak (podasz --point)'}")
+    print(f"  REFERENCE_POINT          {settings.point[0]}, {settings.point[1]}")
     checks = [
         ("Flickr", "https://api.flickr.com/services/rest/",
          {"method": "flickr.test.echo", "api_key": settings.flickr_key, "format": "json", "nojsoncallback": 1}, None),
@@ -155,7 +155,7 @@ def main(argv=None) -> int:
         sp.add_argument("--start", default=DEFAULT_START.strftime("%H:%M"), help="początek okna, czas Warszawy")
         sp.add_argument("--end", default=DEFAULT_END.strftime("%H:%M"), help="koniec okna, czas Warszawy")
         sp.add_argument("--margin", type=int, default=30, help="margines zapytań w minutach (zegary aparatów się mylą)")
-        sp.add_argument("--point", help="punkt odniesienia 'lat,lon', np. 50.2790,18.9890")
+        sp.add_argument("--point", help="punkt odniesienia 'lat,lon' (domyślnie 50.2795,18.9902)")
 
     run = sub.add_parser("run", help="przeszukaj źródła i zbuduj report.html")
     window_args(run)
