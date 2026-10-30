@@ -24,6 +24,40 @@ python -m parkosint run              # punkt odniesienia domyślnie 50.2795, 18.
 Raport otwierasz w przeglądarce: `output/report.html`. Działa bez kluczy (wtedy dostajesz Commons,
 wydarzenia i linki ręczne), z każdym kluczem dochodzi kolejne źródło.
 
+## Twoja trasa (największa dokładność)
+
+Z trasą raport pokazuje przy każdym zdjęciu z geotagiem dwie dodatkowe rzeczy: jak daleko było od Twojej
+drogi i jak daleko od miejsca, w którym byłeś **dokładnie w chwili zrobienia zdjęcia**. Zdjęcia, przy których
+byłeś bliżej niż 150 m, dostają zieloną etykietę. Przeszukiwany obszar zawęża się do trasy z zapasem 300 m.
+
+Pliki z trasą trzymaj w `private/` (jest w `.gitignore`), bo start i koniec spaceru to zwykle okolice domu.
+
+**A. Plik GPX/TCX z aplikacji** (najlepiej, bo ma prawdziwe czasy):
+
+```bash
+python -m parkosint run --route private/spacer.gpx
+```
+
+W szczegółach treningu szukaj *Udostępnij* albo *Eksportuj*, a potem GPX. Strava, Garmin Connect czy Komoot to mają.
+Huawei Zdrowie nie ma takiego przycisku, wtedy użyj B albo C.
+
+**B. Punkty wpisane ręcznie z Google Maps** (5 minut roboty):
+1. Na mapie przytrzymaj palec na trasie, na górze pojawią się współrzędne. Skopiuj je.
+2. Zbierz 6 do 10 punktów po kolei: start, każdy zakręt, nawrotki, koniec.
+3. Godzinę startu i końca spaceru odczytasz w szczegółach treningu w aplikacji.
+
+```bash
+python -m parkosint run --route-points "50.2795,18.9902; 50.2770,18.9930; ..." --route-start 16:20 --route-end 17:25
+```
+
+Program rozłoży czas na trasie przy założeniu stałego tempa, więc „gdzie byłem o 16:47” będzie przybliżone
+(zwykle do 100 do 200 m), a odległość od samej trasy będzie dokładna.
+
+**C. Narysuj trasę** na https://geojson.io (narzędzie linii), zapisz jako GeoJSON i podaj `--route private/trasa.geojson`
+plus `--route-start` i `--route-end` jak w B.
+
+Na stałe: wpisz `ROUTE_FILE=private/spacer.gpx` w `.env`. Cały park mimo trasy: `--whole-park`.
+
 ## Źródła
 
 | # | Źródło | Jak | Klucz |
@@ -41,6 +75,10 @@ wydarzenia i linki ręczne), z każdym kluczem dochodzi kolejne źródło.
 Wszystkie są darmowe do użytku prywatnego.
 
 **Flickr**
+
+Uwaga: jedno źródło podaje, że nowe klucze wymagają teraz płatnego konta Pro, ale oficjalna strona Flickra
+tego nie potwierdza. Jeśli formularz zażąda Pro, pomiń Flickra, to najmniej istotne źródło dla parku w Polsce.
+
 1. Załóż konto na flickr.com i zaloguj się.
 2. Wejdź na https://www.flickr.com/services/apps/create/apply/ i wybierz *Apply for a Non-Commercial Key*.
 3. Podaj nazwę (np. "park-slaski-osint") i krótki opis. Dostajesz *Key* i *Secret*. Do `.env` wpisujesz tylko **Key**.
@@ -61,6 +99,15 @@ Wszystkie są darmowe do użytku prywatnego.
 **Windy Webcams (opcjonalnie)**
 1. https://api.windy.com/keys, zaloguj się, utwórz klucz dla *Webcams API*.
 2. W darmowym planie część timelapse'ów może nie być dostępna, raport pokaże, co API zwróciło.
+
+**Kolejność, jeśli nie chcesz zakładać wszystkiego:** YouTube (najwięcej materiału z wydarzeń),
+potem Mapillary, potem Flickr. Commons działa od razu bez klucza.
+
+**Uruchomienie w chmurze Claude Code zamiast na komputerze:** w ustawieniach środowiska (menu środowiska
+w pasku tytułu sesji, potem Edit) dodaj zmienne `FLICKR_API_KEY`, `MAPILLARY_ACCESS_TOKEN`, `YOUTUBE_API_KEY`,
+`WINDY_WEBCAMS_API_KEY`, `CONTACT_EMAIL` i dopuść w Network access hosty `api.flickr.com`, `graph.mapillary.com`,
+`commons.wikimedia.org`, `upload.wikimedia.org`, `live.staticflickr.com`, `api.windy.com`. Nowa sesja je zobaczy.
+Kluczy nie wklejaj do czatu.
 
 **Wikimedia Commons** nie wymaga klucza. Wpisz tylko `CONTACT_EMAIL`, bo zasady Wikimedia wymagają
 kontaktu w nagłówku User-Agent. Ten e-mail nie trafia nigdzie indziej.

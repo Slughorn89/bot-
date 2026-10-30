@@ -38,7 +38,7 @@ def write_exports(out_dir: Path, items: list[Item]) -> None:
     rows = [i.to_dict() for i in items]
     (out_dir / "results.json").write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
     cols = ["taken_at", "time_kind_label", "window_status", "source", "title", "author", "url",
-            "distance_m", "lat", "lon", "published_at", "media_type", "license", "notes"]
+            "distance_m", "dist_route_m", "dist_you_m", "lat", "lon", "published_at", "media_type", "license", "notes"]
     with open(out_dir / "results.csv", "w", newline="", encoding="utf-8-sig") as f:
         w = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore", delimiter=";")
         w.writeheader()
@@ -47,8 +47,16 @@ def write_exports(out_dir: Path, items: list[Item]) -> None:
             w.writerow(r)
 
 
+def _route_line(route, max_points: int = 1500) -> list[list[float]]:
+    if route is None:
+        return []
+    step = max(1, len(route.points) // max_points)
+    pts = route.points[::step] + ([route.points[-1]] if (len(route.points) - 1) % step else [])
+    return [[round(p.lat, 6), round(p.lon, 6)] for p in pts]
+
+
 def render(out_dir: Path, window: Window, point, bbox: BBox, results: list[SourceResult],
-           events, webcams, link_groups, today) -> Path:
+           events, webcams, link_groups, today, route=None) -> Path:
     items = sort_items([i for r in results for i in r.items])
     env = Environment(loader=FileSystemLoader(TEMPLATES), autoescape=select_autoescape(["html", "j2"]))
     env.filters["local"] = fmt_local
@@ -63,6 +71,8 @@ def render(out_dir: Path, window: Window, point, bbox: BBox, results: list[Sourc
         time_kinds=TIME_KINDS, events=events, webcams=webcams, link_groups=link_groups,
         generated=datetime.now(TZ), today=today, version=__version__,
         map_points=json.dumps(map_points, ensure_ascii=False),
+        route=route,
+        route_line=json.dumps(_route_line(route)),
         in_window=sum(1 for i in items if i.window_status == "in"),
     )
     out_dir.mkdir(parents=True, exist_ok=True)

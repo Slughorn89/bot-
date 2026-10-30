@@ -37,7 +37,9 @@ w Chorzowie z soboty 17.10.2026, okno 16:15 do 18:00 czasu Europe/Warsaw.
    o archiwum/timelapse, plus lista katalogów kamer do ręcznego sprawdzenia.
 8. **Raport**: `output/report.html` z miniaturami, linkiem, czasem (z oznaczeniem EXIF / API / publikacja),
    odległością od podanego punktu (`--point LAT,LON`), sortowanie po czasie. Do tego `results.json` i `results.csv`.
-9. **Pisma**: `letters/` z szablonami: wniosek o zabezpieczenie nagrań (art. 18 ust. 1 lit. c RODO)
+9. **Trasa spaceru** (GPX/TCX/GeoJSON albo punkty ręcznie): odległość zdjęcia od trasy i od miejsca,
+   w którym użytkownik był w chwili zdjęcia; obszar wyszukiwania zawężony do trasy z zapasem.
+10. **Pisma**: `letters/` z szablonami: wniosek o zabezpieczenie nagrań (art. 18 ust. 1 lit. c RODO)
    i wniosek o kopię nagrania (art. 15 ust. 3 RODO), plus skrypt do wypełnienia z pliku YAML.
 
 ## Granice (czego narzędzie NIE robi)

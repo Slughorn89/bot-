@@ -8,16 +8,17 @@ from datetime import date, datetime, time
 from pathlib import Path
 
 from . import letters, links, report
+from . import route as route_mod
 from .config import (COMMONS_CATEGORIES, DEFAULT_DATE, DEFAULT_END, DEFAULT_START, FLICKR_TEXT_QUERIES, ROOT,
                      YOUTUBE_PHRASES, Settings)
 from .geo import parse_point
 from .http import Http, HttpError
+from .models import PRECISE_TIME
 from .sources import commons, events, flickr, mapillary, webcams, youtube
 from .timeutil import TZ, Window
 
 log = logging.getLogger("parkosint")
 ALL_SOURCES = "flickr,mapillary,youtube,commons,events,webcams"
-PRECISE = {"exif", "taken", "device", "live"}
 
 
 def _window(args) -> Window:
@@ -29,11 +30,33 @@ def _point(args, settings: Settings):
     return parse_point(args.point) if args.point else settings.point
 
 
+def _route(args, settings: Settings, window: Window):
+    if args.route_points:
+        route = route_mod.parse_points(args.route_points)
+    elif args.route or settings.route_file:
+        route = route_mod.load(Path(args.route or settings.route_file))
+    else:
+        return None
+    if not route.timed and args.route_start and args.route_end:
+        route = route.with_times(datetime.combine(window.day, time.fromisoformat(args.route_start), TZ),
+                                 datetime.combine(window.day, time.fromisoformat(args.route_end), TZ))
+    info = f"Trasa: {route.source}, {len(route.points)} punktów, {route.length_m() / 1000:.2f} km"
+    if route.timed:
+        info += f", {route.start.astimezone(TZ):%d.%m %H:%M} do {route.end.astimezone(TZ):%H:%M}"
+        if route.approx_times:
+            info += " (czasy przybliżone, stałe tempo)"
+        if route.end < window.start or route.start > window.end:
+            log.warning("Czas trasy nie nachodzi na okno %s, sprawdź --start/--end", window.label())
+    log.info(info)
+    return route
+
+
 def cmd_run(args) -> int:
     settings = Settings.from_env()
     window = _window(args)
     point = _point(args, settings)
-    bbox = settings.bbox
+    route = _route(args, settings, window)
+    bbox = route.bbox(args.route_buffer) if route and not args.whole_park else settings.bbox
     selected = {s.strip() for s in args.sources.split(",") if s.strip()}
     http = Http(contact=settings.contact, default_interval=args.interval)
     out = Path(args.out)
@@ -56,10 +79,10 @@ def cmd_run(args) -> int:
 
     for r in results:
         for item in r.items:
-            item.finalize(window, point)
+            item.finalize(window, point, route)
         if not args.keep_out:
             before = len(r.items)
-            r.items = [i for i in r.items if not (i.window_status == "out" and i.time_kind in PRECISE)]
+            r.items = [i for i in r.items if not (i.window_status == "out" and i.time_kind in PRECISE_TIME)]
             if before != len(r.items):
                 r.notes.append(f"odrzucono {before - len(r.items)} wyników spoza okna z marginesem (--keep-out zostawia)")
 
@@ -76,7 +99,8 @@ def cmd_run(args) -> int:
     if not args.no_thumbs and all_items:
         log.info("Miniatury (%d)...", len(all_items))
         report.download_thumbs(http, all_items, out)
-    path = report.render(out, window, point, bbox, results, ev, cams, groups, today=datetime.now(TZ).date())
+    path = report.render(out, window, point, bbox, results, ev, cams, groups, today=datetime.now(TZ).date(),
+                         route=route)
 
     print(f"\nRaport: {path}")
     for r in results:
@@ -169,6 +193,12 @@ def main(argv=None) -> int:
     run.add_argument("--yt-pages", type=int, default=2, help="strony wyników na frazę (100 jednostek kwoty każda)")
     run.add_argument("--mapillary-tile", type=float, default=0.01, help="bok kafelka bbox w stopniach")
     run.add_argument("--commons-geo-scan", action="store_true", help="dodatkowy skan geosearch Commons (wolniejszy)")
+    run.add_argument("--route", help="plik trasy: GPX, TCX, GeoJSON albo .txt z punktami (albo ROUTE_FILE w .env)")
+    run.add_argument("--route-points", help="trasa jako punkty 'lat,lon; lat,lon; ...' (np. z Google Maps)")
+    run.add_argument("--route-start", help="godzina startu spaceru HH:MM, gdy trasa nie ma czasów")
+    run.add_argument("--route-end", help="godzina końca spaceru HH:MM, gdy trasa nie ma czasów")
+    run.add_argument("--route-buffer", type=float, default=300, help="ile metrów wokół trasy przeszukiwać")
+    run.add_argument("--whole-park", action="store_true", help="przeszukuj cały park mimo podanej trasy")
     run.set_defaults(func=cmd_run)
 
     lk = sub.add_parser("links", help="wypisz linki do ręcznego sprawdzenia")

@@ -77,6 +77,7 @@ class Settings:
     point: tuple[float, float] | None = DEFAULT_POINT
     bbox: BBox = field(default_factory=lambda: BBox.parse(DEFAULT_BBOX))
     instagram_location_ids: list[str] = field(default_factory=list)
+    route_file: str = ""
 
     @classmethod
     def from_env(cls, env_file: Path | None = None) -> "Settings":
@@ -92,4 +93,5 @@ class Settings:
             point=parse_point(point) if point else DEFAULT_POINT,
             bbox=BBox.parse(os.getenv("PARK_BBOX", DEFAULT_BBOX)),
             instagram_location_ids=[x.strip() for x in ig.split(",") if x.strip()],
+            route_file=os.getenv("ROUTE_FILE", "").strip(),
         )

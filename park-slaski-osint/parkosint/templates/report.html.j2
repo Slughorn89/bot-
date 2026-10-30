@@ -64,6 +64,9 @@ td.thumb img { width: 160px; height: auto; border-radius: 6px; display: block; }
   {% if point %}Punkt odniesienia: <a href="https://www.openstreetmap.org/?mlat={{ point[0] }}&mlon={{ point[1] }}#map=17/{{ point[0] }}/{{ point[1] }}">{{ '%.6f'|format(point[0]) }}, {{ '%.6f'|format(point[1]) }}</a>.
   {% else %}Nie podano punktu odniesienia (--point), odległości nie są liczone.{% endif %}
   Wygenerowano {{ generated.strftime('%d.%m.%Y %H:%M') }}, park-slaski-osint {{ version }}.
+  {% if route %}<br>Trasa: <b>{{ route.source }}</b>, {{ '%.2f'|format(route.length_m() / 1000) }} km{% if route.timed %},
+  {{ route.start|local }} do {{ route.end|local }}{% if route.approx_times %} (czasy przybliżone, stałe tempo){% endif %}{% endif %}.
+  Przeszukiwany obszar: trasa z zapasem.{% endif %}
 </div>
 
 <div class="chips">
@@ -83,7 +86,7 @@ td.thumb img { width: 160px; height: auto; border-radius: 6px; display: block; }
 <div class="controls">
   <label><input type="checkbox" id="onlyIn"> tylko w oknie</label>
   <label><input type="checkbox" id="hideFar"> ukryj dalej niż</label>
-  <input type="number" id="maxDist" value="500" min="50" step="50" style="width:80px"> m
+  <input type="number" id="maxDist" value="{{ 200 if route else 500 }}" min="25" step="25" style="width:80px"> m {{ 'od trasy' if route else 'od punktu' }}
   {% for r in results %}<label><input type="checkbox" class="src" value="{{ r.name }}" checked> {{ r.name }}</label>{% endfor %}
 </div>
 <div id="map"></div>
@@ -93,13 +96,14 @@ td.thumb img { width: 160px; height: auto; border-radius: 6px; display: block; }
 <thead><tr><th>Czas (Warszawa)</th><th>Podgląd</th><th>Opis</th><th>Odległość</th></tr></thead>
 <tbody>
 {% for i in items %}
-<tr data-src="{{ i.source }}" data-in="{{ 1 if i.window_status == 'in' else 0 }}" data-dist="{{ i.distance_m if i.distance_m is not none else '' }}">
+<tr data-src="{{ i.source }}" data-in="{{ 1 if i.window_status == 'in' else 0 }}" {% set fd = i.dist_route_m if route else i.distance_m %}data-dist="{{ fd if fd is not none else '' }}">
   <td>
     <div class="time">{{ i.sort_time|local or 'brak' }}</div>
     <span class="badge {{ 'b-published' if i.time_kind == 'published' else '' }}">{{ time_kinds.get(i.time_kind, i.time_kind) }}</span>
     {% if i.window_status == 'in' %}<span class="badge b-in">w oknie</span>
     {% elif i.window_status == 'margin' %}<span class="badge b-margin">w marginesie</span>
     {% elif i.window_status == 'out' %}<span class="badge">poza oknem</span>{% endif %}
+    {% if i.dist_you_m is not none and i.dist_you_m <= 150 %}<span class="badge b-in">byłeś {{ i.dist_you_m|dist }} od tego miejsca</span>{% endif %}
     {% if i.published_at and i.time_kind != 'published' %}<div class="notes">publikacja: {{ i.published_at|local }}</div>{% endif %}
   </td>
   <td class="thumb">{% if i.local_thumb or i.thumb_url %}<a href="{{ i.url }}" target="_blank" rel="noopener"><img loading="lazy" src="{{ i.local_thumb or i.thumb_url }}" alt="{{ i.title }}"></a>{% endif %}</td>
@@ -110,7 +114,9 @@ td.thumb img { width: 160px; height: auto; border-radius: 6px; display: block; }
     {% if i.description %}<div class="notes">{{ i.description[:240] }}</div>{% endif %}
     {% if i.notes %}<div class="notes">{{ i.notes|join(' · ') }}</div>{% endif %}
   </td>
-  <td>{{ i.distance_m|dist if point else ('jest geotag' if i.lat is not none else 'brak geolokalizacji') }}
+  <td>{{ i.distance_m|dist if point else ('jest geotag' if i.lat is not none else 'brak geolokalizacji') }}{% if point and i.lat is not none %} <span class="notes">od punktu</span>{% endif %}
+    {% if i.dist_route_m is not none %}<div>{{ i.dist_route_m|dist }} <span class="notes">od trasy</span></div>{% endif %}
+    {% if i.dist_you_m is not none %}<div><b>{{ i.dist_you_m|dist }}</b> <span class="notes">od Ciebie w tej chwili</span></div>{% endif %}
     {% if i.lat is not none %}<div class="notes"><a href="https://www.openstreetmap.org/?mlat={{ i.lat }}&mlon={{ i.lon }}#map=18/{{ i.lat }}/{{ i.lon }}">{{ '%.5f'|format(i.lat) }}, {{ '%.5f'|format(i.lon) }}</a></div>{% endif %}
   </td>
 </tr>
@@ -179,12 +185,14 @@ Raport zawiera wizerunki innych osób: używaj go wyłącznie do własnej sprawy
 const POINTS = {{ map_points|safe }};
 const REF = {{ ([point[0], point[1]] if point else none)|tojson }};
 const BBOX = [[{{ bbox.min_lat }}, {{ bbox.min_lon }}], [{{ bbox.max_lat }}, {{ bbox.max_lon }}]];
+const ROUTE = {{ route_line|safe }};
 (function () {
   const box = document.getElementById('map');
   if (!window.L) { box.textContent = 'Mapa wymaga internetu (Leaflet + OpenStreetMap).'; box.style.height = 'auto'; box.style.padding = '12px'; return; }
   const map = L.map('map');
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
   L.rectangle(BBOX, { color: '#888', weight: 1, fill: false, dashArray: '4' }).addTo(map);
+  if (ROUTE.length) L.polyline(ROUTE, { color: '#2b6cb0', weight: 4, opacity: .8 }).addTo(map).bindPopup('Twoja trasa');
   if (REF) L.circleMarker(REF, { radius: 9, color: '#c0392b', fillOpacity: .9 }).addTo(map).bindPopup('Twój punkt');
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   for (const p of POINTS) {

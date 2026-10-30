@@ -16,6 +16,8 @@ TIME_KINDS = {
     "published": "czas publikacji, NIE wykonania",
     "unknown": "brak",
 }
+# rodzaje czasu na tyle dokładne, żeby porównywać je z godziną na trasie
+PRECISE_TIME = {"exif", "taken", "device", "live"}
 
 
 @dataclass
@@ -39,6 +41,8 @@ class Item:
     score: int | None = None
     window_status: str | None = None
     distance_m: float | None = None
+    dist_route_m: float | None = None
+    dist_you_m: float | None = None
     local_thumb: str | None = None
 
     @property
@@ -49,13 +53,21 @@ class Item:
     def sort_time(self) -> datetime | None:
         return self.taken_at or self.published_at
 
-    def finalize(self, window: Window, point: tuple[float, float] | None) -> None:
+    def finalize(self, window: Window, point: tuple[float, float] | None, route=None) -> None:
         if self.taken_at and self.taken_end:
             self.window_status = window.classify_range(self.taken_at, self.taken_end)
         else:
             self.window_status = window.classify(self.taken_at)
-        if point and self.lat is not None and self.lon is not None:
+        if self.lat is None or self.lon is None:
+            return
+        if point:
             self.distance_m = haversine_m(point[0], point[1], self.lat, self.lon)
+        if route is not None:
+            self.dist_route_m = route.distance_m(self.lat, self.lon)
+            if self.taken_at and self.time_kind in PRECISE_TIME:
+                pos = route.position_at(self.taken_at)
+                if pos:
+                    self.dist_you_m = haversine_m(pos[0], pos[1], self.lat, self.lon)
 
     def to_dict(self) -> dict:
         d = asdict(self)
