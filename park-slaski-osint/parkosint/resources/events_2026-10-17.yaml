@@ -15,11 +15,17 @@ events:
     uwagi: "Z przeglądu weekendowego dla Chorzowa w wynikach wyszukiwania."
     zrodla: [tuba_weekend]
   - miejsce: Legendia
-    co: "Prawdopodobnie otwarta (sezon weekendowy do ok. 25.10)"
+    co: "Otwarta (sezon letni kończy się 25.10)"
     kiedy: "sobota 17.10.2026, godziny nieznane"
-    pewnosc: 0.5
-    uwagi: "Przewodniki podają różne daty końca sezonu, sprawdź na legendia.pl."
+    pewnosc: 0.7
+    uwagi: "Dwa przewodniki zgodnie podają koniec sezonu 25.10."
     zrodla: [twojslask_park]
+  - miejsce: Kolej linowa Elka i Śląskie Zoo
+    co: "Czynne: Elka w weekendy października 10:00 do 18:00, Zoo w weekendy 9:00 do 18:00"
+    kiedy: "sobota 17.10.2026, cały czas okna"
+    pewnosc: 0.7
+    uwagi: "Elka i Zoo pracowały w całym oknie, więc w parku byli ludzie z telefonami. Na podporach Elki parku były kiedyś kamery monitoringu."
+    zrodla: [twojslask_park, x_park_slaski, monitoring_2014]
   - miejsce: Stadion Śląski
     co: "Brak potwierdzonej imprezy 17.10. Dzień wcześniej, w piątek 16.10.2026 o 20:30, mecz Ruch Chorzów vs Odra Opole (1. liga)."
     kiedy: "16.10.2026 20:30 (dzień przed oknem)"
@@ -45,3 +51,6 @@ sources:
   mecze24: https://www.mecze24.pl/aktualnosci/godzina-i-data-kiedy-mecz-ruch-chorzow-odra-opole-16-10-2026
   ksruch_terminarz: https://www.ksruch.com/terminarz
   flashscore_ln: https://www.flashscore.pl/wiadomosci/liga-narodow-uefa-2026-27-polska-kadra-terminarz-transmisje/Kb6dLHee/
+  x_park_slaski: https://x.com/park_slaski
+  monitoring_2014: http://www.archiwum.chorzowianin.pl/park-bedzie-sledzilo-40-kamer,n-4337.html
+  kulturalnie_weekend: https://kulturalnie.slask.pl/wydarzenia/weekend/

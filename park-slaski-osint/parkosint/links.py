@@ -36,7 +36,9 @@ def x_queries(window: Window, center: tuple[float, float]) -> list[tuple[str, st
         ("X: wszystko w promieniu 2 km od parku, dokładne okno", f"geocode:{center[0]:.4f},{center[1]:.4f},2km since_time:{t0} until_time:{t1}"),
         ("X: odpowiedzi i relacje kilka dni później", f"{names} since:{day} until:{day + timedelta(days=4)}"),
     ]
-    return [(label, "https://x.com/search?" + urlencode({"q": q, "src": "typed_query", "f": "live"})) for label, q in qs]
+    links = [(label, "https://x.com/search?" + urlencode({"q": q, "src": "typed_query", "f": "live"})) for label, q in qs]
+    links.append(("X: oficjalny profil TAURON Park Śląski (@park_slaski)", "https://x.com/park_slaski"))
+    return links
 
 
 def build(window: Window, center: tuple[float, float], point: tuple[float, float] | None,
@@ -100,8 +102,12 @@ def build(window: Window, center: tuple[float, float], point: tuple[float, float
     groups.append(no_key)
 
     cams = LinkGroup("Kamery internetowe (ręcznie)",
-                     "Nie znalazłem potwierdzonej publicznej kamery z widokiem na park. Te katalogi warto przejrzeć, a w razie trafienia sprawdzić archiwum/timelapse.")
+                     "Jedyna znaleziona publiczna kamera w parku to ta na rzeźbie 'Komar Dron' (al. Ziętka / Leśna), "
+                     "kiedyś transmitowana na stronie parku. Sprawdź, czy działa i czy ma archiwum. Park miał też "
+                     "monitoring (ok. 40 kamer, m.in. na podporach kolejki Elka), ale ten nie jest publiczny: do niego są pisma.")
     cams.links += [
+        ("nocowanie.pl: kamera Park Śląski (katalog zewnętrzny)", "https://kamery.nocowanie.pl/chorzow/31527/"),
+        ("Dziennik Zachodni: kamera na Komar Dronie", "https://dziennikzachodni.pl/komar-dron-w-parku-slaskim-pokaze-nam-jaka-jest-pogoda-w-parku-zdjecia/ar/3570547"),
         ("webcams.org.ru: Chorzów", "https://webcams.org.ru/amp/chorzow.htm"),
         ("webcams.org.ru: Katowice", "https://webcams.org.ru/katowice.htm"),
         ("Outdooractive: kamery Katowice", "https://julian-alps.com/en/webcams/katowice/webcams-in-katowice/227980892/"),

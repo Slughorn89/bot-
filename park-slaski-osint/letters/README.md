@@ -17,6 +17,14 @@ Od 17.10.2026 minęło już sporo dni, więc **wyślij oba pisma od razu, tego s
 Jeżeli zdarzenie może być przestępstwem lub wykroczeniem, zgłoś je też na Policji i powiedz, gdzie są kamery.
 Policja może sama zażądać wydania nagrań (art. 217 Kodeksu postępowania karnego) i zwykle robi to szybciej niż odpowiedź na wniosek z RODO.
 
+## Co wiadomo o monitoringu w parku
+
+Według artykułu z ok. 2014 r. Park Śląski uruchomił centrum monitoringu w budynku administracji, z ok. 40 kamerami,
+m.in. na podporach kolejki Elka, obejmującymi centrum parku i al. gen. Jerzego Ziętka. Nagrania miały służyć jako
+dowód w sprawach karnych ([Chorzowianin, archiwum](http://www.archiwum.chorzowianin.pl/park-bedzie-sledzilo-40-kamer,n-4337.html)).
+Nie wiadomo, ile z tego działa dziś, ale warto w piśmie poprosić wprost o nagrania „z centrum monitoringu parku,
+w tym z kamer na podporach kolejki linowej Elka”.
+
 ## Do kogo pisać
 
 Każdy podmiot z kamerami to osobny administrator, więc piszesz osobno do każdego, którego kamery mogły Cię nagrać.
