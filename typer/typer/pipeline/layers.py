@@ -52,8 +52,16 @@ def walk_forward(df: pd.DataFrame, seasons: list[str], fit_predict, train_from: 
 
 
 # ---------------- kalibracja ----------------
-def calibrate_fn(method_1x2: str = "vector", method_bin: str = "platt"):
+def calibrate_fn(method_1x2: str = "vector", method_bin: str = "platt", per_league: bool = False,
+                 min_rows: int = 1500):
     def fp(tr: pd.DataFrame, tg: pd.DataFrame) -> pd.DataFrame:
+        if per_league:
+            # osobna kalibracja dla ligi z wystarczajaca historia, globalna dla reszty
+            parts, glob = [], calibrate_fn(method_1x2, method_bin)
+            for lg, g in tg.groupby("league"):
+                t = tr[tr["league"] == lg]
+                parts.append(glob(t if len(t) >= min_rows else tr, g))
+            return pd.concat(parts).loc[tg.index]
         tg = tg.copy()
         y = outcomes(tr)
         c = Multiclass(method_1x2).fit(tr[P1X2].to_numpy(), y["1x2"])

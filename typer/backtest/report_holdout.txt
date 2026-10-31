@@ -1,0 +1,63 @@
+# Raport typera  2025-08-15 .. 2026-09-03
+
+WERDYKT: GOTOWY tylko do typowania (brak dowodu przewagi nad rynkiem)
+
+## Bramki
+[OK] proba: 5553 zdarzen (min 300)
+[OK] spojnosc_prawdopodobienstw: 0 rynkow, w ktorych p_model nie sumuje sie do 1 (+-0.02) = blad modelu
+[OK] kalibracja: ECE 0.0040 (max 0.03)
+[OK] lepszy_od_baseline: log loss model - baseline = -0.0359
+[UWAGA] ocena_wartosci: brak zakladow z kursem zamkniecia: model mozna oceniac jako predyktor, ale nie wiadomo, czy daje przewage nad bukmacherem
+
+## Metryki ogolne
+zdarzenia 5553 | log loss model 0.7790 | baseline 0.8149 | Brier 0.5187 | ECE 0.0040
+
+## Kalibracja (koszyki prawdopodobienstwa)
+    bin    n  p_sr  czestosc  roznica
+0.0-0.1  164 0.074     0.067   -0.007
+0.1-0.2  836 0.157     0.145   -0.012
+0.2-0.3 2105 0.255     0.265    0.010
+0.3-0.4 1593 0.349     0.348   -0.001
+0.4-0.5 3640 0.456     0.456   -0.000
+0.5-0.6 3465 0.543     0.542   -0.001
+0.6-0.7  836 0.639     0.630   -0.009
+0.7-0.8  262 0.744     0.733   -0.011
+0.8-0.9   54 0.837     0.926    0.089
+0.9-1.0    2 0.905     1.000    0.095
+
+## Segmenty (sport, league, market), najgorsze na gorze
+   sport league market   n  ll_model    ece  slaby
+football     E0    1X2 400    1.0188 0.0378  False
+football     F1    1X2 325    0.9770 0.0326  False
+football     I1    1X2 400    0.9719 0.0248  False
+football    SP1    1X2 411    0.9578 0.0182  False
+football     D1    1X2 315    0.9485 0.0299  False
+football     I1  OU2.5 400    0.6975 0.0284  False
+football     F1   BTTS 325    0.6974 0.0221  False
+football     I1   BTTS 400    0.6918 0.0092  False
+football     E0  OU2.5 400    0.6859 0.0289  False
+football     E0   BTTS 400    0.6844 0.0109  False
+football    SP1   BTTS 411    0.6833 0.0223  False
+football    SP1  OU2.5 411    0.6754 0.0290  False
+football     F1  OU2.5 325    0.6729 0.0399  False
+football     D1   BTTS 315    0.6724 0.0203  False
+football     D1  OU2.5 315    0.6359 0.0293  False
+
+## Systematyczne odchylenia per selekcja (|odchylenie| > 2.5 SE)
+brak
+
+## Dryf (CUSUM na nadwyzce log loss)
+football/E0/1X2: 1 alarm(y), pierwszy 2026-04-18
+
+## 10 najwiekszych pomylek (do dziennika bledow)
+      date                           event_id market league  ll_model
+2026-01-24 D1-20260124-bayern-munich-augsburg    1X2     D1     3.048
+2025-12-14    D1-20251214-bayern-munich-mainz    1X2     D1     2.675
+2026-01-04       F1-20260104-marseille-nantes    1X2     F1     2.667
+2026-05-24         I1-20260524-milan-cagliari    1X2     I1     2.564
+2026-03-02    SP1-20260302-real-madrid-getafe    1X2    SP1     2.460
+2025-08-31          I1-20250831-inter-udinese    1X2     I1     2.419
+2026-02-22            I1-20260222-milan-parma    1X2     I1     2.412
+2025-12-07     SP1-20251207-real-madrid-celta    1X2    SP1     2.408
+2025-10-25     E0-20251025-chelsea-sunderland    1X2     E0     2.354
+2025-08-23        I1-20250823-milan-cremonese    1X2     I1     2.346

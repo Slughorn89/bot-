@@ -32,6 +32,8 @@ class Params:
     xg_sot: float = 0.27            # proxy xG: gole na celny strzal (MNK na rozgrzewce)
     xg_off: float = 0.006           # proxy xG: gole na niecelny strzal
     home_overrides: dict = field(default_factory=dict)  # celowane poprawki: {liga: lr_home}
+    # celowane poprawki per liga, np. {"POL": {"lr_team": 0.03, "season_regress": 0.2}}
+    league_params: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -53,6 +55,10 @@ class OnlinePoisson:
         self.home: dict[str, float] = {}
         self.season: dict[str, str] = {}
 
+    def lp(self, lg: str, name: str):
+        """Parametr z nadpisaniem dla ligi (poprawka celowana), inaczej globalny."""
+        return self.p.league_params.get(lg, {}).get(name, getattr(self.p, name))
+
     # ---------- stan ligi i druzyn ----------
     def _league(self, lg: str):
         if lg not in self.mu:
@@ -66,7 +72,7 @@ class OnlinePoisson:
         if self.season.get(lg) == season:
             return
         prev = self.season.get(lg)
-        r = 1 - self.p.season_regress
+        r = 1 - self.lp(lg, "season_regress")
         for (l, t), s in self.teams.items():
             if l == lg:
                 s.atk *= r
@@ -82,7 +88,7 @@ class OnlinePoisson:
         prev = getattr(self, "_prev_season", {}).get(lg)
         if s is None or (s.season not in (cur, prev) and s.season != ""):
             # nowa druzyna albo powrot po co najmniej sezonie przerwy = beniaminek
-            s = TeamState(self.p.promoted_atk, self.p.promoted_obr, 0, cur)
+            s = TeamState(self.lp(lg, "promoted_atk"), self.lp(lg, "promoted_obr"), 0, cur)
             self.teams[key] = s
         return s
 
@@ -107,7 +113,7 @@ class OnlinePoisson:
                hs=None, as_=None, hst=None, ast=None, red: bool = False) -> None:
         lh, la = self.rates(lg, home, away)
         xh, xa = self.xg_proxy(hs, hst), self.xg_proxy(as_, ast)
-        w = self.p.w_xg if (xh is not None and xa is not None) else 0.0
+        w = self.lp(lg, "w_xg") if (xh is not None and xa is not None) else 0.0
         yh = (1 - w) * gh + w * (xh or 0.0)
         ya = (1 - w) * ga + w * (xa or 0.0)
         eh, ea = yh - lh, ya - la
@@ -115,15 +121,17 @@ class OnlinePoisson:
         h, a = self._team(lg, home), self._team(lg, away)
         cur = self.season.get(lg, "")
 
+        base_lr = self.lp(lg, "lr_team")
+
         def lr(s: TeamState) -> float:
-            return self.p.lr_team * mult * (1 + self.p.new_team_boost * math.exp(-s.n / self.p.new_team_tau))
+            return base_lr * mult * (1 + self.p.new_team_boost * math.exp(-s.n / self.p.new_team_tau))
 
         lrh, lra = lr(h), lr(a)
         h.atk += lrh * eh
         a.obr -= lra * eh
         a.atk += lra * ea
         h.obr -= lrh * ea
-        lr_home = self.p.home_overrides.get(lg, self.p.lr_home)
+        lr_home = self.p.home_overrides.get(lg, self.lp(lg, "lr_home"))
         self.home[lg] += lr_home * mult * (eh - ea) / 2
         self.mu[lg] += self.p.lr_mu * mult * (eh + ea)
         h.n += 1

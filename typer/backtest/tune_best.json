@@ -1,0 +1,21 @@
+{
+ "params": {
+  "lr_team": 0.014336000000000002,
+  "lr_home": 0.0026666666666666666,
+  "lr_mu": 0.0005925925925925926,
+  "w_xg": 0.19999999999999998,
+  "season_regress": 0.0,
+  "promoted_atk": -0.18,
+  "promoted_obr": -0.21,
+  "new_team_boost": 1.0,
+  "new_team_tau": 8.0,
+  "red_card_weight": 1.0,
+  "rho": -0.09,
+  "init_mu": 0.15,
+  "init_home": 0.25,
+  "xg_sot": 0.27,
+  "xg_off": 0.006,
+  "home_overrides": {}
+ },
+ "J": 1.6754113922257357
+}

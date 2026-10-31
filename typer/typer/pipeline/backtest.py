@@ -55,6 +55,7 @@ LAYER_SETS = {
     "online+blend": [L.blend_fn()],
     "online+cal+blend": [L.calibrate_fn("vector", "platt"), L.blend_fn()],
     "online+blend+cal": [L.blend_fn(), L.calibrate_fn("vector", "platt")],
+    "online+blend+cal_league": [L.blend_fn(), L.calibrate_fn("vector", "platt", per_league=True)],
     "gbm+cal+blend": [L.gbm_fn(), L.calibrate_fn("vector", "platt"), L.blend_fn()],
 }
 

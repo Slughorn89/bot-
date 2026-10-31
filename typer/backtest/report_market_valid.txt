@@ -1,0 +1,65 @@
+# Raport typera  2018-07-20 .. 2025-05-25
+
+WERDYKT: GOTOWY tylko do typowania (brak dowodu przewagi nad rynkiem)
+
+## Bramki
+[OK] proba: 26906 zdarzen (min 300)
+[OK] spojnosc_prawdopodobienstw: 0 rynkow, w ktorych p_model nie sumuje sie do 1 (+-0.02) = blad modelu
+[OK] kalibracja: ECE 0.0063 (max 0.03)
+[OK] lepszy_od_baseline: log loss model - baseline = -0.0580
+[OK] konkurencyjny_vs_rynek: luka +0.0009 (max 0.015); model moze byc ogolnie slabszy od zamkniecia i zarabiac na wczesnych kursach, dlatego to ostrzezenie, a decyduje CLV
+[OK] brak_wycieku: luka +0.0009; ponizej -0.03 = model 'za dobry', szukaj wycieku
+[UWAGA] ocena_wartosci: brak zakladow z kursem zamkniecia: model mozna oceniac jako predyktor, ale nie wiadomo, czy daje przewage nad bukmacherem
+
+## Metryki ogolne
+zdarzenia 26906 | log loss model 0.8361 | baseline 0.8941 | rynek zamk. 0.8353 | Brier 0.5344 | ECE 0.0063
+
+## Kalibracja (koszyki prawdopodobienstwa)
+    bin     n  p_sr  czestosc  roznica
+0.0-0.1  1580 0.073     0.082    0.009
+0.1-0.2  6447 0.157     0.154   -0.003
+0.2-0.3 16086 0.257     0.261    0.004
+0.3-0.4 11312 0.347     0.341   -0.006
+0.4-0.5 13191 0.451     0.444   -0.007
+0.5-0.6 11728 0.547     0.556    0.008
+0.6-0.7  5387 0.641     0.648    0.007
+0.7-0.8  1828 0.741     0.733   -0.008
+0.8-0.9   576 0.839     0.806   -0.033
+0.9-1.0    55 0.914     0.945    0.032
+
+## Segmenty (sport, league, market), najgorsze na gorze
+   sport league market    n  ll_model  luka_vs_rynek          luka_ci90    ece  slaby
+football    POL    1X2 1847    1.0470         0.0158 [+0.0090, +0.0224] 0.0133   True
+football     D1    1X2 2142    0.9775         0.0004 [-0.0009, +0.0017] 0.0148  False
+football     E0  OU2.5 2660    0.6740         0.0002 [-0.0003, +0.0007] 0.0098  False
+football    SP1  OU2.5 2660    0.6716         0.0002 [-0.0002, +0.0005] 0.0083  False
+football     F1    1X2 2410    0.9918         0.0001 [-0.0009, +0.0011] 0.0065  False
+football     I1  OU2.5 2658    0.6785        -0.0001 [-0.0005, +0.0004] 0.0231  False
+football     E0    1X2 2660    0.9500        -0.0002 [-0.0014, +0.0009] 0.0103  False
+football     F1  OU2.5 2410    0.6752        -0.0003 [-0.0007, +0.0001] 0.0097  False
+football     D1  OU2.5 2140    0.6513        -0.0006 [-0.0013, +0.0001] 0.0195  False
+football     I1    1X2 2659    0.9588        -0.0009 [-0.0019, +0.0002] 0.0079  False
+football    SP1    1X2 2660    0.9772        -0.0010 [-0.0019, -0.0000] 0.0081  False
+
+## Systematyczne odchylenia per selekcja (|odchylenie| > 2.5 SE)
+   sport league market selection    n  p_sr  czestosc  odchylenie_pp
+football     I1    1X2         1 2659 0.436     0.413            2.3
+football     I1    1X2         X 2659 0.245     0.266           -2.1
+
+## Dryf (CUSUM na nadwyzce log loss)
+football/E0/1X2: 4 alarm(y), pierwszy 2020-12-13, ostatni 2025-01-14
+football/E0/OU2.5: 2 alarm(y), pierwszy 2021-01-16, ostatni 2025-05-25
+football/I1/1X2: 2 alarm(y), pierwszy 2019-12-14, ostatni 2022-02-21
+
+## 10 najwiekszych pomylek (do dziennika bledow)
+      date                                event_id market league  ll_model
+2024-01-21 D1-20240121-bayern-munich-werder-bremen    1X2     D1     3.380
+2019-10-05    D1-20191005-bayern-munich-hoffenheim    1X2     D1     3.375
+2019-10-06             E0-20191006-man-city-wolves    1X2     E0     3.286
+2018-12-22     E0-20181222-man-city-crystal-palace    1X2     E0     3.241
+2018-10-20        SP1-20181020-real-madrid-levante    1X2    SP1     3.154
+2025-03-08        D1-20250308-bayern-munich-bochum    1X2     D1     3.129
+2024-12-15          SP1-20241215-barcelona-leganes    1X2    SP1     3.126
+2022-11-12          E0-20221112-man-city-brentford    1X2     E0     3.119
+2021-10-30     E0-20211030-man-city-crystal-palace    1X2     E0     3.093
+2020-07-16          SP1-20200716-barcelona-osasuna    1X2    SP1     3.060

@@ -1,5 +1,7 @@
 # Trading Bot
 
+> W katalogu [`typer/`](typer/README.md) jest osobny projekt: **typer piłkarski** (oceny online, bramki jakości, cykl dzienny).
+
 Bot spot (ccxt) z backtestem walk-forward, monitoringiem dużych graczy ("wielorybów")
 i dashboardem na żywo. Domyślnie **paper trading** (`DRY_RUN=true`).
 

@@ -2,6 +2,7 @@
 """Typer pilkarski: wiersz polecen.
 
   python cli.py fetch    [--as-of RRRR-MM-DD]   historia + terminarz + kursy do bazy
+  python cli.py snapshot                        kursy z The Odds API (typ / zamkniecie)
   python cli.py predict  [--as-of ...]          predykcje (niezmienialne) + zaklady papierowe
   python cli.py settle   [--as-of ...]          wyniki, rozliczenie, dziennik bledow
   python cli.py learn                           przeglad tygodniowy (evaluate.py od daty wdrozenia)
@@ -33,10 +34,15 @@ def cmd_fetch(a):
     print(daily.fetch(_engine(), as_of=a.as_of))
 
 
+def cmd_snapshot(a):
+    from typer.pipeline import daily
+    print(daily.snapshot_odds(_engine()))
+
+
 def cmd_predict(a):
     from typer.pipeline import daily
     eng = _engine()
-    preds = daily.predict(eng, as_of=a.as_of)
+    preds = daily.predict(eng, as_of=a.as_of, lead_minutes=getattr(a, "lead_minutes", None))
     bets = daily.place_bets(eng, preds) if len(preds) else preds
     print(f"predykcje: {len(preds)} wierszy, zaklady papierowe: {len(bets)}")
 
@@ -135,7 +141,11 @@ def main(argv=None):
         p.add_argument("--as-of", default=None, help="tryb odtworzeniowy: udawaj, ze dzis jest ten dzien")
         if name in ("report", "day"):
             p.add_argument("--send", action="store_true", help="wyslij JSON na webhook n8n")
+        if name == "predict":
+            p.add_argument("--lead-minutes", type=int, default=None,
+                           help="typuj tylko mecze startujace w ciagu N minut (na zywo: 90)")
     sub.add_parser("learn")
+    sub.add_parser("snapshot", help="snapshot kursow z The Odds API (w chwili typu i zamkniecia)")
     p = sub.add_parser("backtest")
     p.add_argument("--layers", default=config.model_params().get("layers", "online+cal"))
     p.add_argument("--holdout", action="store_true")

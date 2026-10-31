@@ -72,7 +72,7 @@ class Engine:
         lg = r.league
         self._season(lg, r.season)
         lh, la = self.model.rates(lg, r.home, r.away)
-        ph, pdraw, pa, pover, pbtts = fast_markets(lh, la, self.params.rho)
+        ph, pdraw, pa, pover, pbtts = fast_markets(lh, la, self.model.lp(lg, "rho"))
         b = self.base.predict(lg)
         out = dict(event_id=r.event_id, league=lg, season=r.season, date=r.date,
                    kickoff_utc=r.kickoff_utc, home=r.home, away=r.away,

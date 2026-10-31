@@ -4,10 +4,9 @@ data/
 live/
 backtest/preds_*.csv
 backtest/*.pkl
-backtest/tune.log
-backtest/dc.log
-backtest/HOLDOUT_USED.local
+backtest/*.log
 .env
 __pycache__/
 *.pyc
 .pytest_cache/
+logs/

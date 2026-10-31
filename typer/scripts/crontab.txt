@@ -1,0 +1,17 @@
+# Typer: harmonogram (czas Europe/Warsaw). Zainstaluj: crontab scripts/crontab.txt
+# Kazde zadanie loguje start/koniec/bledy; nieudane pobranie trafia do live/alerts.json i do raportu.
+CRON_TZ=Europe/Warsaw
+SHELL=/bin/bash
+T=/sciezka/do/bot-/typer
+PY=/sciezka/do/bot-/typer/.venv/bin/python
+
+# 07:00 terminarz, wyniki, kursy rano
+0 7 * * *    cd $T && scripts/run.sh fetch && scripts/run.sh snapshot
+# co 15 minut: snapshot kursow (zamkniecie przy starcie) i typy 60-90 min przed meczem
+*/15 * * * * cd $T && scripts/run.sh snapshot && scripts/run.sh predict --lead-minutes 90
+# 02:00 rozliczenie, oceny, dziennik bledow, raport dzienny na webhook n8n -> Telegram
+0 2 * * *    cd $T && scripts/run.sh settle && scripts/run.sh report --send
+# poniedzialek 06:00 przeglad tygodniowy (evaluate.py od daty wdrozenia championa)
+0 6 * * 1    cd $T && scripts/run.sh learn
+# 1. dnia miesiaca 05:00: retrening challengera na walidacji (wynik do experiments.md recznie)
+0 5 1 * *    cd $T && scripts/run.sh backtest --compare online+cal,online+cal+blend
