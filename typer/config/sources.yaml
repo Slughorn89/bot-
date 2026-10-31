@@ -1,0 +1,45 @@
+# Zrodla danych: licencja, limity, klucze (klucze tylko w .env, nigdy tutaj).
+# Stan "dostepne_w_srodowisku" sprawdzony 2026-10-31 w sesji chmurowej (proxy z lista dozwolonych hostow).
+xgabora:
+  opis: Kopia football-data.co.uk (wyniki, strzaly, kartki, kursy Bet365 i maksymalne sprzed meczu) + ClubElo
+  repo: https://github.com/xgabora/Club-Football-Match-Data-2000-2025
+  # Przypiety commit = powtarzalny backtest. Zmien na nowszy hash albo "main", zeby dociagnac nowe mecze.
+  ref: 25882a58a736daf7ece3781940eac17ae1117a66
+  ostatni_commit: 2026-09 (dane do 2026-09-03)
+  url: https://raw.githubusercontent.com/xgabora/Club-Football-Match-Data-2000-2025/{ref}/data/Matches.csv
+  licencja: MIT (repozytorium); dane zrodlowe football-data.co.uk (darmowe, z podaniem zrodla) i ClubElo
+  limit: brak (raw.githubusercontent.com), plik ~45 MB
+  dostepne_w_srodowisku: true
+  braki: brak kursow zamkniecia (nie da sie liczyc CLV w backteście), Ekstraklasa konczy sie 2024-12-08 i nie ma strzalow ani O/U
+  nie_uzywac: [C_LTH, C_LTA, C_VHD, C_VAD, C_HTB, C_PHB]  # klastry liczone ze statystyk meczu = wyciek
+
+football_data_uk:
+  opis: Oryginalne CSV football-data.co.uk z kursami zamkniecia Pinnacle (PSCH/PSCD/PSCA, PC>2.5) i terminarzem fixtures.csv
+  url_sezon: https://www.football-data.co.uk/mmz4281/{season}/{code}.csv
+  url_nowe_ligi: https://www.football-data.co.uk/new/{code}.csv
+  url_terminarz: https://www.football-data.co.uk/fixtures.csv
+  url_terminarz_nowe: https://www.football-data.co.uk/new_league_fixtures.csv
+  licencja: darmowe do uzytku, z podaniem zrodla (football-data.co.uk)
+  limit: brak oficjalnego; pobieraj rzadko (raz dziennie), z cache w raw/
+  dostepne_w_srodowisku: false   # host www.football-data.co.uk zablokowany przez polityke sieci sesji
+  uwagi: Glowne zrodlo docelowe. Daje kursy zamkniecia, wiec odblokowuje bramke clv_dodatni.
+
+the_odds_api:
+  opis: Kursy na zywo wielu bukmacherow (h2h, totals); do snapshotow "w chwili typu" i "zamkniecia"
+  url: https://api.the-odds-api.com/v4/sports/{sport}/odds
+  klucz_env: ODDS_API_KEY
+  licencja: komercyjna, plan darmowy z miesiecznym limitem zapytan (sprawdz aktualny na stronie)
+  limit: zuzycie widac w naglowkach x-requests-remaining / x-requests-used
+  dostepne_w_srodowisku: false
+
+penaltyblog:
+  opis: Dixon-Coles z wagami czasowymi, Poisson; challenger dla ocen online
+  pakiet: penaltyblog==1.13.1
+  repo: https://github.com/martineastwood/penaltyblog
+  commit_sprawdzony: 6870f0e762e9cba35fa722dc14a8daeaf8bc6134
+  licencja: MIT
+  dostepne_w_srodowisku: true (PyPI)
+
+flashscore:
+  opis: Tylko reczna weryfikacja. Brak publicznego API, regulamin zabrania pobierania tresci bez zgody (Livesport).
+  uzycie: zadnego scrapowania
