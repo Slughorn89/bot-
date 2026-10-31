@@ -40,6 +40,16 @@ RAW="$OUT/raw"
 mkdir -p "$RAW" "$OUT/skrypty" "$OUT/kwarantanna" "$OUT/kopia-rejestru" || { echo "Nie mogę utworzyć $OUT"; exit 1; }
 cp "$0" "$OUT/skrypty/" 2>/dev/null
 
+# Poprzedni audyt w tym samym trybie (bez sudo / z sudo), żeby pokazać, co doszło od tamtej pory
+PREV=""
+while IFS= read -r d; do
+    [ "$d" = "$OUT" ] && continue
+    [ -f "$d/raw/_status.json" ] || continue
+    case "$d" in *_sudo) m=1 ;; *) m=0 ;; esac
+    [ "$m" = "$IS_ROOT" ] || continue
+    PREV="$d"; break
+done < <(ls -1d "$(dirname "$OUT")"/*/ 2>/dev/null | sed 's|/$||' | LC_ALL=C sort -r)
+
 STATUS_TMP="$RAW/.status.tmp"
 FIND="$RAW/_znaleziska.tsv"
 CLEAN="$RAW/_czysto.txt"
@@ -53,6 +63,8 @@ TAB=$(printf '\t')
 # ============================================================ pomocnicze
 
 have() { command -v "$1" >/dev/null 2>&1; }
+# du z limitem czasu (ogromne foldery nie zawieszą audytu)
+dsize() { if have timeout; then timeout 60 du -sh "$@" 2>/dev/null; else du -sh "$@" 2>/dev/null; fi; }
 note() { printf '%s; ' "$*" >> "$NOTES"; }
 json_esc() { printf '%s' "$1" | tr '\n\t\r' '   ' | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
 one_line() { printf '%s' "$1" | tr '\t\r' '  ' | tr '\n' "$SEP" | sed "s/$SEP\$//"; }
@@ -531,13 +543,13 @@ t_wydajnosc() {
     echo "=== miejsce na dysku"; df -h 2>/dev/null | grep -vE '^(tmpfs|devfs|map |overlay|udev)'
     echo "=== foldery do sprzątania (rozmiar)"
     for d in "$UHOME/Library/Caches" "$UHOME/.Trash" "$UHOME/.cache" "$UHOME/.local/share/Trash" /var/cache/apt/archives /var/log/journal; do
-        [ -d "$d" ] && echo "$(du -sh "$d" 2>/dev/null | cut -f1)	$d"
+        [ -d "$d" ] && echo "$(dsize "$d" | cut -f1)	$d"
     done
     if [ "$OS" = "Darwin" ]; then
         echo "=== największe foldery: sprawdź Ustawienia systemowe > Ogólne > Pamięć masowa (du po Dokumentach wywołałby pytania o zgodę)"
     else
         echo "=== największe foldery w katalogu domowym"
-        du -sh "$UHOME"/* "$UHOME"/.[!.]* 2>/dev/null | sort -h 2>/dev/null | tail -10
+        dsize "$UHOME"/* "$UHOME"/.[!.]* | sort -h 2>/dev/null | tail -10
     fi
     echo "=== procesy obciążające CPU"
     if [ "$OS" = "Darwin" ]; then ps -Ao pcpu,pmem,comm -r 2>/dev/null | head -11
@@ -847,6 +859,30 @@ elif [ "$OS" != "Darwin" ]; then add_phone "KDE Connect / GSConnect" "brak" "" "
 btp=$(awk -F'\t' '$1 == "bt" {print $2}' "$T" 2>/dev/null | grep -iE 'iphone|ipad|galaxy|samsung|xiaomi|redmi|pixel|huawei|honor|oneplus|motorola|oppo|realme|nokia|xperia|phone|telefon' | tr '\n' ',' | sed 's/,$//')
 [ -n "$btp" ] && add_phone "Bluetooth: sparowane telefony" "sparowane" "$btp" "Samo sparowanie daje niewiele."
 
+# ---------- porównanie z poprzednim audytem
+if [ -n "$PREV" ]; then
+    ZM="$RAW/.zmiany.txt"; : > "$ZM"
+    for f in autostart.tsv programy.txt rozszerzenia.tsv konta.txt; do
+        [ -f "$PREV/raw/$f" ] && [ -f "$RAW/$f" ] || continue
+        # pusta lista programów oznacza nieudany test, a nie brak programów
+        [ "$f" = "programy.txt" ] && [ ! -s "$PREV/raw/$f" ] && continue
+        case "$f" in
+            programy.txt) flt() { awk '{print $1}' "$1"; } ;;
+            konta.txt) flt() { grep '^    ' "$1"; } ;;
+            *) flt() { cat "$1"; } ;;
+        esac
+        flt "$PREV/raw/$f" | LC_ALL=C sort -u > "$RAW/.prev.tmp"
+        flt "$RAW/$f" | LC_ALL=C sort -u | LC_ALL=C comm -13 "$RAW/.prev.tmp" - | tr '\t' ' ' | sed "s|^ *|${f%.*}: |" | head -30 >> "$ZM"
+    done
+    rm -f "$RAW/.prev.tmp"
+    if [ -s "$ZM" ]; then
+        add_finding DO_WYJASNIENIA zmiany "Co doszło od poprzedniego audytu ($(basename "$PREV")): $(grep -c '' "$ZM") pozycji" "$PREV" "$(head -40 "$ZM")" "Nowe wpisy w autostarcie, programach, rozszerzeniach i kluczach SSH. Po aktualizacjach zawsze coś dochodzi, ale jeśli po sprzątaniu wróciło coś usuniętego, zobaczysz to tutaj." "Przejrzyj listę. Jeśli coś jest obce albo wróciło po usunięciu, daj znać." "Czy wszystkie te nowości to Twoje instalacje lub aktualizacje?"
+    else
+        echo "Od poprzedniego audytu ($(basename "$PREV")) nic nowego nie doszło w autostarcie, programach, rozszerzeniach ani kluczach SSH." >> "$CLEAN"
+    fi
+    rm -f "$ZM"
+fi
+
 # ============================================================ raport
 
 HOSTN=$(hostname)
@@ -855,6 +891,17 @@ nP=$(cut -d"$FS" -f1 "$FIND" | grep -cx POTWIERDZONE)
 nS=$(cut -d"$FS" -f1 "$FIND" | grep -cx PODEJRZANE)
 nW=$(cut -d"$FS" -f1 "$FIND" | grep -cx DO_WYJASNIENIA)
 nPh=$(awk -F"$FS" '$4 != "brak" && $4 != "?" && $1 !~ /^Bluetooth/' "$PHONE" | grep -c '')
+
+# Najważniejsze teraz: maksymalnie 3 konkretne kroki
+TOP="$RAW/.top.txt"
+{
+    awk -F"$FS" '$1 == "POTWIERDZONE" {print "Zabezpiecz dowody i zmień hasła z innego urządzenia, dopiero potem usuwamy: " $3}' "$FIND" | head -2
+    awk -F"$FS" '$1 == "PODEJRZANE" {print "Obejrzyjmy razem: " $3}' "$FIND"
+    awk -F"$FS" '$4 != "brak" && $4 != "?" && $1 !~ /^Bluetooth/ {print "Telefon: " $1 " (" $2 "). Upewnij się, że to Twoje."}' "$PHONE"
+    [ "$nW" -gt 0 ] && echo "Odpowiedz na $nW pytania z sekcji DO WYJAŚNIENIA."
+    [ "$IS_ROOT" = 1 ] || echo "Uruchom pełny audyt: sudo bash audyt.sh"
+} | head -3 > "$TOP"
+[ -s "$TOP" ] || echo "Nic pilnego. Uruchom audyt ponownie za kilka tygodni: raport pokaże, co doszło od dziś." > "$TOP"
 
 if [ "$nP" -gt 0 ]; then
     WERDYKT="Są potwierdzone ślady: $nP pozycja(e) to znane oprogramowanie szpiegujące albo trojan. Nie usuwaj niczego w pośpiechu, najpierw przeczytaj plan działania."
@@ -916,6 +963,8 @@ md_items() { # kategoria
     echo "# Audyt inwigilacji: $HOSTN, $DZIEN"; echo ""
     echo "_$OS, konto: $REAL_USER, sudo: $([ "$IS_ROOT" = 1 ] && echo tak || echo nie). Raport automatyczny z audyt.sh, surowe dane w folderze raw._"; echo ""
     echo "## Werdykt"; echo ""; echo "$WERDYKT"; echo ""; echo "**Poziom pewności:** $PEW"; echo ""
+    echo "**POTWIERDZONE: $nP | PODEJRZANE: $nS | DO WYJAŚNIENIA: $nW**"; echo ""
+    echo "**Najważniejsze teraz:**"; echo ""; awk '{print NR ". " $0}' "$TOP"; echo ""
     echo "## POTWIERDZONE"; echo ""; md_items POTWIERDZONE
     echo "## PODEJRZANE"; echo ""; md_items PODEJRZANE
     echo "## DO WYJAŚNIENIA (pytania do Ciebie)"; echo ""; md_items DO_WYJASNIENIA
@@ -951,11 +1000,13 @@ html_items() {
 }
 {
     echo '<!DOCTYPE html><html lang="pl"><head><meta charset="utf-8"><title>Audyt inwigilacji</title><style>'
-    echo 'body{font-family:-apple-system,Segoe UI,Arial,sans-serif;max-width:1000px;margin:24px auto;padding:0 16px;color:#1d2433;line-height:1.5;background:#fafbfc}h2{margin-top:32px;border-bottom:2px solid #e3e7ee}.verdict,.card{background:#fff;border:1px solid #d9dee8;border-radius:8px;padding:12px 16px;margin:12px 0}.card{border-left:6px solid #999}.k-POTWIERDZONE{border-left-color:#c62828}.k-PODEJRZANE{border-left-color:#ef8f00}.k-DO_WYJASNIENIA{border-left-color:#1e6fd9}.q{background:#eef4ff;padding:6px 10px;border-radius:4px}code{background:#f1f3f6;padding:1px 4px;border-radius:3px;word-break:break-all}table{border-collapse:collapse;width:100%;background:#fff}td,th{border:1px solid #d9dee8;padding:6px 8px;text-align:left;vertical-align:top}pre{background:#f7f8fa;padding:10px;overflow-x:auto}'
+    echo 'body{font-family:-apple-system,Segoe UI,Arial,sans-serif;max-width:1000px;margin:24px auto;padding:0 16px;color:#1d2433;line-height:1.5;background:#fafbfc}h2{margin-top:32px;border-bottom:2px solid #e3e7ee}.verdict,.card{background:#fff;border:1px solid #d9dee8;border-radius:8px;padding:12px 16px;margin:12px 0}.card{border-left:6px solid #999}.k-POTWIERDZONE{border-left-color:#c62828}.k-PODEJRZANE{border-left-color:#ef8f00}.k-DO_WYJASNIENIA{border-left-color:#1e6fd9}.q{background:#eef4ff;padding:6px 10px;border-radius:4px}code{background:#f1f3f6;padding:1px 4px;border-radius:3px;word-break:break-all}table{border-collapse:collapse;width:100%;background:#fff}td,th{border:1px solid #d9dee8;padding:6px 8px;text-align:left;vertical-align:top}pre{background:#f7f8fa;padding:10px;overflow-x:auto}.top{background:#fff8e6;border:1px solid #f0d79a;border-radius:6px;padding:8px 14px}@media print{body{background:#fff}.card,.verdict{break-inside:avoid}}'
     echo '</style></head><body>'
     echo "<h1>Audyt inwigilacji: $(he "$HOSTN"), $DZIEN</h1>"
     echo "<p>$(he "$OS"), konto: $(he "$REAL_USER"), sudo: $([ "$IS_ROOT" = 1 ] && echo tak || echo nie). Surowe dane w folderze raw.</p>"
-    echo "<h2>Werdykt</h2><div class=\"verdict\"><p>$(he "$WERDYKT")</p><p><b>Poziom pewności:</b> $(he "$PEW")</p><p><b>POTWIERDZONE: $nP &nbsp; PODEJRZANE: $nS &nbsp; DO WYJAŚNIENIA: $nW</b></p></div>"
+    echo "<h2>Werdykt</h2><div class=\"verdict\"><p>$(he "$WERDYKT")</p><p><b>Poziom pewności:</b> $(he "$PEW")</p><p><b>POTWIERDZONE: $nP &nbsp; PODEJRZANE: $nS &nbsp; DO WYJAŚNIENIA: $nW</b></p><div class=\"top\"><b>Najważniejsze teraz:</b><ol>"
+    while IFS= read -r l; do echo "<li>$(he "$l")</li>"; done < "$TOP"
+    echo "</ol></div></div>"
     echo "<h2>POTWIERDZONE</h2>"; html_items POTWIERDZONE
     echo "<h2>PODEJRZANE</h2>"; html_items PODEJRZANE
     echo "<h2>DO WYJAŚNIENIA (pytania do Ciebie)</h2>"; html_items DO_WYJASNIENIA
@@ -971,7 +1022,19 @@ html_items() {
     echo "</ul></body></html>"
 } > "$OUT/raport.html"
 
-rm -f "$PLAN" "$NOTCHK" "$CORPUS" "$STATUS_TMP"
+cp "$TOP" "$RAW/.top.keep" 2>/dev/null
+rm -f "$PLAN" "$NOTCHK" "$CORPUS" "$STATUS_TMP" "$TOP"
+
+# Paczka dowodów: sumy SHA256 każdego pliku i jedno archiwum do skopiowania na pendrive.
+# Suma archiwum pozwala później wykazać, że nikt nic w nim nie zmienił.
+sha() { if have sha256sum; then sha256sum "$@"; else shasum -a 256 "$@"; fi; }
+ZIPHASH=""
+if (
+    cd "$OUT" || exit 1
+    { echo "# Audyt $HOSTN, $REAL_USER, $DZIEN"; find raw skrypty RAPORT.md raport.html -type f ! -name '.top.keep' -print 2>/dev/null | LC_ALL=C sort | while IFS= read -r f; do sha "$f"; done; } > dowody-sha256.txt
+    tar -czf dowody.tar.gz --exclude='.top.keep' raw RAPORT.md raport.html dowody-sha256.txt 2>/dev/null || tar -czf dowody.tar.gz raw RAPORT.md raport.html dowody-sha256.txt
+    sha dowody.tar.gz > dowody.tar.gz.sha256
+); then ZIPHASH=$(cut -d' ' -f1 "$OUT/dowody.tar.gz.sha256" 2>/dev/null); fi
 [ -n "${SUDO_USER:-}" ] && chown -R "$SUDO_USER" "$UHOME/audyt-inwigilacji" 2>/dev/null
 
 echo ""
@@ -979,8 +1042,15 @@ echo "Gotowe. Niczego nie zmieniłem."
 echo "  POTWIERDZONE:   $nP"
 echo "  PODEJRZANE:     $nS"
 echo "  DO WYJAŚNIENIA: $nW"
+awk -F"$FS" '$1 == "POTWIERDZONE" || $1 == "PODEJRZANE" {print "    [" $1 "] " $3}' "$FIND" | head -8
+echo ""
+echo "Najważniejsze teraz:"
+awk '{print "  " NR ". " $0}' "$RAW/.top.keep" 2>/dev/null
+rm -f "$RAW/.top.keep"
 echo ""
 echo "Raport: $OUT/raport.html"
 echo "        $OUT/RAPORT.md"
 echo "Surowe dane (dowody): $RAW"
+[ -n "$ZIPHASH" ] && echo "Paczka dowodów: $OUT/dowody.tar.gz (SHA256 $ZIPHASH)"
+[ -n "$PREV" ] && echo "Porównano z poprzednim audytem: $PREV"
 [ "$IS_ROOT" = 1 ] || echo "Następny krok: sudo bash audyt.sh (pełny audyt)."

@@ -22,6 +22,7 @@ Wyniki lądują w `%USERPROFILE%\audyt-inwigilacji\RRRR-MM-DD_GGMM\` (wersja adm
 | `raport.html` | raport do czytania, jeden plik, działa bez internetu |
 | `RAPORT.md` | ten sam raport w formie tekstowej |
 | `raw\` | surowe dane i `_status.json` (który test się udał, który pominięto i dlaczego). To są Twoje dowody |
+| `dowody.zip` + `dowody-sha256.txt` | paczka do skopiowania na pendrive i suma SHA256 każdego pliku. Suma archiwum (`dowody.zip.sha256`) pozwala później wykazać, że nikt nic w nim nie zmienił |
 | `skrypty\` | kopia skryptu, którym zrobiono audyt |
 | `kwarantanna\`, `kopia-rejestru\` | na razie puste, przydadzą się przy naprawie |
 
@@ -33,6 +34,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File audyt.ps1
 
 Opcje: `-Out <folder>`, `-PobierzIOC` (pobierz listę bez pytania), `-BezPytan`, `-NieOtwieraj`. `Bypass` dotyczy tylko tego jednego uruchomienia, polityka systemu się nie zmienia.
 
+**Uruchamiaj co jakiś czas.** Każdy kolejny audyt porównuje się z poprzednim w tym samym trybie (zwykłym albo admin) i pokazuje, co doszło: nowe wpisy autostartu, usługi, zadania, programy, rozszerzenia, certyfikaty, konta. Po sprzątaniu od razu widać, czy coś nie wróciło.
+
 ## macOS i Linux
 
 ```bash
@@ -42,6 +45,8 @@ bash audyt.sh
 ```bash
 sudo bash audyt.sh
 ```
+
+Tu też powstaje paczka dowodów (`dowody.tar.gz` z sumami SHA256) i porównanie z poprzednim uruchomieniem.
 
 Na macOS daj Terminalowi **Pełny dostęp do dysku** (Ustawienia systemowe > Prywatność i ochrona), inaczej nie da się odczytać uprawnień prywatności (TCC) ani kopii iPhone'a. Hasło do sudo wpisujesz tylko w terminalu.
 
@@ -53,12 +58,15 @@ Na macOS daj Terminalowi **Pełny dostęp do dysku** (Ustawienia systemowe > Pry
 * kto i kiedy używał kamery, mikrofonu i lokalizacji
 * programy, rozszerzenia przeglądarek, polityki "Zarządzane przez organizację", zapis do MDM
 * konta, administratorzy, Pulpit zdalny, SSH, WinRM
+* zapora Windows: czy jest włączona i czy nie wpuszcza połączeń do niepodpisanych programów z nietypowych miejsc
 * Defender: czy działa, historia wykryć, wykluczenia, dziennik zdarzeń z 30 dni
 * telefon: Łącze z telefonem, zaufane iPhone'y, kopie iPhone'a na dysku (i czy są zaszyfrowane), ślady ADB, scrcpy, KDE Connect, Bluetooth
 * znane nazwy: stalkerware, keyloggery, RAT-y, narzędzia zdalne, programy do wyciągania danych z telefonów
-* stan dysku, wolne miejsce, ile śmieci da się bezpiecznie usunąć, co obciąża komputer (tylko pomiar)
+* stan dysku, wolne miejsce, ile śmieci da się bezpiecznie usunąć, co obciąża komputer, ile trwa start systemu i które programy go spowalniają (tylko pomiar)
 
 ## Jak czytać wyniki
+
+Na samej górze raportu jest werdykt z poziomem pewności i ramka **Najważniejsze teraz**: najwyżej trzy konkretne kroki. Resztę czytasz, kiedy masz czas.
 
 * **POTWIERDZONE**: znane stalkerware, keylogger albo RAT, trafienie w listę wskaźników, wykrycie Defendera.
 * **PODEJRZANE**: zachowanie typowe dla malware, np. niepodpisany plik z AppData w autostarcie, zakodowany PowerShell w zadaniu, plik udający systemowy.

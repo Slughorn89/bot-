@@ -59,6 +59,16 @@ foreach ($dir in @($Out, $script:RawDir, (Join-Path $Out 'skrypty'), (Join-Path 
 }
 try { Copy-Item -LiteralPath $PSCommandPath -Destination (Join-Path $Out 'skrypty') -Force } catch {}
 
+# Poprzedni audyt w tym samym trybie (zwykły / admin), żeby pokazać, co doszło od tamtej pory
+$script:PrevDir = $null
+try {
+    $auditRoot = Split-Path -Parent $script:OutDir
+    $cands = @(Get-ChildItem -LiteralPath $auditRoot -Directory | Where-Object {
+            $_.FullName -ne $script:OutDir -and ($_.Name -like '*_admin') -eq $script:IsAdmin -and (Test-Path -LiteralPath (Join-Path $_.FullName 'raw\_status.json'))
+        } | Sort-Object Name -Descending)
+    if ($cands.Count -gt 0) { $script:PrevDir = $cands[0].FullName }
+} catch {}
+
 $script:D = @{}
 $script:Status = New-Object System.Collections.ArrayList
 $script:Note = ''
@@ -239,13 +249,17 @@ function Convert-FileTime($v) {
     return $null
 }
 
-function Get-DirSize([string]$Path) {
+# Rozmiar folderu z limitem czasu: przy ogromnych folderach wynik jest "co najmniej"
+function Get-DirSize([string]$Path, [int]$MaxSec = 40) {
     if (-not $Path -or -not (Test-Path -LiteralPath $Path)) { return $null }
     $total = [int64]0
     $count = 0
+    $cut = $false
+    $sw = [Diagnostics.Stopwatch]::StartNew()
     $stack = New-Object System.Collections.Stack
     $stack.Push((New-Object IO.DirectoryInfo($Path)))
     while ($stack.Count -gt 0) {
+        if ($sw.Elapsed.TotalSeconds -gt $MaxSec) { $cut = $true; break }
         $d = $stack.Pop()
         try {
             foreach ($f in $d.EnumerateFiles()) { $total += $f.Length; $count++ }
@@ -254,7 +268,7 @@ function Get-DirSize([string]$Path) {
             }
         } catch {}
     }
-    return [pscustomobject]@{ bajty = $total; pliki = $count }
+    return [pscustomobject]@{ bajty = $total; pliki = $count; niepelne = $cut }
 }
 
 function Format-Size($b) {
@@ -1096,6 +1110,22 @@ if ($PobierzIOC) {
     }
 }
 
+Invoke-Test 'zapora' 'Zapora systemu Windows i reguły przychodzące' {
+    $prof = @(Get-NetFirewallProfile -ErrorAction Stop | ForEach-Object { [pscustomobject]@{ profil = $_.Name; wlaczona = [string]$_.Enabled; przychodzace = [string]$_.DefaultInboundAction } })
+    $rules = @{}
+    foreach ($r in @(Get-NetFirewallRule -Direction Inbound -Enabled True -Action Allow)) { if ($r) { $rules[$r.InstanceID] = $r } }
+    $list = New-Object System.Collections.ArrayList
+    foreach ($af in @(Get-NetFirewallApplicationFilter -All)) {
+        if (-not $af -or -not $rules.ContainsKey($af.InstanceID)) { continue }
+        $prog = [string]$af.Program
+        if (-not $prog -or $prog -eq 'Any' -or $prog -eq 'System') { continue }
+        $r = $rules[$af.InstanceID]
+        $pth = [Environment]::ExpandEnvironmentVariables($prog)
+        [void]$list.Add([pscustomobject]@{ regula = $r.DisplayName; grupa = $r.DisplayGroup; profil = [string]$r.Profile; program = $pth; klasa = (Get-PathClass $pth) })
+    }
+    Save-Raw 'zapora' ([pscustomobject]@{ profile = $prof; reguly = @($list) })
+}
+
 Invoke-Test 'podpisy' 'Podpisy cyfrowe plików z autostartu, usług, zadań i procesów' {
     $paths = @{}
     $add = { param($p) if ($p -and -not $paths.ContainsKey($p.ToLowerInvariant())) { $paths[$p.ToLowerInvariant()] = $p } }
@@ -1108,6 +1138,7 @@ Invoke-Test 'podpisy' 'Podpisy cyfrowe plików z autostartu, usług, zadań i pr
     }
     foreach ($p in @($script:D['procesy'])) { if ($p) { & $add $p.plik } }
     foreach ($c in @($script:D['kamera_mikrofon'])) { if ($c -and $c.sciezka) { & $add $c.sciezka } }
+    if ($script:D['zapora']) { foreach ($r in @($script:D['zapora'].reguly)) { if ($r -and $r.klasa -eq 'ryzykowna') { & $add $r.program } } }
     $res = New-Object System.Collections.ArrayList
     foreach ($p in $paths.Values) { $s = Get-Sig $p; if ($s) { [void]$res.Add($s) } }
     Save-Raw 'podpisy' @($res)
@@ -1151,7 +1182,11 @@ Invoke-Test 'wydajnosc' 'Dysk, wolne miejsce i obciążenie (tylko pomiar)' {
     $sizes = @()
     foreach ($f in $folders) {
         $s = Get-DirSize $f.p
-        if ($s) { $sizes += [pscustomobject]@{ nazwa = $f.n; sciezka = $f.p; bajty = $s.bajty; rozmiar = (Format-Size $s.bajty); pliki = $s.pliki } }
+        if ($s) {
+            $rz = Format-Size $s.bajty
+            if ($s.niepelne) { $rz = 'co najmniej ' + $rz; Add-Note ('liczenie przerwane po 40 s: ' + $f.n) }
+            $sizes += [pscustomobject]@{ nazwa = $f.n; sciezka = $f.p; bajty = $s.bajty; rozmiar = $rz; pliki = $s.pliki }
+        }
     }
     $thumb = @(Get-ChildItem -LiteralPath (Join-Path $env:LOCALAPPDATA 'Microsoft\Windows\Explorer') -Filter 'thumbcache_*.db' -File -Force)
     $tb = [int64]0
@@ -1168,9 +1203,26 @@ Invoke-Test 'wydajnosc' 'Dysk, wolne miejsce i obciążenie (tylko pomiar)' {
     $topRam = @(Get-Process | Sort-Object WorkingSet64 -Descending | Select-Object -First 10 | ForEach-Object { [pscustomobject]@{ proces = $_.ProcessName; cpu_s = [math]::Round($_.CPU, 0); ram_mb = [math]::Round($_.WorkingSet64 / 1MB, 0) } })
     $os = Get-CimInstance Win32_OperatingSystem
     $lastHf = Get-HotFix | Where-Object { $_.InstalledOn } | Sort-Object InstalledOn -Descending | Select-Object -First 1
+    # Czas startu systemu i programy, które go spowalniają (dziennik Diagnostics-Performance)
+    $boot = @(); $slow = @()
+    if ($script:IsAdmin) {
+        $perfLog = 'Microsoft-Windows-Diagnostics-Performance/Operational'
+        $boot = @(Get-Events @{ LogName = $perfLog; Id = 100 } $null $null 5 | ForEach-Object {
+                $h = Get-EvData $_
+                [pscustomobject]@{ czas = (Format-Date $_.TimeCreated); start_s = [math]::Round([double]$h['BootTime'] / 1000, 0); po_zalogowaniu_s = [math]::Round([double]$h['BootPostBootTime'] / 1000, 0) }
+            })
+        $slow = @(Get-Events @{ LogName = $perfLog; Id = 101; StartTime = $script:Since } $null $null 200 | ForEach-Object {
+                $h = Get-EvData $_
+                $nm = $h['FriendlyName']
+                if (-not $nm) { $nm = $h['Name'] }
+                [pscustomobject]@{ program = $nm; plik = $h['FileName']; opoznienie_s = [math]::Round([double]$h['DegradationTime'] / 1000, 1) }
+            } | Sort-Object opoznienie_s -Descending | Select-Object -First 8)
+    } else {
+        Add-Note 'czas startu systemu wymaga admina'
+    }
     Save-Raw 'wydajnosc' ([pscustomobject]@{
         dyski = $disks; dyski_fizyczne = $phys; smart = $smart; niezawodnosc = $rel; foldery = $sizes
-        top_cpu = $topCpu; top_ram = $topRam
+        top_cpu = $topCpu; top_ram = $topRam; start_systemu = $boot; spowalniajace_start = $slow
         ram_wolne_gb = [math]::Round($os.FreePhysicalMemory / 1MB, 1); ram_razem_gb = [math]::Round($os.TotalVisibleMemorySize / 1MB, 1)
         ostatnia_aktualizacja = $(if ($lastHf) { Format-Date $lastHf.InstalledOn } else { $null })
         ostatnia_aktualizacja_kb = $(if ($lastHf) { $lastHf.HotFixID } else { $null })
@@ -1202,6 +1254,31 @@ function Add-Finding {
     foreach ($t in @($Tabela)) { if ($t) { $tb += [string]$t } }
     [void]$script:F.Add([pscustomobject]@{ kat = $Kat; obszar = $Obszar; co = $Co; gdzie = $Gdzie; dowod = $dw; dlaczego = $Dlaczego; dalej = $Dalej; pytanie = $Pytanie; tabela = $tb })
     $script:Obszary[$Obszar] = 1 + [int]$script:Obszary[$Obszar]
+}
+
+# Elementy obecne teraz, których nie było w poprzednim audycie (porównanie po kluczu).
+# Brak pliku z poprzedniego audytu = nie porównujemy. Pusta lista to poprawny stan,
+# chyba że -SkipIfEmpty (np. programy: pusta lista oznacza nieudany test).
+function Get-NewItems([string]$Name, [scriptblock]$Key, [scriptblock]$Show, [scriptblock]$Filter, [switch]$SkipIfEmpty) {
+    $res = @()
+    if (-not $script:PrevDir) { return $res }
+    $p = Join-Path $script:PrevDir ('raw\' + $Name + '.json')
+    if (-not (Test-Path -LiteralPath $p)) { return $res }
+    $prev = $null
+    try { $prev = [IO.File]::ReadAllText($p) | ConvertFrom-Json } catch { return $res }
+    $prevList = @($prev | Where-Object { $_ })
+    $Current = @($script:D[$Name] | Where-Object { $_ })
+    if ($Filter) {
+        $prevList = @($prevList | Where-Object $Filter)
+        $Current = @($Current | Where-Object $Filter)
+    }
+    if ($SkipIfEmpty -and $prevList.Count -eq 0) { return $res }
+    $old = @{}
+    foreach ($x in $prevList) { $old[[string](& $Key $x)] = 1 }
+    foreach ($x in $Current) {
+        if (-not $old.ContainsKey([string](& $Key $x))) { $res += [string](& $Show $x) }
+    }
+    return $res
 }
 
 function Add-Clean([string]$Obszar, [string]$Tekst) {
@@ -1717,6 +1794,44 @@ try {
         Add-Clean 'zdalny' ('Zdalny dostęp systemowy: RDP, SSH, WinRM i Rejestr zdalny wyłączone. Pomoc zdalna: ' + $ra + '.')
     }
 
+    # ---------- zapora
+    $fw = $script:D['zapora']
+    if ($fw) {
+        $off = @(@($fw.profile) | Where-Object { $_ -and $_.wlaczona -eq 'False' } | ForEach-Object { $_.profil })
+        if ($off.Count -gt 0) {
+            Add-Finding 'DO_WYJASNIENIA' 'zapora' ('Zapora Windows wyłączona dla profilu: ' + ($off -join ', ')) 'Zabezpieczenia Windows > Zapora i ochrona sieci' $null 'Bez zapory każdy program może przyjmować połączenia z sieci. Czasem wyłącza ją inny antywirus (wtedy to normalne), czasem malware.' 'Jeśli nie masz innej zapory, włączymy ją z powrotem.' 'Czy masz antywirusa z własną zaporą albo sam ją wyłączałeś?' $null $null
+        }
+        foreach ($r in @(@($fw.reguly) | Where-Object { $_ })) {
+            Test-Wzorce ($r.regula + ' ' + $r.program) 'reguła zapory' ('{0}: {1}' -f $r.regula, $r.program) $r.program
+            if ($r.klasa -ne 'ryzykowna') { continue }
+            $sig = & $sigOf $r.program
+            if ($sig -and $sig.status -ne 'Valid' -and $sig.status -ne 'BrakPliku') {
+                Add-Finding 'PODEJRZANE' 'zapora' ('Zapora wpuszcza połączenia do niepodpisanego programu: ' + $r.regula) 'Zapora Windows > reguły przychodzące' @(('program: ' + (Describe-File $r.program)), ('profil: {0}; grupa: {1}' -f $r.profil, $r.grupa)) 'Program z nietypowego miejsca, bez podpisu, ma otwartą furtkę w zaporze. Trojany zdalnego dostępu dodają sobie takie reguły, żeby dało się z nimi połączyć.' 'Sprawdzimy program. Jeśli jest obcy, wyłączymy regułę (da się ją włączyć z powrotem).' 'Czy znasz ten program?' $null $r.program
+            }
+        }
+        Add-Clean 'zapora' ('Zapora: włączona, {0} reguł przychodzących dla programów, żadna nie wpuszcza niepodpisanych plików z nietypowych miejsc.' -f @($fw.reguly).Count)
+    }
+
+    # ---------- porównanie z poprzednim audytem (ten sam tryb: zwykły albo admin)
+    if ($script:PrevDir) {
+        $prevName = Split-Path -Leaf $script:PrevDir
+        $zm = @()
+        $zm += @(Get-NewItems 'autostart' { param($o) '{0}|{1}' -f $o.nazwa, $o.polecenie } { param($o) 'autostart: {0} = {1}' -f $o.nazwa, $o.polecenie })
+        $zm += @(Get-NewItems 'uslugi' { param($o) '{0}|{1}' -f $o.nazwa, $o.plik } { param($o) 'usługa: {0} ({1})' -f $o.wyswietlana, $o.plik } $null -SkipIfEmpty)
+        $zm += @(Get-NewItems 'zadania' { param($o) $o.sciezka + $o.nazwa } { param($o) 'zadanie: {0}{1}' -f $o.sciezka, $o.nazwa } $null -SkipIfEmpty)
+        $zm += @(Get-NewItems 'programy' { param($o) '{0}|{1}' -f $o.nazwa, $o.wydawca } { param($o) 'program: {0} ({1})' -f $o.nazwa, $o.wydawca } $null -SkipIfEmpty)
+        $zm += @(Get-NewItems 'rozszerzenia' { param($o) '{0}|{1}' -f $o.przegladarka, $o.id } { param($o) 'rozszerzenie {0}: {1}' -f $o.przegladarka, $o.nazwa })
+        $zm += @(Get-NewItems 'certyfikaty' { param($o) $o.odcisk } { param($o) 'certyfikat główny: {0}' -f $o.podmiot } $null -SkipIfEmpty)
+        $zm += @(Get-NewItems 'administratorzy' { param($o) $o.nazwa } { param($o) 'administrator: {0}' -f $o.nazwa } $null -SkipIfEmpty)
+        $zm += @(Get-NewItems 'konta' { param($o) $o.nazwa } { param($o) 'aktywne konto: {0}' -f $o.nazwa } { $_.wlaczone } -SkipIfEmpty)
+        $zm = @($zm | Where-Object { $_ })
+        if ($zm.Count -gt 0) {
+            Add-Finding 'DO_WYJASNIENIA' 'zmiany' ('Co doszło od poprzedniego audytu ({0}): {1} pozycji' -f $prevName, $zm.Count) $script:PrevDir $null 'Lista nowych wpisów w autostarcie, usługach, zadaniach, programach, rozszerzeniach, certyfikatach i kontach. Po aktualizacjach zawsze coś dochodzi, ale jeśli po sprzątaniu wróciło coś usuniętego, zobaczysz to właśnie tutaj.' 'Przejrzyj listę. Jeśli coś jest obce albo wróciło po usunięciu, daj znać.' 'Czy wszystkie te nowości to Twoje instalacje lub aktualizacje?' ($zm | Select-Object -First 60) $null
+        } else {
+            [void]$script:Clean.Add(('Od poprzedniego audytu ({0}) nic nowego nie doszło w autostarcie, usługach, zadaniach, programach, rozszerzeniach, certyfikatach ani kontach.' -f $prevName))
+        }
+    }
+
     # ---------- Defender
     $df = $script:D['defender']
     if ($df) {
@@ -2000,6 +2115,14 @@ if ($wy) {
     foreach ($o in $orph) { $perf += ('    Martwy wpis autostartu (plik nie istnieje): {0} = {1}' -f $o.nazwa, $o.polecenie) }
     $perf += ('Najbardziej obciążające procesy (czas procesora od startu): ' + ((@($wy.top_cpu) | Select-Object -First 5 | ForEach-Object { ('{0} {1} s / {2} MB' -f $_.proces, $_.cpu_s, $_.ram_mb) }) -join ', '))
     $perf += ('Najwięcej pamięci: ' + ((@($wy.top_ram) | Select-Object -First 5 | ForEach-Object { ('{0} {1} MB' -f $_.proces, $_.ram_mb) }) -join ', '))
+    $bt = @($wy.start_systemu | Where-Object { $_ -and $_.start_s -gt 0 })
+    if ($bt.Count -gt 0) {
+        $avg = [math]::Round((($bt | Measure-Object start_s -Average).Average), 0)
+        $uw = ''
+        if ($avg -gt 90) { $uw = ' To długo: winne są zwykle programy w autostarcie albo wolny dysk.' }
+        $perf += ('Start systemu (ostatnie {0} uruchomienia): średnio {1} s do pulpitu.{2}' -f $bt.Count, $avg, $uw)
+    }
+    foreach ($s in @($wy.spowalniajace_start | Where-Object { $_ -and $_.opoznienie_s -gt 0 })) { $perf += ('    Spowalnia start o {0} s: {1} ({2})' -f $s.opoznienie_s, $s.program, $s.plik) }
     $perf += 'Naprawy systemu (sfc /scannow, DISM, chkdsk) i sprzątanie zrobimy po sekcji usuwania zagrożeń, każdą po pokazaniu, co zrobi. Nie używamy "czyścicieli rejestru".'
 }
 
@@ -2010,6 +2133,15 @@ if (-not $iocUsed) { $notChecked += 'Porównanie z publiczną listą domen stalk
 $notChecked += 'Historia przeglądarki: celowo nie przeglądana (zbyt głęboka ingerencja jak na ten audyt).'
 $notChecked += 'Sam telefon: komputer pokazuje tylko kanały dostępu. Telefon sprawdzimy osobno, jeśli zechcesz i go podłączysz.'
 if ($sys -and $sys.uzytkownik_pulpitu -and $sys.uzytkownik -and ($sys.uzytkownik_pulpitu -ne $sys.uzytkownik)) { $notChecked += ('Uwaga: audyt działał jako {0}, a zalogowany jest {1}. Ustawienia kamery, rozszerzenia i autostart użytkownika dotyczą konta {0}.' -f $sys.uzytkownik, $sys.uzytkownik_pulpitu) }
+
+# Najważniejsze teraz: maksymalnie 3 konkretne kroki na górze raportu
+$top = @()
+foreach ($f in @($script:F | Where-Object { $_.kat -eq 'POTWIERDZONE' } | Select-Object -First 2)) { $top += ('Zabezpiecz dowody i zmień hasła z innego urządzenia, dopiero potem usuwamy: ' + $f.co) }
+foreach ($f in @($script:F | Where-Object { $_.kat -eq 'PODEJRZANE' })) { if ($top.Count -ge 3) { break }; $top += ('Obejrzyjmy razem: ' + $f.co) }
+foreach ($p in $phoneActive) { if ($top.Count -ge 3) { break }; $top += ('Telefon: {0} ({1}). Upewnij się, że to Twoje.' -f $p.kanal, $p.stan) }
+if ($top.Count -lt 3 -and $nW -gt 0) { $top += ('Odpowiedz na {0} pytania z sekcji DO WYJAŚNIENIA.' -f $nW) }
+if ($top.Count -lt 3 -and -not $script:IsAdmin) { $top += 'Uruchom pełny audyt jako administrator (uruchom-audyt-admin.bat).' }
+if ($top.Count -eq 0) { $top += 'Nic pilnego. Uruchom audyt ponownie za kilka tygodni: raport pokaże, co doszło od dziś.' }
 
 # ---------- Markdown
 function Format-MdText([string]$t) { if (-not $t) { return '' }; return ($t -replace '`', "'") }
@@ -2026,6 +2158,13 @@ if ($sys) { $sysLine = ('{0} ({1}, kompilacja {2}), konto: {3}, administrator: {
 [void]$md.AppendLine($werdykt)
 [void]$md.AppendLine('')
 [void]$md.AppendLine(('**Poziom pewności:** {0}' -f $pew))
+[void]$md.AppendLine('')
+[void]$md.AppendLine(('**POTWIERDZONE: {0} | PODEJRZANE: {1} | DO WYJAŚNIENIA: {2}**' -f $nP, $nS, $nW))
+[void]$md.AppendLine('')
+[void]$md.AppendLine('**Najważniejsze teraz:**')
+[void]$md.AppendLine('')
+$i = 0
+foreach ($t in $top) { $i++; [void]$md.AppendLine(('{0}. {1}' -f $i, (Format-MdText $t))) }
 [void]$md.AppendLine('')
 
 $secs = @(
@@ -2103,13 +2242,18 @@ code{background:#f1f3f6;padding:1px 4px;border-radius:3px;font-size:.88em;word-b
 table{border-collapse:collapse;width:100%;background:#fff}td,th{border:1px solid #d9dee8;padding:6px 8px;text-align:left;vertical-align:top;font-size:.92em}
 th{background:#f1f3f6}.counts span{display:inline-block;margin-right:14px;font-weight:600}.c1{color:#c62828}.c2{color:#ef8f00}.c3{color:#1e6fd9}
 ul.tab{font-family:Consolas,monospace;font-size:.85em;background:#f7f8fa;padding:8px 8px 8px 28px;border-radius:4px}
+.top{background:#fff8e6;border:1px solid #f0d79a;border-radius:6px;padding:8px 14px;margin-top:10px}.top ol{margin:6px 0}
+@media print{body{background:#fff;max-width:none}.card,.verdict,.top{break-inside:avoid}}
 '@
 $h = New-Object System.Text.StringBuilder
 [void]$h.AppendLine('<!DOCTYPE html><html lang="pl"><head><meta charset="utf-8"><title>Audyt inwigilacji: ' + (Format-HtmlText $komp) + '</title><style>' + $css + '</style></head><body>')
 [void]$h.AppendLine('<h1>Audyt inwigilacji: ' + (Format-HtmlText $komp) + ', ' + (Format-HtmlText $dzien) + '</h1>')
 [void]$h.AppendLine('<div class="meta">' + (Format-HtmlText $sysLine) + '. Raport automatyczny, surowe dane w folderze raw.</div>')
 [void]$h.AppendLine('<h2>Werdykt</h2><div class="verdict"><p>' + (Format-HtmlText $werdykt) + '</p><p><b>Poziom pewności:</b> ' + (Format-HtmlText $pew) + '</p>')
-[void]$h.AppendLine(('<div class="counts"><span class="c1">POTWIERDZONE: {0}</span><span class="c2">PODEJRZANE: {1}</span><span class="c3">DO WYJAŚNIENIA: {2}</span></div></div>' -f $nP, $nS, $nW))
+[void]$h.AppendLine(('<div class="counts"><span class="c1">POTWIERDZONE: {0}</span><span class="c2">PODEJRZANE: {1}</span><span class="c3">DO WYJAŚNIENIA: {2}</span></div>' -f $nP, $nS, $nW))
+[void]$h.AppendLine('<div class="top"><b>Najważniejsze teraz:</b><ol>')
+foreach ($t in $top) { [void]$h.AppendLine('<li>' + (Format-HtmlText $t) + '</li>') }
+[void]$h.AppendLine('</ol></div></div>')
 foreach ($sec in $secs) {
     [void]$h.AppendLine('<h2>' + (Format-HtmlText $sec.t) + '</h2>')
     $items = @($script:F | Where-Object { $_.kat -eq $sec.k })
@@ -2154,6 +2298,24 @@ foreach ($c in $script:Clean) { [void]$h.AppendLine('<li>' + (Format-HtmlText $c
 $htmlPath = Join-Path $script:OutDir 'raport.html'
 [IO.File]::WriteAllText($htmlPath, $h.ToString(), $script:Utf8)
 
+# Paczka dowodów: sumy SHA256 każdego pliku i jedno archiwum, które łatwo skopiować na pendrive.
+# Suma samego archiwum pozwala później wykazać, że nikt nic w nim nie zmienił.
+$zipPath = Join-Path $script:OutDir 'dowody.zip'
+$zipHash = ''
+try {
+    $manifest = Join-Path $script:OutDir 'dowody-sha256.txt'
+    $lines = @(('# Audyt {0}, {1}, wygenerowano {2}' -f $komp, $script:UserName, $dzien))
+    foreach ($f in Get-ChildItem -LiteralPath $script:OutDir -Recurse -File | Where-Object { $_.FullName -ne $manifest -and $_.Extension -ne '.zip' }) {
+        $lines += ('{0}  {1}' -f (Get-Sha256 $f.FullName), $f.FullName.Substring($script:OutDir.Length + 1))
+    }
+    [IO.File]::WriteAllLines($manifest, $lines, $script:Utf8)
+    Compress-Archive -Path $script:RawDir, $mdPath, $htmlPath, $manifest -DestinationPath $zipPath -Force -ErrorAction Stop
+    $zipHash = Get-Sha256 $zipPath
+    [IO.File]::WriteAllText(($zipPath + '.sha256'), ('{0}  dowody.zip' -f $zipHash), $script:Utf8)
+} catch {
+    Write-Host ('Nie udało się spakować dowodów: {0}' -f $_.Exception.Message) -ForegroundColor Yellow
+}
+
 # ============================================================ podsumowanie
 
 Write-Host ''
@@ -2162,9 +2324,20 @@ Write-Host ('  POTWIERDZONE:   {0}' -f $nP) -ForegroundColor $(if ($nP -gt 0) { 
 Write-Host ('  PODEJRZANE:     {0}' -f $nS) -ForegroundColor $(if ($nS -gt 0) { 'Yellow' } else { 'Green' })
 Write-Host ('  DO WYJAŚNIENIA: {0}' -f $nW)
 Write-Host ('  Pominięte testy: {0}' -f $skipped.Count)
+foreach ($f in @($script:F | Where-Object { $_.kat -eq 'POTWIERDZONE' -or $_.kat -eq 'PODEJRZANE' } | Select-Object -First 8)) {
+    $kol = 'Yellow'
+    if ($f.kat -eq 'POTWIERDZONE') { $kol = 'Red' }
+    Write-Host ('    [{0}] {1}' -f $f.kat, $f.co) -ForegroundColor $kol
+}
+Write-Host ''
+Write-Host 'Najważniejsze teraz:' -ForegroundColor Cyan
+$i = 0
+foreach ($t in $top) { $i++; Write-Host ('  {0}. {1}' -f $i, $t) }
 Write-Host ''
 Write-Host ('Raport: {0}' -f $htmlPath)
 Write-Host ('        {0}' -f $mdPath)
 Write-Host ('Surowe dane (dowody): {0}' -f $script:RawDir)
+if ($zipHash) { Write-Host ('Paczka dowodów: {0} (SHA256 {1})' -f $zipPath, $zipHash) }
+if ($script:PrevDir) { Write-Host ('Porównano z poprzednim audytem: {0}' -f $script:PrevDir) }
 if (-not $script:IsAdmin) { Write-Host 'Następny krok: uruchom uruchom-audyt-admin.bat, żeby zrobić pełny audyt.' -ForegroundColor Yellow }
 if (-not $NieOtwieraj) { try { Invoke-Item -LiteralPath $htmlPath } catch {} }
