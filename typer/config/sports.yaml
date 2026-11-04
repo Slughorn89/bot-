@@ -1,0 +1,51 @@
+# Sporty i ligi. Zasada skilla: jeden sport od poczatku do konca, dopiero potem kolejny.
+# Klucz ligi = kod football-data.co.uk (wspolny dla adapterow).
+football:
+  timezone: Europe/Warsaw
+  markets: ["1X2", "OU2.5", "BTTS"]
+  leagues:
+    E0:
+      name: Premier League
+      country: ENG
+      odds_api: soccer_epl
+      fduk: {kind: main, code: E0}
+      odds_timing: prematch      # kursy Bet365 z football-data: zbierane w piatek/wtorek przed meczem
+      has_shots: true
+    D1:
+      name: Bundesliga
+      country: GER
+      odds_api: soccer_germany_bundesliga
+      fduk: {kind: main, code: D1}
+      odds_timing: prematch
+      has_shots: true
+    I1:
+      name: Serie A
+      country: ITA
+      odds_api: soccer_italy_serie_a
+      fduk: {kind: main, code: I1}
+      odds_timing: prematch
+      has_shots: true
+    SP1:
+      name: La Liga
+      country: ESP
+      odds_api: soccer_spain_la_liga
+      fduk: {kind: main, code: SP1}
+      odds_timing: prematch
+      has_shots: true
+    F1:
+      name: Ligue 1
+      country: FRA
+      odds_api: soccer_france_ligue_one
+      fduk: {kind: main, code: F1}
+      odds_timing: prematch
+      has_shots: true
+    POL:
+      name: Ekstraklasa
+      country: POL
+      odds_api: soccer_poland_ekstraklasa
+      fduk: {kind: new, code: POL}
+      # W kopii z GitHuba nie wiadomo, czy kursy dla POL sa sprzed meczu, czy zamkniecia.
+      # Dlatego uzywamy ich tylko jako benchmarku rynku, nigdy jako kursu "wzietego".
+      odds_timing: unknown
+      has_shots: false
+      fix_dates: swap_day_month   # blad w kopii xgabora, patrz typer/ingest/xgabora.py

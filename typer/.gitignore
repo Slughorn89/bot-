@@ -1,0 +1,12 @@
+.venv/
+raw/
+data/
+live/
+backtest/preds_*.csv
+backtest/*.pkl
+backtest/*.log
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+logs/

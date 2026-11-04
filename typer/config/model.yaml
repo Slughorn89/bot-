@@ -1,0 +1,24 @@
+# Model produkcyjny (champion). Parametry ocen online ze strojenia na walidacji 2018-07..2025-06
+# (python cli.py tune), J = 1.67541 (start 1.68354). Szczegoly: experiments.md.
+version: op-v1
+layers: online+blend+cal    # zestaw warstw z pipeline/backtest.py LAYER_SETS (wybor: experiments.md, wpisy 4-9)
+value_threshold: 0.05       # minimalna przewaga p*kurs-1
+kelly_fraction: 0.25
+tax_rate: 0.0               # w Polsce u legalnego bukmachera: 0.12
+bet_markets: ["1X2", "OU2.5"]
+online_poisson:
+  lr_team: 0.014336
+  lr_home: 0.0026667
+  lr_mu: 0.00059259
+  w_xg: 0.2
+  season_regress: 0.0
+  promoted_atk: -0.18
+  promoted_obr: -0.21
+  new_team_boost: 1.0
+  new_team_tau: 8.0
+  red_card_weight: 1.0
+  rho: -0.09
+  init_mu: 0.15
+  init_home: 0.25
+  xg_sot: 0.27
+  xg_off: 0.006

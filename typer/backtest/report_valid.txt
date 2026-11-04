@@ -1,0 +1,81 @@
+# Raport typera  2018-07-20 .. 2025-05-25
+
+WERDYKT: GOTOWY tylko do typowania (brak dowodu przewagi nad rynkiem)
+
+## Bramki
+[OK] proba: 43137 zdarzen (min 300)
+[OK] spojnosc_prawdopodobienstw: 0 rynkow, w ktorych p_model nie sumuje sie do 1 (+-0.02) = blad modelu
+[OK] kalibracja: ECE 0.0059 (max 0.03)
+[OK] lepszy_od_baseline: log loss model - baseline = -0.0373
+[UWAGA] ocena_wartosci: brak zakladow z kursem zamkniecia: model mozna oceniac jako predyktor, ale nie wiadomo, czy daje przewage nad bukmacherem
+[UWAGA] proba_zakladow: 10 zakladow (min 300)
+
+## Metryki ogolne
+zdarzenia 43137 | log loss model 0.7798 | baseline 0.8170 | Brier 0.5189 | ECE 0.0059
+zaklady 10 | ROI +50.00% CI90 [-100.00%, +350.00%]
+
+## Kalibracja (koszyki prawdopodobienstwa)
+    bin     n  p_sr  czestosc  roznica
+0.0-0.1  1580 0.073     0.082    0.009
+0.1-0.2  6447 0.157     0.154   -0.003
+0.2-0.3 16100 0.257     0.261    0.004
+0.3-0.4 12283 0.350     0.343   -0.006
+0.4-0.5 28439 0.458     0.451   -0.006
+0.5-0.6 26976 0.541     0.548    0.006
+0.6-0.7  6356 0.638     0.646    0.008
+0.7-0.8  1841 0.741     0.734   -0.007
+0.8-0.9   576 0.839     0.806   -0.033
+0.9-1.0    55 0.914     0.945    0.032
+
+## Segmenty (sport, league, market), najgorsze na gorze
+   sport league market    n  ll_model    ece  slaby  n_bets  roi
+football    POL    1X2 1847    1.0470 0.0133  False     NaN  NaN
+football     F1    1X2 2410    0.9918 0.0065  False     2.0  6.5
+football     D1    1X2 2142    0.9775 0.0148  False     3.0 -1.0
+football    SP1    1X2 2660    0.9772 0.0081  False     NaN  NaN
+football     I1    1X2 2660    0.9588 0.0078  False     2.0 -1.0
+football     E0    1X2 2660    0.9500 0.0103  False     3.0 -1.0
+football    POL   BTTS 1847    0.6922 0.0213  False     NaN  NaN
+football     F1   BTTS 2410    0.6908 0.0092  False     NaN  NaN
+football    SP1   BTTS 2660    0.6880 0.0035  False     NaN  NaN
+football     E0   BTTS 2660    0.6872 0.0058  False     NaN  NaN
+football    POL  OU2.5 1847    0.6866 0.0106  False     NaN  NaN
+football     I1   BTTS 2660    0.6859 0.0227  False     NaN  NaN
+football     I1  OU2.5 2660    0.6786 0.0226  False     NaN  NaN
+football     F1  OU2.5 2410    0.6752 0.0097  False     NaN  NaN
+football     E0  OU2.5 2660    0.6740 0.0098  False     NaN  NaN
+football     D1   BTTS 2142    0.6728 0.0311  False     NaN  NaN
+football    SP1  OU2.5 2660    0.6716 0.0083  False     NaN  NaN
+football     D1  OU2.5 2142    0.6513 0.0190  False     NaN  NaN
+
+## Systematyczne odchylenia per selekcja (|odchylenie| > 2.5 SE)
+   sport league market selection    n  p_sr  czestosc  odchylenie_pp
+football     D1   BTTS        no 2142 0.439     0.405            3.4
+football     D1   BTTS       yes 2142 0.561     0.595           -3.4
+football     I1   BTTS        no 2660 0.475     0.447            2.8
+football     I1   BTTS       yes 2660 0.525     0.553           -2.8
+football     I1    1X2         1 2660 0.436     0.413            2.3
+football     I1    1X2         X 2660 0.245     0.266           -2.1
+
+## Dryf (CUSUM na nadwyzce log loss)
+football/D1/BTTS: 2 alarm(y), pierwszy 2022-09-30, ostatni 2023-03-04
+football/D1/OU2.5: 2 alarm(y), pierwszy 2022-04-09, ostatni 2022-09-18
+football/E0/1X2: 7 alarm(y), pierwszy 2019-11-30, ostatni 2024-12-22
+football/E0/BTTS: 2 alarm(y), pierwszy 2022-10-30, ostatni 2025-03-09
+football/E0/OU2.5: 2 alarm(y), pierwszy 2021-02-14, ostatni 2025-05-25
+football/I1/1X2: 4 alarm(y), pierwszy 2020-02-01, ostatni 2024-08-17
+football/I1/OU2.5: 1 alarm(y), pierwszy 2020-11-22
+football/POL/BTTS: 1 alarm(y), pierwszy 2020-02-15
+
+## 10 najwiekszych pomylek (do dziennika bledow)
+      date                                event_id market league  ll_model
+2024-01-21 D1-20240121-bayern-munich-werder-bremen    1X2     D1     3.380
+2019-10-05    D1-20191005-bayern-munich-hoffenheim    1X2     D1     3.375
+2019-10-06             E0-20191006-man-city-wolves    1X2     E0     3.286
+2018-12-22     E0-20181222-man-city-crystal-palace    1X2     E0     3.241
+2018-10-20        SP1-20181020-real-madrid-levante    1X2    SP1     3.154
+2025-03-08        D1-20250308-bayern-munich-bochum    1X2     D1     3.129
+2024-12-15          SP1-20241215-barcelona-leganes    1X2    SP1     3.126
+2022-11-12          E0-20221112-man-city-brentford    1X2     E0     3.119
+2021-10-30     E0-20211030-man-city-crystal-palace    1X2     E0     3.093
+2020-07-16          SP1-20200716-barcelona-osasuna    1X2    SP1     3.060

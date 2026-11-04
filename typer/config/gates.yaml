@@ -1,0 +1,15 @@
+# Bramki jakosci (wartosci = domyslne z tools/evaluate.py) i podzial czasu backtestu.
+gates:
+  min_events: 300
+  max_ece: 0.03
+  max_gap_vs_market: 0.015
+  leak_margin: 0.03
+  min_bets: 300
+value_threshold: 0.05     # minimalna przewaga p*kurs-1 dla zakladu w backteście
+
+split:
+  data_od: "2005-07-01"        # od tej daty wczytujemy historie
+  rozgrzewka_do: "2018-06-30"  # oceny sie ucza, warstwy ML i kalibracja maja dane treningowe
+  walidacja_od: "2018-07-01"   # tu stroimy i porownujemy warianty
+  walidacja_do: "2025-06-30"
+  holdout_od: "2025-07-01"     # ostatni pelny sezon + poczatek 2026/27, dotykany RAZ

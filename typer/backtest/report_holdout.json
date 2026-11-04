@@ -1,0 +1,256 @@
+{
+  "gotowy": true,
+  "gotowy_do_gry": false,
+  "werdykt": "GOTOWY tylko do typowania (brak dowodu przewagi nad rynkiem)",
+  "bramki": [
+    {
+      "bramka": "proba",
+      "wynik": "OK",
+      "info": "5553 zdarzen (min 300)",
+      "twarda": true
+    },
+    {
+      "bramka": "spojnosc_prawdopodobienstw",
+      "wynik": "OK",
+      "info": "0 rynkow, w ktorych p_model nie sumuje sie do 1 (+-0.02) = blad modelu",
+      "twarda": true
+    },
+    {
+      "bramka": "kalibracja",
+      "wynik": "OK",
+      "info": "ECE 0.0040 (max 0.03)",
+      "twarda": true
+    },
+    {
+      "bramka": "lepszy_od_baseline",
+      "wynik": "OK",
+      "info": "log loss model - baseline = -0.0359",
+      "twarda": true
+    },
+    {
+      "bramka": "ocena_wartosci",
+      "wynik": "UWAGA",
+      "info": "brak zakladow z kursem zamkniecia: model mozna oceniac jako predyktor, ale nie wiadomo, czy daje przewage nad bukmacherem",
+      "twarda": false
+    }
+  ],
+  "zdarzenia": 5553,
+  "ll_model": 0.7790430525576885,
+  "ece": 0.004038797123970214,
+  "zaklady": {},
+  "segmenty": [
+    {
+      "sport": "football",
+      "league": "E0",
+      "market": "1X2",
+      "n": 400,
+      "ll_model": 1.018846142637104,
+      "ece": 0.03778396463055771,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "F1",
+      "market": "1X2",
+      "n": 325,
+      "ll_model": 0.9770384522181169,
+      "ece": 0.032605201028094895,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "I1",
+      "market": "1X2",
+      "n": 400,
+      "ll_model": 0.9718625098458492,
+      "ece": 0.024789686997222515,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "SP1",
+      "market": "1X2",
+      "n": 411,
+      "ll_model": 0.9578017482152253,
+      "ece": 0.018216848653764692,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "D1",
+      "market": "1X2",
+      "n": 315,
+      "ll_model": 0.9484538818795037,
+      "ece": 0.029877753306447517,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "I1",
+      "market": "OU2.5",
+      "n": 400,
+      "ll_model": 0.6974547100702321,
+      "ece": 0.028408078197437105,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "F1",
+      "market": "BTTS",
+      "n": 325,
+      "ll_model": 0.6974372545994713,
+      "ece": 0.022093820376873463,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "I1",
+      "market": "BTTS",
+      "n": 400,
+      "ll_model": 0.6918199862490862,
+      "ece": 0.00924011369065203,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "E0",
+      "market": "OU2.5",
+      "n": 400,
+      "ll_model": 0.68588497913125,
+      "ece": 0.028884112528249597,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "E0",
+      "market": "BTTS",
+      "n": 400,
+      "ll_model": 0.6844385510733063,
+      "ece": 0.01087869177043584,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "SP1",
+      "market": "BTTS",
+      "n": 411,
+      "ll_model": 0.6833424818607318,
+      "ece": 0.022322709348431016,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "SP1",
+      "market": "OU2.5",
+      "n": 411,
+      "ll_model": 0.6754351262128259,
+      "ece": 0.028964842304222308,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "F1",
+      "market": "OU2.5",
+      "n": 325,
+      "ll_model": 0.6729187050534282,
+      "ece": 0.039867429897188264,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "D1",
+      "market": "BTTS",
+      "n": 315,
+      "ll_model": 0.6723841252713227,
+      "ece": 0.02026099572331395,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "D1",
+      "market": "OU2.5",
+      "n": 315,
+      "ll_model": 0.6359430085867683,
+      "ece": 0.02925911899986929,
+      "slaby": false
+    }
+  ],
+  "odchylenia": [],
+  "dryf": {
+    "football/E0/1X2": [
+      "2026-04-18"
+    ]
+  },
+  "najwieksze_pomylki": [
+    {
+      "date": "2026-01-24",
+      "event_id": "D1-20260124-bayern-munich-augsburg",
+      "market": "1X2",
+      "league": "D1",
+      "ll_model": "3.048"
+    },
+    {
+      "date": "2025-12-14",
+      "event_id": "D1-20251214-bayern-munich-mainz",
+      "market": "1X2",
+      "league": "D1",
+      "ll_model": "2.675"
+    },
+    {
+      "date": "2026-01-04",
+      "event_id": "F1-20260104-marseille-nantes",
+      "market": "1X2",
+      "league": "F1",
+      "ll_model": "2.667"
+    },
+    {
+      "date": "2026-05-24",
+      "event_id": "I1-20260524-milan-cagliari",
+      "market": "1X2",
+      "league": "I1",
+      "ll_model": "2.564"
+    },
+    {
+      "date": "2026-03-02",
+      "event_id": "SP1-20260302-real-madrid-getafe",
+      "market": "1X2",
+      "league": "SP1",
+      "ll_model": "2.46"
+    },
+    {
+      "date": "2025-08-31",
+      "event_id": "I1-20250831-inter-udinese",
+      "market": "1X2",
+      "league": "I1",
+      "ll_model": "2.419"
+    },
+    {
+      "date": "2026-02-22",
+      "event_id": "I1-20260222-milan-parma",
+      "market": "1X2",
+      "league": "I1",
+      "ll_model": "2.412"
+    },
+    {
+      "date": "2025-12-07",
+      "event_id": "SP1-20251207-real-madrid-celta",
+      "market": "1X2",
+      "league": "SP1",
+      "ll_model": "2.408"
+    },
+    {
+      "date": "2025-10-25",
+      "event_id": "E0-20251025-chelsea-sunderland",
+      "market": "1X2",
+      "league": "E0",
+      "ll_model": "2.354"
+    },
+    {
+      "date": "2025-08-23",
+      "event_id": "I1-20250823-milan-cremonese",
+      "market": "1X2",
+      "league": "I1",
+      "ll_model": "2.346"
+    }
+  ]
+}
