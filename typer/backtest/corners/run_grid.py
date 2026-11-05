@@ -1,5 +1,6 @@
 """Strojenie modelu rożnych (wersja A, bez stanu gry) na walidacji: half-life x ridge x cechy stylu.
-Wybor po log loss rozkladu lacznego (metryka glowna). Wynik: backtest/corners/grid.json."""
+Wybor po log loss rozkladu lacznego (metryka glowna). Wynik: backtest/corners/grid.json.
+Dogrywka na krawedzi siatki: python backtest/corners/run_grid.py 365 60,100 (dopisuje do grid.json)."""
 import itertools
 import json
 import sys
@@ -12,8 +13,12 @@ from typer.pipeline.data import load_matches, split_dates  # noqa: E402
 
 sd = split_dates()
 df = load_matches(extended=True)
-out = []
-for hl, ridge, style in itertools.product([180, 365, 730], [3.0, 10.0, 30.0], [False, True]):
+if len(sys.argv) > 2:
+    hls, ridges = [float(x) for x in sys.argv[1].split(",")], [float(x) for x in sys.argv[2].split(",")]
+    out = json.load(open("backtest/corners/grid.json"))
+else:
+    hls, ridges, out = [180, 365, 730], [3.0, 10.0, 30.0], []
+for hl, ridge, style in itertools.product(hls, ridges, [False, True]):
     t = time.time()
     res = run(df, sd["walidacja_od"], sd["walidacja_do"], workers=4, half_life=hl, ridge=ridge,
               use_style=style, variants={"A": VARIANTS["A"]})
