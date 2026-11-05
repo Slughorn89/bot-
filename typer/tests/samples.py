@@ -25,6 +25,10 @@ SAMPLES: dict[str, list[dict]] = {
         dict(file=S / "odds_api.json", fetched_at="2024-08-17T13:55:00+00:00", ctx=dict(league="E0")),  # zamkniecie
         dict(file=S / "odds_api.json", fetched_at="2024-08-17T12:30:00+00:00", ctx=dict(league="E0")),  # w chwili typu
     ],
+    "oddsrelay": [
+        dict(file=S / "oddsrelay_raw.json", fetched_at="2026-10-16T12:00:00+00:00", ctx=dict(league="E0")),
+        dict(file=S / "oddsrelay_closing.json", fetched_at="2026-10-17T06:00:00+00:00", ctx=dict(league="E0")),
+    ],
     "api_football": [
         dict(file=S / "api_football_ft.json", fetched_at="2024-08-18T06:00:00+00:00", ctx={}),
         dict(file=S / "api_football_ns.json", fetched_at="2024-08-24T13:00:00+00:00", ctx={}),

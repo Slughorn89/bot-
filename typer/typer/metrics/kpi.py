@@ -15,7 +15,7 @@ import pandas as pd
 from typer.betting.devig import devig_rows
 from typer.metrics.scores import bootstrap_ci
 
-SHARP_BOOKS = {"pinnacle"}
+SHARP_BOOKS = {"pinnacle", "betfair_exchange"}   # gielda: srodek back/lay (adapter oddsrelay)
 
 
 def clv(odds_taken, close_odds: np.ndarray, sel: np.ndarray, method: str = "shin") -> np.ndarray:

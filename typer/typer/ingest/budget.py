@@ -30,13 +30,17 @@ def _ledger_path() -> Path:
     return config.ROOT / "live" / "budget.json"
 
 
+def _monthly(source: str) -> bool:
+    return source == "the_odds_api" or "budzet_miesiac" in config.sources().get(source, {})
+
+
 def _period(source: str, now: datetime) -> str:
-    return now.strftime("%Y-%m") if source == "the_odds_api" else now.strftime("%Y-%m-%d")
+    return now.strftime("%Y-%m") if _monthly(source) else now.strftime("%Y-%m-%d")
 
 
 def _limit(source: str) -> tuple[int, float]:
     s = config.sources().get(source, {})
-    lim = s.get("budzet_miesiac") if source == "the_odds_api" else s.get("budzet_dzien")
+    lim = s.get("budzet_miesiac") if _monthly(source) else s.get("budzet_dzien")
     return int(lim or (500 if source == "the_odds_api" else 100)), float(s.get("rezerwa", 0.1))
 
 
@@ -64,6 +68,9 @@ class Ledger:
         h = {k.lower(): v for k, v in (headers or {}).items()}
         if "x-requests-used" in h:  # The Odds API: naglowek = prawda
             d["used"] = int(float(h["x-requests-used"]))
+        elif "x-tokens-remaining" in h:  # OddsRelay: tokeny pozostale w okresie
+            lim, _ = _limit(source)
+            d["used"] = max(int(d.get("used", 0)) + int(cost), lim - int(float(h["x-tokens-remaining"])))
         elif "x-ratelimit-requests-remaining" in h:  # API-Football
             lim, _ = _limit(source)
             d["used"] = lim - int(float(h["x-ratelimit-requests-remaining"]))

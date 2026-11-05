@@ -53,6 +53,25 @@ the_odds_api:
     planer degraduje "typ" (najpierw bez totals). Gdy dziala fixtures.csv, Odds API trzeba tylko do zamkniec.
   dostepne_w_srodowisku: false
 
+oddsrelay:
+  opis: >-
+    Kursy UK i Irlandii (58 bukmacherow, w tym bet365) i gield (Betfair, Matchbook, Smarkets).
+    Do snapshotow "w chwili typu" (bet365, tylko zaklady papierowe: bet365 nie jest legalny w Polsce)
+    i do zamkniec gieldowych do CLV (Betfair = ostre zamkniecie tam, gdzie brak Pinnacle)
+  url: https://api.oddsrelay.io
+  klucz_env: ODDSRELAY_KEY
+  licencja: komercyjna B2B; dane licencjonowane, bez zakladow
+  limit: >-
+    tokeny: koszt zapytania zalezy od filtrow (quote=true podaje koszt za darmo); plan probny
+    50 000 tokenow na 14 dni; ETag + If-None-Match = 304 bez kosztu. Naglowki X-RateLimit-*, x-tokens-remaining
+  budzet_miesiac: 50000
+  rezerwa: 0.1
+  limit_na_minute: 20
+  region: uk
+  bukmacherzy_typ: [bet365]
+  gieldy_zamkniecie: [betfair_exchange]
+  dostepne_w_srodowisku: true    # host odpowiada; bez klucza 401
+
 api_football:
   opis: Sklady (startXI, lawka) i kontuzje/zawieszenia; najwieksza brakujaca informacja (slepa plamka nr 1)
   url: https://v3.football.api-sports.io

@@ -310,6 +310,20 @@ Wyniki (walidacja 2018/19 do 2024/25, `backtest/calibration/m6.json`, experiment
 
 `python cli.py calibrate` powtarza całość (ok. 2 minuty).
 
+### OddsRelay (kursy UK i giełdy)
+
+`typer/ingest/oddsrelay.py` i adapter `oddsrelay`:
+* kurs Bet365 w chwili typu (`/v2/odds/raw`). Bet365 nie jest legalny w Polsce, więc ten kurs służy tylko do
+  zakładów papierowych;
+* zamknięcia dnia (`/v2/historical/closing`): bukmacherzy i giełda Betfair (środek ceny „za” i „przeciw”).
+  Betfair liczy się jako ostre zamknięcie do CLV tam, gdzie nie ma Pinnacle;
+* przed każdym zapytaniem darmowa wycena (`quote=true`), a zużycie tokenów trafia do budżetu z nagłówka
+  `x-tokens-remaining`;
+* klucz `ODDSRELAY_KEY` w `.env`. Bez niego adapter zgłasza brak źródła. Region tylko `uk`, polskich bukmacherów
+  OddsRelay nie ma.
+
+`python cli.py ingest oddsrelay --param mode=closing` pobiera zamknięcia (domyślnie `mode=raw`, snapshot).
+
 ### Budżet zapytań (sekcja 5 v2)
 
 | Źródło | Limit (plan darmowy, wg skilla, listopad 2026) | Jak go pilnujemy |

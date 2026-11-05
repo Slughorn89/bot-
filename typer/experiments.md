@@ -87,3 +87,4 @@ Kursów na rożne nie mamy, więc nie ma porównania z rynkiem ani CLV. **Werdyk
 8. Kursy na rożne (legalne źródło): bez nich brak benchmarku rynkowego i CLV dla rożnych.
 9. CLV z kursu wziętego u ostrego bukmachera (Pinnacle sprzed meczu, kolumny PS* w football-data) zamiast Bet365: oddziela informację modelu od marży miękkiego bukmachera.
 10. Naprawione przy module 6: `settle.closing_odds` brał miękki kurs, gdy brakowało Pinnacle, i mieszał bukmacherów w jednym rynku. Teraz tylko ostre zamknięcie i jeden bukmacher na rynek.
+11. OddsRelay: po podłączeniu klucza sprawdzić klucze sportów (`/v2/sports`) i jakość zamknięcia Betfair względem Pinnacle (log loss na wspólnych meczach). Słaby punkt z planu, pewność 0,75.
