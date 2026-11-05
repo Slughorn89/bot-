@@ -29,7 +29,7 @@ Jeśli nie znasz katalogu, zapisz blok kodu z ostatniej części jako `/tmp/infl
 ### 1. Karta persony
 Wszystko wychodzi z karty (szablon niżej). Jeśli użytkownik ją ma, trzymaj się jej co do słowa. Jeśli nie, zbuduj ją najpierw na podstawie niszy, platform i rynku, pokaż i dopiero potem planuj. Karta to dokument do zachowania, więc dostarcz ją jako dokument albo plik.
 
-Sekcja **Kotwice** w karcie jest czytana przez narzędzie, więc trzymaj dokładnie format `- klucz: wartość; wartość`. Z niej `plan` bierze trigger, miejsca i stroje, a `check` pilnuje, żeby każdy prompt miał trigger i stałe cechy, prompt zgadzał się z sesją (miejsce i strój), emoji nie przekraczały limitu, sprzedaż nie przekraczała limitu i nie pojawiały się zakazane tematy. Opcjonalnie: `sprzedaz_max` (np. `1/6` albo `15`, w procentach) i `swiatla` (własna lista świateł do sesji). Brak triggera LoRA: pisz `TRIGGER` i powiedz, że trzeba go podmienić.
+Sekcja **Kotwice** w karcie jest czytana przez narzędzie, więc trzymaj dokładnie format `- klucz: wartość; wartość`. Z niej `plan` bierze trigger, miejsca i stroje, a `check` pilnuje, żeby każdy prompt miał trigger i stałe cechy, emoji nie przekraczały limitu i nie pojawiały się zakazane tematy. Brak triggera LoRA: pisz `TRIGGER` i powiedz, że trzeba go podmienić.
 
 ### 2. Strategia na okres
 Ustal albo przyjmij i wypisz jako **Założenia**:
@@ -45,23 +45,16 @@ python3 -I /tmp/infl/infl_tool.py plan --start 2026-11-02 --days 14 --karta kart
   --rytm "instagram:post=1,karuzela=2,reel=2,story=7;tiktok:reel=4;x:tweet=7" \
   --filary "styl/nisza:40,codzienność:25,kulisy AI:15,interakcja:10,sprzedaż:10" --out kalendarz.csv
 ```
-Dostajesz wiersze z datą, godziną (rozrzuconą o kilka minut, żeby nie wyglądało na bota), platformą, formatem, filarem (bez powtórek pod rząd), okazją, sesją zdjęciową (miejsce, strój, światło), kadrem, początkiem promptu, `id`, `proporcje` i `seed` sesji. Narzędzie samo:
-- przenosi publikacje z dni delikatnych na najbliższy zwykły dzień (zostaje jedna spokojna story, opis w `uwagi`); `--delikatne zostaw` wyłącza przenoszenie,
-- łączy miejsca i stroje w różne pary (po pierwszym przejściu przez kartę kombinacje się przesuwają); `--miejsca "a; b"` i `--stroje "x; y"` zmieniają kolejność albo zestaw na ten okres bez ruszania karty,
-- ostrzega, gdy `--start` jest przed dzisiejszą datą (`--dzis RRRR-MM-DD` nadpisuje "dziś").
+Dostajesz wiersze z datą, godziną (rozrzuconą o kilka minut, żeby nie wyglądało na bota), platformą, formatem, filarem (bez powtórek pod rząd), okazją, sesją zdjęciową (miejsce, strój, światło), kadrem i początkiem promptu. Potem uzupełniasz treść: hook, caption, hashtagi, dokończony prompt (zamień `[CZYNNOŚĆ]`, `[APARAT]`, `[NASTRÓJ]`), prompt wideo, CTA, uwagi. Szkielet możesz zmieniać: przesuń post, zmień filar, dodaj wiersz. Godziny to punkt startowy; po 2-4 tygodniach ustawiasz je według `stats`.
 
-Potem uzupełniasz treść: hook, caption, hashtagi, dokończony prompt (zamień `[CZYNNOŚĆ]`, `[APARAT]`, `[NASTRÓJ]`), prompt wideo, CTA, uwagi. Szkielet możesz zmieniać: przesuń post, zmień filar, dodaj wiersz. Godziny to punkt startowy; po 2-4 tygodniach ustawiasz je według `stats`.
-
-Kolumny w tej kolejności. Pipeline je czyta, więc żadnej nie usuwaj ani nie zmieniaj nazw; własne kolumny dopisuj na końcu:
-`data, godzina, platforma, format, filar, okazja, sesja, kadr, swiatlo, hook, caption, hashtagi, prompt_obrazu, prompt_wideo, cta, oznaczenie_ai, reklama, status, uwagi, id, proporcje, seed`
+Kolumny (13 podstawowych w tej kolejności, reszta pomocnicza):
+`data, godzina, platforma, format, filar, okazja, sesja, kadr, swiatlo, hook, caption, hashtagi, prompt_obrazu, prompt_wideo, cta, oznaczenie_ai, reklama, status, uwagi`
 
 - `data` RRRR-MM-DD, `godzina` GG:MM w strefie odbiorców (Polska: Europe/Warsaw).
 - `format`: post, karuzela, reel, story, tweet, wątek, zdjęcie (Fanvue). Jeden wiersz `story` to sekwencja dnia (3-5 klatek).
 - `reklama`: `brak` albo rodzaj i marka: `współpraca: Marka`, `afiliacja: Sklep`, `barter: Marka`, `autopromocja: ebook`. Narzędzie wtedy wymaga oznaczenia na początku opisu.
 - `status`: `pending` dla nowego. Pipeline generuje wiersze `pending`, człowiek zmienia na `approved`, po publikacji `published`.
 - `uwagi`: scenariusz reela, teksty slajdów karuzeli, info o repurpose. Narzędzie samo podpowiada, który klip z IG może iść na TikToka.
-- `id`: `persona-RRRRMMDD-NN`, unikalne. Po nim pipeline aktualizuje status, więc nie zmieniaj go po imporcie. Przy przesuwaniu wiersza id zostaje.
-- `proporcje`: 4:5 dla feedu i karuzeli, 9:16 dla stories, reelsów i TikToka. `seed`: stały dla sesji, warianty to seed+1, seed+2.
 - Gdy środowisko ma typ arkusza (Sheets), dostarcz kalendarz także jako arkusz; CSV zostaw zawsze do importu.
 
 ### 4. Sesje, prompty i produkcja
@@ -89,8 +82,6 @@ Przykład: `lnx_woman woman, half-body shot, shoulder-length copper hair, green 
 - Karuzela: kolejne slajdy w `prompt_obrazu` oddzielone ` || `.
 - Wideo (image-to-video z gotowego zdjęcia): tylko ruch i kamera, 1-2 zdania, bez zmiany wyglądu: `slow push-in, she turns toward the window and smiles, hair moves slightly, 5 s`.
 - Zapas: generuj z wyprzedzeniem 3-5 dni, nie w dniu publikacji.
-
-**Tekst wynika z sesji, nie odwrotnie.** Hook i caption opisują to, co jest na zdjęciu tego wiersza: ten strój, to miejsce, tę porę. Jeśli pomysł na hook wymaga innego stroju albo miejsca ("Trencz na 4 sposoby"), przenieś wiersz do sesji z trenczem albo zmień sesję i prompt razem, nigdy sam tekst. Dzień tygodnia w hooku ("Poniedziałek w Kazimierzu") musi się zgadzać z datą. Hook z listą ("3 swetry", "na 4 sposoby") to karuzela, slajd na pozycję, a nie pojedyncze zdjęcie. Takie rozjazdy (trencz w hooku, kurtka na zdjęciu; "poniedziałek" w sobotę; lista w jednym zdjęciu) dają najsłabsze posty, bo obietnica z pierwszej linii nie zgadza się z tym, co widać.
 
 ### 5. Teksty i formaty
 **Głos** z karty: długość zdań, emoji (które i ile), zwroty. Każdy tekst przeczytaj w myślach jej głosem; brzmi jak reklama, to przepisz.
@@ -125,10 +116,9 @@ Fakty, porady zdrowotne, finansowe i prawne persona podaje ostrożnie albo wcale
 ```bash
 python3 -I /tmp/infl/infl_tool.py check kalendarz.csv --karta karta.md
 ```
-(bez karty: `--trigger SLOWO_LORA`). Popraw wszystkie **BŁĘDY**: pusty caption, limity znaków i hashtagów, brak oznaczenia AI, brak triggera, słowa niedozwolone, reklama bez poprawnego oznaczenia, deklaracja osobistego użycia produktu w reklamie ("noszę od tygodnia", "testowałam"), powtórzone `id`, zła data. Przejrzyj **OSTRZEŻENIA**: daty z przeszłości ze statusem do publikacji, prompt niezgodny z sesją (inny strój albo miejsce), dzień tygodnia w hooku niezgodny z datą, lista w pojedynczym zdjęciu, filar sprzedażowy bez wpisu w `reklama`, złe proporcje, placeholdery w promptach, brak stałych cech, "girl", powtarzalne hooki i opisy, podobne prompty pod rząd (kolejne kadry tej samej sesji są OK), za dużo sprzedaży, sprzedaż w dzień delikatny, za dużo emoji, zakazane tematy z karty. Potem przeczytaj 3 losowe teksty: czy brzmią jak ta sama osoba i czy opisują to, co jest w prompcie?
+(bez karty: `--trigger SLOWO_LORA`). Popraw wszystkie **BŁĘDY**: limity znaków i hashtagów, brak oznaczenia AI, brak triggera, słowa niedozwolone, reklama bez poprawnego oznaczenia, zła data. Przejrzyj **OSTRZEŻENIA**: placeholdery w promptach, brak stałych cech, "girl", powtarzalne hooki i opisy, podobne prompty pod rząd, za dużo sprzedaży, sprzedaż w dzień delikatny, za dużo emoji, zakazane tematy z karty. Potem przeczytaj 3 losowe teksty: czy brzmią jak ta sama osoba?
 
 ### 7. Dostarcz
-Jeśli `check` pokazał daty z przeszłości, zacznij od tego odpowiedź: ile wierszy, od kiedy, i dwie opcje (przesunąć cały plan o tydzień albo dać tym wierszom status `draft`). Pipeline działa według statusu, więc ostrzeżenie schowane w środku odpowiedzi łatwo przeoczyć.
 1. `kalendarz-<persona>-<okres>.csv` (+ arkusz, jeśli jest typ Sheets).
 2. Karta persony jako dokument, gdy była tworzona albo zmieniana.
 3. W czacie krótko: rozkład filarów, 3 najmocniejsze hooki, okazje w okresie, co wygenerować najpierw (pierwsze 2 sesje), co włączyć na platformach (oznaczenia AI, płatne partnerstwo przy reklamie).
@@ -144,10 +134,6 @@ Miary:
 - **Udostępnienia i zapisania na 1000 zasięgu**: najlepszy znak, że treść ma wartość i pójdzie dalej.
 - **Obserwacje na 1000 zasięgu**: czy treść zamienia widzów w obserwujących.
 Porównuj z własną medianą konta, nie z cudzymi "benchmarkami". Poniżej 20 postów to wskazówki, nie reguły.
-
-Narzędzie pokazuje też typ hooka (kulisy, liczba, pytanie, POV, błąd, hack, mini historia, kontrast) i ostrzega, gdy pora pokrywa się z formatem (np. wszystkie zdjęcia szły o 18:30, a reelsy o 19:30). Wtedy nie wyciągaj wniosku o porze, tylko zaplanuj test: ten sam format i filar o dwóch porach. Dni tygodnia z mniej niż 3 postami na dzień to szum.
-
-Zanim wyciągniesz wnioski, porównaj kalendarz z tym, co wyszło naprawdę: czy hook pasuje do zdjęcia z sesji, czy dzień tygodnia w tekście zgadza się z datą, czy posty sprzedażowe mają oznaczenie reklamy w faktycznym opisie, czy któryś hook poszedł dwa razy. Takie rozjazdy często tłumaczą słaby wynik lepiej niż filar albo pora. Problemy z oznaczeniem reklamy zgłoś jako pilne, do poprawy od razu, niezależnie od nowego planu.
 
 Z wyników wyciągasz 3 decyzje na następny okres: czego więcej (filar, format, pora), czego mniej albo inaczej, jeden test (np. 3 reelsy z hookiem typu kulisy o 21:00). Nowe `--filary` i godziny wchodzą do kolejnego `plan`.
 
@@ -168,8 +154,6 @@ Automatycznych etykiet C2PA nie da się i nie należy usuwać. W UE od 2.12.2026
 - Dwa poziomy: własne oznaczenie w treści + funkcja platformy "płatne partnerstwo" / "Paid partnership" / TikTok "Branded content".
 - Dotyczy też afiliacji, barteru, paczek PR i kodów rabatowych. Na stories oznaczenie na każdej klatce z produktem.
 - Kara dla twórcy i marki: do 10% obrotu. Persona AI to nie wyjątek, a podwójna jawność: AI + reklama.
-
-**Persona AI a produkt.** Persona niczego nie nosi, nie testuje i nie kupuje, więc w reklamie nie pisze "noszę od tygodnia", "przetestowałam", "po 10 praniach dalej jak nowy". Mówi o stylizacji, wyglądzie, wyborze i zestawieniu ("tak bym to zestawiła", "3 sposoby na ten kardigan"). Wygląd produktu nie może wprowadzać w błąd: najlepiej zdjęcia od marki; jeśli generujesz produkt na personie, to z referencją zdjęcia produktu (za zgodą marki), z porównaniem koloru i faktury oraz z dopiskiem w opisie, że to wizualizacja AI.
 
 ## Okazje w Polsce (narzędzie liczy je samo, z Wielkanocą i świętami ruchomymi)
 Sprzedażowe i lekkie: Walentynki, Dzień Kobiet, Tłusty Czwartek, Prima aprilis, Majówka, Dzień Matki, Dzień Ojca, Dzień Chłopaka, Halloween, Andrzejki, Black Friday, Cyber Monday, Mikołajki, Wigilia i Święta, Sylwester, Blue Monday, pierwszy dzień wiosny i lata.
@@ -211,7 +195,6 @@ Kalendarz CSV → arkusz → n8n czyta wiersze `pending` → generowanie (ComfyU
 - stroje: [strój 1]; [strój 2]; [strój 3]
 - emoji_max: [np. 2]
 - zakazane: [temat 1]; [temat 2]
-- sprzedaz_max: [opcjonalnie, np. 1/6]
 
 ## Podstawy
 - Imię, wiek (min. 21), miasto/kraj (fikcyjne lub ogólne), język postów
@@ -242,7 +225,6 @@ Kalendarz CSV → arkusz → n8n czyta wiersze `pending` → generowanie (ComfyU
 - SFW na wszystkich kanałach, brak podobieństwa do realnych osób
 - Tematy zakazane (te same co w Kotwicach)
 - Oznaczanie AI: bio + oznaczenie platformy + tag w opisie tam, gdzie wymagany
-- Reklama: oznaczenie na początku, marka z nazwy, bez deklaracji osobistego używania produktu
 ```
 
 ## Ściąga platform (stan: październik 2026)
@@ -264,12 +246,11 @@ Kod narzędzia z kroku 0. Nie zmieniaj go przy wypakowywaniu.
 """Narzędzie do treści AI influencera.
   plan   --start RRRR-MM-DD --days N [--rytm "instagram:post=1,karuzela=2,reel=2,story=7;tiktok:reel=4;x:tweet=7"]
          [--filary "styl:40,codziennosc:25,kulisy AI:15,interakcja:10,sprzedaz:10"] [--karta karta.md] [--out plik.csv] [--seed 7]
-         [--miejsca "a; b"] [--stroje "x; y"] [--delikatne przesun|zostaw] [--persona imie] [--dzis RRRR-MM-DD]
-         -> szkielet kalendarza: daty, godziny, filary, okazje, sesje zdjęciowe, kadry, światło, id, proporcje, seed
-  check  kalendarz.csv [--karta karta.md] [--trigger SLOWO] [--dzis RRRR-MM-DD] [--json]
-         -> limity platform, oznaczenia AI i reklamy, spójność z kartą i sesją, daty, powtórki, granice treści
-  stats  wyniki.csv [--kalendarz kalendarz.csv] [--platforma instagram] [--json]
-         -> co działa: filary, formaty, typy hooków, dni, pory (z ostrzeżeniem, gdy pora = format), najlepsze i najsłabsze posty
+         -> szkielet kalendarza: daty, godziny, filary, okazje, sesje zdjęciowe, kadry, światło
+  check  kalendarz.csv [--karta karta.md] [--trigger SLOWO] [--json]
+         -> limity platform, oznaczenia AI i reklamy, spójność z kartą, powtórki, granice treści
+  stats  wyniki.csv [--kalendarz kalendarz.csv] [--json]
+         -> co działa: filary, formaty, dni, pory, najlepsze i najsłabsze posty
 Kod wyjścia check: 0 OK, 1 błędy, 2 problem z plikiem."""
 import csv, io, json, random, re, statistics, sys
 from collections import Counter, defaultdict
@@ -278,10 +259,7 @@ from datetime import date, datetime, timedelta
 CORE = ["data", "godzina", "platforma", "format", "filar", "hook", "caption", "hashtagi",
         "prompt_obrazu", "prompt_wideo", "cta", "oznaczenie_ai", "status"]
 PLAN_COLS = ["data", "godzina", "platforma", "format", "filar", "okazja", "sesja", "kadr", "swiatlo",
-             "hook", "caption", "hashtagi", "prompt_obrazu", "prompt_wideo", "cta", "oznaczenie_ai", "reklama", "status", "uwagi",
-             "id", "proporcje", "seed"]
-RATIO = {"story": "9:16 768x1344", "reel": "9:16 768x1344", "post": "4:5 896x1120", "karuzela": "4:5 896x1120", "zdjęcie": "4:5 896x1120"}
-LIVE = {"pending", "approved", "draft", "szkic", "do akceptacji", "zaakceptowany"}
+             "hook", "caption", "hashtagi", "prompt_obrazu", "prompt_wideo", "cta", "oznaczenie_ai", "reklama", "status", "uwagi"]
 LIMITS = {"instagram": (2200, 5), "tiktok": (4000, 5), "x": (280, 2), "threads": (500, 1),
           "facebook": (63206, 5), "fanvue": (5000, 5), "youtube": (5000, 5)}
 AI_LABEL = {"instagram": "profil: etykieta AI-generated profile + post: AI info",
@@ -309,32 +287,6 @@ AD_WEAK = re.compile(r"(#ad|#sponsored|#collab|#współpraca|#partner)(?![\wąć
 AD_LABEL = re.compile(r"(\[?#?reklama\]?|#?materiał\s*reklamowy|#?współpraca\s*reklamowa|#?materiał\s*sponsorowany|#?autopromocja|#?lokowanie)", re.I)
 AD_HINT = re.compile(r"kod\s*rabat|rabat\w*|zniżk\w*|link\s*afili|link\s*w\s*bio.*(kup|zamów)|-\d{1,2}\s*%|\bpromocj\w*", re.I)
 EMOJI = re.compile("[\U0001F300-\U0001FAFF☀-➿⭐❤]")
-# persona AI niczego nie nosi ani nie testuje: w reklamie to deklaracja nieprawdziwa
-USE_CLAIM = re.compile(r"\b(nosz[eę]\s+(go|ją|je|to)?\s*od|nosiłam\s+(go|ją|je)?\s*(przez|od|cał)|testowałam|przetestowałam|używam\s+(go|jej|ich)?\s*od|"
-                       r"używałam|sprawdziłam\s+na\s+sobie|kupiłam|mam\s+(go|ją|je)\s+od|po\s+\d+\s+(dniach|tygodniach|praniach))", re.I)
-LIST_HOOK = re.compile(r"^\W*\d+\s+\w+|\bna\s+\d+\s+sposob\w*|\b\d+\s+(rzecz\w*|sposob\w*|stylizac\w*|błęd\w*|hack\w*|krok\w*|zasad\w*|trik\w*)", re.I)
-# dzień "dzisiejszy" w hooku: mianownik, "w + biernik" i przymiotnik ("piątkowy"); "po piątku", "co niedzielę" to inne dni
-WEEKDAY_RE = [re.compile(r"\bponiedział(ek|kow\w*)\b", re.I), re.compile(r"\bwtor(ek|kow\w*)\b", re.I), re.compile(r"\bśrod(a|ę|ow\w*)\b", re.I),
-              re.compile(r"\bczwart(ek|kow\w*)\b", re.I), re.compile(r"\bpiąt(ek|kow\w*)\b", re.I), re.compile(r"\bsobot(a|ę)\b|\bsobotni\w*", re.I),
-              re.compile(r"\bniedziel(a|ę|n\w*)\b", re.I)]
-NOT_TODAY = {"po", "przed", "od", "do", "co", "każdy", "każdą", "wczoraj", "jutro", "zeszły", "zeszłą", "zeszłym", "przyszły", "przyszłą", "przyszłym",
-             "następny", "następną", "ostatni", "ostatnią"}
-DAY_PL = ["poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela"]
-DAY_W = ["w poniedziałek", "we wtorek", "w środę", "w czwartek", "w piątek", "w sobotę", "w niedzielę"]
-
-
-def named_days(text):
-    out = []
-    for i, rx in enumerate(WEEKDAY_RE):
-        for m in rx.finditer(text or ""):
-            before = re.findall(r"\w+", text[:m.start()].lower())[-2:]
-            if not NOT_TODAY & set(before):
-                out.append(i)
-    return out
-HOOK_TYPES = [("POV", r"^\W*pov\b"), ("kulisy", r"kulis|tak powstaje|promp|wersj\w* mnie|\bAI\s+(psuje|pilnuje|robi|myli)|odrzucon"),
-              ("liczba", r"^\W*\d|\b\d+\s+(rzecz|sposob|stylizac|swetr|błęd|hack|krok)|na\s+\d+\s+sposob"),
-              ("pytanie", r"\?"), ("błąd", r"^\W*(przestań|nie\s+(noś|rób|kupuj|prasuj))|\bbłąd"),
-              ("hack", r"\bhack"), ("mini historia", r"^\W*\w+łam\b"), ("kontrast", r"\bwszyscy\b|\bzamiast\b|\bale\b")]
 
 
 # ---------------------------------------------------------------- wspólne
@@ -375,9 +327,6 @@ def read_card(path):
     if not path:
         return card
     text = open(path, encoding="utf-8").read()
-    h = re.search(r"^#\s+([^:\n#]+?)\s*(:|$)", text, re.M)
-    if h:
-        card["_name"] = [h.group(1).strip()]
     m = re.search(r"^##\s*Kotwice.*?$(.*?)(^##\s|\Z)", text, re.M | re.S)
     block = m.group(1) if m else text
     for line in block.splitlines():
@@ -437,37 +386,6 @@ def occ(d):
     return occasions(d.year).get(d)
 
 
-def today(a):
-    try:
-        return datetime.strptime(a["dzis"], "%Y-%m-%d").date() if a.get("dzis") else date.today()
-    except ValueError:
-        return date.today()
-
-
-def slug(s):
-    tr = str.maketrans("ąćęłńóśźżĄĆĘŁŃÓŚŹŻ", "acelnoszzACELNOSZZ")
-    return re.sub(r"[^a-z0-9]+", "-", (s or "post").translate(tr).lower()).strip("-") or "post"
-
-
-def sales_limit(card):
-    """Kotwica 'sprzedaz_max: 1/6' albo '15' (procent). Domyślnie 25%."""
-    v = (card.get("sprzedaz_max") or card.get("sprzedaż_max") or [""])[0].replace("%", "").replace(",", ".").strip()
-    try:
-        if "/" in v:
-            x, y = v.split("/", 1)
-            return float(x) / float(y)
-        return float(v) / 100 if v else 0.25
-    except (ValueError, ZeroDivisionError):
-        return 0.25
-
-
-def hook_type(t):
-    for name, rx in HOOK_TYPES:
-        if re.search(rx, t or "", re.I):
-            return name
-    return "inne" if (t or "").strip() else "?"
-
-
 # ---------------------------------------------------------------- plan
 def parse_rytm(s):
     out = []
@@ -525,13 +443,9 @@ def cmd_plan(a):
     rytm = parse_rytm(a.get("rytm", "instagram:post=1,karuzela=2,reel=2,story=7;tiktok:reel=4;x:tweet=7"))
     filary = parse_filary(a.get("filary"))
     card = read_card(a.get("karta"))
-    split = lambda v: [x.strip() for x in v.split(";") if x.strip()]
-    # --miejsca / --stroje nadpisują kartę na ten okres (np. inna kolejność sesji), bez zmiany samej karty
-    miejsca = split(a.get("miejsca", "")) or card.get("miejsca") or ["UZUPEŁNIJ_MIEJSCE_1", "UZUPEŁNIJ_MIEJSCE_2", "UZUPEŁNIJ_MIEJSCE_3"]
-    stroje = split(a.get("stroje", "")) or card.get("stroje") or ["UZUPEŁNIJ_STRÓJ_1", "UZUPEŁNIJ_STRÓJ_2", "UZUPEŁNIJ_STRÓJ_3"]
-    swiatla = card.get("swiatla") or card.get("światła")
+    miejsca = card.get("miejsca") or ["UZUPEŁNIJ_MIEJSCE_1", "UZUPEŁNIJ_MIEJSCE_2", "UZUPEŁNIJ_MIEJSCE_3"]
+    stroje = card.get("stroje") or ["UZUPEŁNIJ_STRÓJ_1", "UZUPEŁNIJ_STRÓJ_2", "UZUPEŁNIJ_STRÓJ_3"]
     trig = (card.get("trigger") or ["TRIGGER"])[0]
-    end = start + timedelta(days=days - 1)
     rows = []
     by_plat = defaultdict(list)
     for p, f, per_week in rytm:
@@ -562,26 +476,7 @@ def cmd_plan(a):
             for i in range(total):
                 di = min(days - 1, int(i * days / total))
                 d = start + timedelta(days=di)
-                st_slots = SLOTS.get((p, "story")) or SLOTS[("instagram", "story")]
-                rows.append({"data": d.isoformat(), "godzina": jitter(st_slots[i % len(st_slots)], rnd, d.weekday() >= 5), "platforma": p, "format": f})
-    # dni delikatne: publikacje z feedu, TikToka i X przechodzą na najbliższy zwykły dzień, zostaje jedna spokojna story
-    is_del = lambda d: bool(occ(d) and occ(d)[1])
-    shifted = 0
-    if a.get("delikatne", "przesun") != "zostaw":
-        for r in rows:
-            d = datetime.strptime(r["data"], "%Y-%m-%d").date()
-            if r["format"] == "story" or not is_del(d):
-                continue
-            cand = [d + timedelta(days=k) for k in range(1, days) if d + timedelta(days=k) <= end and not is_del(d + timedelta(days=k))]
-            cand += [d - timedelta(days=k) for k in range(1, days) if d - timedelta(days=k) >= start and not is_del(d - timedelta(days=k))]
-            if not cand:
-                continue
-            nd = cand[0]
-            if any(x is not r and x["platforma"] == r["platforma"] and x["format"] != "story" and x["data"] == nd.isoformat() for x in rows):
-                r["godzina"] = jitter("12:40", rnd, nd.weekday() >= 5)
-            r["data"] = nd.isoformat()
-            r["uwagi"] = f"przesunięte z {d} ({occ(d)[0]}, dzień delikatny)"
-            shifted += 1
+                rows.append({"data": d.isoformat(), "godzina": jitter(SLOTS[(p, "story")][i % 3], rnd, d.weekday() >= 5), "platforma": p, "format": f})
     by_p = defaultdict(list)
     for r in rows:
         if r["format"] != "story":
@@ -597,27 +492,19 @@ def cmd_plan(a):
         d = datetime.strptime(r["data"], "%Y-%m-%d").date()
         o = occ(d)
         r["okazja"] = (o[0] + (" (delikatna: bez sprzedaży i żartów)" if o[1] else "")) if o else ""
-        if o and o[1] and r["format"] == "story":
-            r["filar"] = "codzienność"
-            r["uwagi"] = "dzień delikatny: jedna spokojna klatka, bez naklejek, muzyki, żartów i sprzedaży"
-        elif o and o[1] and re.search(r"sprzeda|promo|oferta|afili", r["filar"], re.I):
+        if o and o[1] and re.search(r"sprzeda|promo|oferta|afili", r["filar"], re.I):
             r["filar"] = "codzienność"
     cechy = ", ".join(card.get("cechy", [])) or "[STAŁE CECHY Z KARTY]"
     visual = [r for r in sorted(rows, key=lambda r: (r["data"], r["godzina"])) if r["platforma"] not in ("x", "threads")]
-    # pary miejsce+strój po przekątnych: najpierw 1:1 jak w karcie, potem przesunięte, więc kombinacje się nie zapętlają
-    combos = [(p_, (p_ + d_) % len(stroje)) for d_ in range(len(stroje)) for p_ in range(len(miejsca))]
     sid, k = 0, 0
     for i, r in enumerate(visual):
         if i % 6 == 0:  # jedna sesja = jedno miejsce, strój i światło, 6 różnych kadrów
             sid += 1
-            pi, oi = combos[(sid - 1) % len(combos)]
-            place, outfit = miejsca[pi], stroje[oi]
-            light = swiatla[(sid - 1) % len(swiatla)] if swiatla else SWIATLO[(sid * 3) % len(SWIATLO)]
-            sess_seed = int(start.strftime("%m%d")) * 100 + sid
+            place, outfit = miejsca[(sid - 1) % len(miejsca)], stroje[(sid - 1) % len(stroje)]
+            light = SWIATLO[(sid * 3) % len(SWIATLO)]
         r["sesja"] = f"S{sid:02d}: {place} | {outfit} | {light}"
         r["kadr"] = KADRY[k % len(KADRY)]
         r["swiatlo"] = light
-        r["seed"] = str(sess_seed)
         k += 1
         r["prompt_obrazu"] = f"{trig} woman, {r['kadr']}, {cechy}, {outfit}, [CZYNNOŚĆ], {place}, {light}, [APARAT], [NASTRÓJ]"
     ig_reels = sorted([r for r in rows if r["platforma"] == "instagram" and r["format"] == "reel"], key=lambda r: r["data"])
@@ -628,7 +515,7 @@ def cmd_plan(a):
             cand = [x for x in ig_reels if id(x) not in taken and 0 <= (d - datetime.strptime(x["data"], "%Y-%m-%d").date()).days <= 3]
             if cand:
                 taken.add(id(cand[0]))
-                r["uwagi"] = "; ".join(x for x in (r.get("uwagi", ""), f"repurpose: klip z IG reel {cand[0]['data']}, nowy hook i dźwięk, bez znaku wodnego") if x)
+                r["uwagi"] = f"repurpose: klip z IG reel {cand[0]['data']}, nowy hook i dźwięk, bez znaku wodnego"
     for r in rows:
         r.setdefault("sesja", "")
         r.setdefault("kadr", "")
@@ -636,13 +523,7 @@ def cmd_plan(a):
         r["oznaczenie_ai"] = AI_LABEL.get(r["platforma"], "oznaczenie AI platformy")
         r["reklama"] = "brak"
         r["status"] = "pending"
-        r["proporcje"] = RATIO.get(r["format"], "") if r["platforma"] not in ("x", "threads") else ""
     rows.sort(key=lambda r: (r["data"], r["godzina"], r["platforma"]))
-    persona = slug(a.get("persona") or (card.get("_name") or ["post"])[0])
-    per_date = Counter()
-    for r in rows:  # stały identyfikator wiersza: pipeline aktualizuje po nim status
-        per_date[r["data"]] += 1
-        r["id"] = f"{persona}-{r['data'].replace('-', '')}-{per_date[r['data']]:02d}"
     out = a.get("out") or "kalendarz-szkielet.csv"
     with open(out, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=PLAN_COLS, extrasaction="ignore")
@@ -657,11 +538,6 @@ def cmd_plan(a):
     oc = sorted({(r["data"], r["okazja"]) for r in rows if r["okazja"]})
     if oc:
         print("Okazje w okresie: " + "; ".join(f"{d} {n}" for d, n in oc))
-    if shifted:
-        print(f"Dni delikatne: {shifted} publikacji przesuniętych na najbliższy zwykły dzień (opis w kolumnie uwagi)")
-    if start < today(a):
-        print(f"UWAGA: start {start} jest przed dzisiejszą datą ({today(a)}). Wiersze z przeszłości pipeline może opublikować od razu: "
-              "przesuń start albo daj im status draft")
     if not card:
         print("Bez --karta: miejsca, stroje i trigger to placeholdery UZUPEŁNIJ_/TRIGGER")
     return 0
@@ -682,18 +558,14 @@ def cmd_check(a):
     cechy = card.get("cechy", [])
     emax = int((card.get("emoji_max") or ["99"])[0]) if (card.get("emoji_max") or ["x"])[0].isdigit() else 99
     zakazane = [z.lower() for z in card.get("zakazane", [])]
-    miejsca_k, stroje_k = card.get("miejsca", []), card.get("stroje", [])
-    limit_sp = sales_limit(card)
-    dzis = today(a)
     E, W, I = [], [], []
-    past, ids = [], Counter()
     missing = [c for c in CORE if c not in rows[0]]
     if missing:
         E.append(f"Brak kolumn: {missing}")
     if not trig:
         W.append("Brak triggera (--trigger albo karta z 'trigger:'), nie sprawdzam słowa LoRA")
     pillars, per_day, hooks, caps = Counter(), defaultdict(Counter), Counter(), []
-    prev_prompt, prev_sesja, prev_kadr, dates = {}, {}, {}, []
+    prev_prompt, dates = {}, []
     for n, r in enumerate(rows, start=2):
         tag = f"wiersz {n} ({r.get('data', '')} {r.get('platforma', '')} {r.get('format', '')})"
         p, fmt = plat(r.get("platforma")), r.get("format", "").lower()
@@ -710,25 +582,6 @@ def cmd_check(a):
             I.append(f"{tag}: nieznana platforma, pomijam limity")
         img, vid = r.get("prompt_obrazu", ""), r.get("prompt_wideo", "")
         alltext = " ".join([r.get("hook", ""), cap, hs, img, vid, r.get("cta", "")])
-        hook = r.get("hook", "")
-        st = r.get("status", "").lower()
-        if fmt != "story" and not cap.strip():
-            E.append(f"{tag}: pusty caption. Kalendarz nie idzie do pipeline'u bez gotowego opisu")
-        elif fmt == "story" and not (cap.strip() or r.get("cta", "").strip() or r.get("uwagi", "").strip()):
-            W.append(f"{tag}: story bez tekstu, naklejki i opisu w uwagach")
-        if r.get("id"):
-            ids[r["id"]] += 1
-        ratio = r.get("proporcje", "")
-        if ratio and RATIO.get(fmt) and not ratio.startswith(RATIO[fmt].split()[0]):
-            W.append(f"{tag}: proporcje {ratio}, a {fmt} potrzebuje {RATIO[fmt].split()[0]}")
-        ses = r.get("sesja", "")
-        if img and ses and (miejsca_k or stroje_k):
-            parts = [x.strip() for x in ses.split(":", 1)[-1].split("|")]
-            low = img.lower()
-            for kind, lst, val in (("strój", stroje_k, parts[1] if len(parts) > 1 else ""), ("miejsce", miejsca_k, parts[0] if parts else "")):
-                other = [x for x in lst if x.lower() != val.lower() and x.lower() in low]
-                if val and other and val.lower() not in low:
-                    W.append(f"{tag}: prompt ma {kind} '{other[0]}', a sesja '{val}'. Zmień sesję wiersza albo prompt i tekst")
         if MINOR.search(img + " " + vid):
             E.append(f"{tag}: w prompcie słowo kojarzone z osobą niepełnoletnią ('{MINOR.search(img + ' ' + vid).group(0)}'). Persona jest dorosła")
         if EXPLICIT.search(alltext):
@@ -757,17 +610,7 @@ def cmd_check(a):
         if p == "fanvue" and not re.search(r"\bAI\b|#ai\b|sztuczn|wirtualn|virtual|synthetic", cap, re.I):
             W.append(f"{tag}: Fanvue bez informacji o AI w opisie")
         rk = r.get("reklama", "")
-        is_ad = bool(rk and rk.lower() not in ("brak", "nie", "-", "none"))
-        if is_ad and USE_CLAIM.search(hook + " " + cap):
-            E.append(f"{tag}: w reklamie persona AI deklaruje osobiste użycie ('{USE_CLAIM.search(hook + ' ' + cap).group(0)}'). "
-                     "To nieprawda i wprowadza w błąd: mów o stylizacji, wyglądzie i wyborze, nie o noszeniu czy testach")
-        if not is_ad and re.search(r"sprzeda|afili|promo|oferta", r.get("filar", ""), re.I) and AD_LABEL.search(cap[:90]):
-            I.append(f"{tag}: oznaczenie reklamy jest w opisie, ale kolumna reklama jest pusta. Uzupełnij rodzaj i markę dla pipeline'u")
-        elif not is_ad and re.search(r"sprzeda|afili|promo|oferta", r.get("filar", ""), re.I):
-            W.append(f"{tag}: filar '{r.get('filar')}', a reklama = '{rk or 'puste'}'. Wpisz rodzaj i markę (np. 'afiliacja: Sklep') albo zmień filar")
-        if fmt in ("post", "zdjęcie") and LIST_HOOK.search(hook):
-            W.append(f"{tag}: hook obiecuje listę ('{LIST_HOOK.search(hook).group(0).strip()}'), a format to jedno zdjęcie. Lista pasuje do karuzeli")
-        if is_ad:
+        if rk and rk.lower() not in ("brak", "nie", "-", "none"):
             if AD_KIND.search(rk) and not AD_LABEL.search(cap[:90]):
                 if AD_LABEL.search(cap):
                     E.append(f"{tag}: oznaczenie reklamy jest, ale za daleko. Musi być widoczne od razu, na początku opisu (pierwsze ok. 90 znaków)")
@@ -781,11 +624,6 @@ def cmd_check(a):
             d = datetime.strptime(r.get("data", ""), "%Y-%m-%d").date()
             dates.append(d)
             per_day[d][p] += 1
-            if d < dzis and st in LIVE:
-                past.append(d)
-            named = named_days(hook)
-            if named and d.weekday() not in named:
-                W.append(f"{tag}: hook mówi '{DAY_PL[named[0]]}', a publikacja wypada {DAY_W[d.weekday()]}. Zmień tekst albo datę")
             o = occ(d)
             if o and o[1] and (re.search(r"sprzeda|promo|oferta|afili", r.get("filar", ""), re.I) or (rk and rk.lower() not in ("brak", "nie", "-", ""))):
                 W.append(f"{tag}: {o[0]} to dzień delikatny. Bez sprzedaży, zmień filar albo przesuń")
@@ -795,10 +633,12 @@ def cmd_check(a):
             W.append(f"{tag}: godzina w formacie GG:MM")
         elif r.get("godzina", "").endswith(":00") and p not in ("fanvue",):
             I.append(f"{tag}: pełna godzina ({r['godzina']}); przesunięcie o kilka minut wygląda mniej automatycznie")
+        st = r.get("status", "").lower()
         if st and st not in STATUSES:
             I.append(f"{tag}: nietypowy status '{r.get('status')}'")
         if fmt != "story" and r.get("filar"):
             pillars[r["filar"]] += 1
+        hook = r.get("hook", "")
         h = " ".join(re.findall(r"\w+", hook.lower())[:4])
         if h:
             hooks[h] += 1
@@ -811,12 +651,10 @@ def cmd_check(a):
             zr = r"\b" + r"\s+".join(re.escape(w[:max(3, len(w) - 2)]) + r"\w*" for w in z.split()) if z.split() else None
             if zr and re.search(zr, alltext, re.I):
                 W.append(f"{tag}: temat/słowo zakazane w karcie: '{z}'")
-        same_session_new_frame = ses and ses == prev_sesja.get(p) and r.get("kadr") != prev_kadr.get(p)
-        if (img and prev_prompt.get(p) and not unfinished and not same_session_new_frame
-                and "repurpose" not in r.get("uwagi", "").lower() and jacc(img, prev_prompt[p]) > 0.75):
+        if img and prev_prompt.get(p) and not unfinished and "repurpose" not in r.get("uwagi", "").lower() and jacc(img, prev_prompt[p]) > 0.75:
             W.append(f"{tag}: prompt prawie jak poprzedni (zmień kadr, miejsce albo strój)")
         if img:
-            prev_prompt[p], prev_sesja[p], prev_kadr[p] = img, ses, r.get("kadr")
+            prev_prompt[p] = img
         if cap:
             for (m, c) in caps:
                 if jacc(cap, c) > 0.6:
@@ -832,14 +670,8 @@ def cmd_check(a):
         if cnt / total > 0.5 and len(pillars) > 1:
             W.append(f"Filar '{top}' to {cnt / total:.0%} treści")
         promo = sum(c for k, c in pillars.items() if re.search(r"promo|sprzeda|oferta|fanvue|afili", k, re.I))
-        if promo / total > limit_sp + 1e-9:
-            W.append(f"Sprzedaż to {promo / total:.0%} treści ({promo} z {total}); limit {limit_sp:.0%}" + (" z karty" if card.get("sprzedaz_max") or card.get("sprzedaż_max") else ", trzymaj ok. 10-20%"))
-    dup = [k for k, c in ids.items() if c > 1]
-    if dup:
-        E.append(f"Powtórzone id (pipeline nadpisze wiersze): {dup[:5]}")
-    if past:
-        W.append(f"{len(past)} wierszy z datą sprzed dziś ({dzis}) i statusem do publikacji, najstarszy {min(past)}. "
-                 "Pipeline może je opublikować naraz: przesuń daty albo daj status draft. Powiedz o tym użytkownikowi na początku odpowiedzi")
+        if promo / total > 0.25:
+            W.append(f"Sprzedaż to {promo / total:.0%} treści; trzymaj ok. 10-20%")
     if dates:
         I.append(f"Okres {min(dates)} - {max(dates)}, wierszy: {len(rows)}")
         busy = [f"{d} {p}: {c}" for d, ps in per_day.items() for p, c in ps.items() if c > 3 and p not in ("x", "threads", "instagram")]
@@ -929,7 +761,7 @@ def cmd_stats(a):
     def match(dt, p):
         if not dt:
             return {}
-        cands = [r for r in cal.get(dt.date().isoformat(), []) if p in ("?", "") or not r.get("platforma") or plat(r.get("platforma")) == p]
+        cands = [r for r in cal.get(dt.date().isoformat(), []) if p in ("?", "") or plat(r.get("platforma")) == p]
 
         def gap(r):
             try:
@@ -982,33 +814,11 @@ def cmd_stats(a):
             print(f"  {str(k)[:28]:28} {n:3} | {er:5.2f}% | {f1(sa)} | {f1(sv)} | {f1(fo)}{flag}")
         return [r for r in res if r[1] >= minn]
 
-    if all(p["pillar"] in ("", "?") for p in posts):
-        print("\nFilary: brak w eksporcie, dodaj --kalendarz kalendarz.csv, żeby je dokleić")
-        fil = []
-    else:
-        fil = table(lambda p: p["pillar"] or "?", "Filary")
+    fil = table(lambda p: p["pillar"] or "?", "Filary")
     fmt = table(lambda p: f"{p['platform']}/{p['format']}", "Platforma/format")
-    if any(p["text"] for p in posts):
-        table(lambda p: hook_type(p["text"]), "Typ hooka (z pierwszej linii)")
     dni = ["pon", "wt", "śr", "czw", "pt", "sob", "nd"]
-    table(lambda p: dni[p["dt"].weekday()] if p["dt"] else "?", "Dzień tygodnia", minn=3)
-    por = table(lambda p: pora(p["dt"].hour) if p["dt"] else "?", "Pora", minn=3)
-
-    def confounded(key):
-        """Czy grupy (pora, dzień) to w praktyce różne formaty? Wtedy różnica ER mówi o formacie, nie o porze."""
-        g = defaultdict(Counter)
-        for p in posts:
-            if p["dt"]:
-                g[key(p)][p["format"]] += 1
-        if len(g) < 2:
-            return False, g
-        shared = {f for c in g.values() for f in c if sum(1 for c2 in g.values() if c2[f]) >= 2}
-        tot = sum(sum(c.values()) for c in g.values())
-        return sum(c[f] for c in g.values() for f in shared) / tot < 0.5, g  # mniej niż połowa postów da się porównać w obrębie formatu
-    por_conf, por_mix = confounded(lambda p: pora(p["dt"].hour))
-    if por_conf:
-        print("  UWAGA: pory pokrywają się z formatami (" + "; ".join(
-            f"{k}: " + ", ".join(f"{f} {n}" for f, n in c.most_common()) for k, c in por_mix.items()) + "). Różnica w porze to najpewniej różnica formatu")
+    table(lambda p: dni[p["dt"].weekday()] if p["dt"] else "?", "Dzień tygodnia")
+    por = table(lambda p: pora(p["dt"].hour) if p["dt"] else "?", "Pora")
     best = sorted(posts, key=lambda p: -((p["share"] or 0) + (p["save"] or 0) + p["er"]))[:5]
     worst = sorted(posts, key=lambda p: p["er"])[:3]
     print("\nNajlepsze (udostępnienia + zapisania + ER):")
@@ -1022,9 +832,7 @@ def cmd_stats(a):
         print(f"  - Więcej '{fil[0][0]}' (mediana ER {fil[0][2]:.2f}%), mniej albo inaczej '{fil[-1][0]}' ({fil[-1][2]:.2f}%).")
     if len(fmt) >= 2:
         print(f"  - Najlepszy format: {fmt[0][0]}; najsłabszy: {fmt[-1][0]}.")
-    if len(por) >= 2 and por_conf:
-        print("  - Pory nie da się ocenić: każda pora to inny format. Test: ten sam format i filar o dwóch porach (np. 2 reelsy o 21:00 vs 19:30).")
-    elif len(por) >= 2:
+    if len(por) >= 2:
         print(f"  - Pora z najlepszą medianą: {por[0][0]}. Przetestuj tam 2-3 posty więcej przed stałą zmianą.")
     if len(posts) < 20:
         print("  - Mniej niż 20 postów: traktuj wnioski jako wskazówkę, nie regułę.")
