@@ -1,0 +1,32 @@
+{
+  "meta": {"count": 1, "next_cursor": null},
+  "data": [
+    {
+      "id": "ev_1",
+      "home_team": "Arsenal FC",
+      "away_team": "Chelsea",
+      "commence_time": "2026-10-18T14:00:00Z",
+      "bookmakers": [
+        {"key": "bet365", "markets": [
+          {"key": "h2h", "outcomes": [
+            {"name": "Arsenal FC", "ord": 0, "open_price": 2.10, "close_price": 2.00, "close_at": "2026-10-18T13:59:30Z", "moves": 4},
+            {"name": "Draw", "ord": 1, "open_price": 3.40, "close_price": 3.50, "close_at": "2026-10-18T13:59:30Z", "moves": 2},
+            {"name": "Chelsea", "ord": 2, "open_price": 3.60, "close_price": 3.80, "close_at": "2026-10-18T13:59:30Z", "moves": 3}
+          ]},
+          {"key": "totals", "outcomes": [
+            {"name": "Over", "point": 2.5, "close_price": 1.80, "close_at": "2026-10-18T13:59:30Z"},
+            {"name": "Under", "point": 2.5, "close_price": 2.00, "close_at": "2026-10-18T13:59:30Z"}
+          ]}
+        ]},
+        {"key": "williamhill", "markets": [
+          {"key": "h2h", "outcomes": [
+            {"name": "Arsenal FC", "close_price": 1.95, "close_at": "2026-10-18T13:58:00Z"},
+            {"name": "Draw", "close_price": 3.60, "close_at": "2026-10-18T13:58:00Z"},
+            {"name": "Chelsea", "close_price": 3.90, "close_at": "2026-10-18T13:58:00Z"}
+          ]},
+          {"key": "btts", "outcomes": [{"name": "Yes", "close_price": 1.7}]}
+        ]}
+      ]
+    }
+  ]
+}

@@ -11,6 +11,8 @@
   python cli.py tune                            strojenie ocen online na walidacji
   python cli.py journal  [--classify ID KLASA --note TEKST]
   python cli.py day      --as-of RRRR-MM-DD     caly cykl dnia w trybie odtworzeniowym
+  python cli.py closing  --date RRRR-MM-DD [--to RRRR-MM-DD]  zamkniecia bukmacherow (OddsRelay, archiwum)
+  python cli.py clv      [--since ...] [--until ...]       raport CLV zapisanych typow (Betfair, bukmacherzy)
 """
 from __future__ import annotations
 
@@ -132,6 +134,35 @@ def cmd_journal(a):
                           "final_class, note FROM error_journal ORDER BY id DESC LIMIT 30").to_string(index=False))
 
 
+def cmd_closing(a):
+    """Zamkniecia bukmacherow z archiwum OddsRelay (bez gield: Betfair zbieramy snapshotami na zywo)."""
+    from datetime import timedelta
+
+    import pandas as pd
+
+    from typer.ingest import oddsrelay_closing as orc
+    from typer.learn import clv
+    try:
+        from typer.ingest.oddsrelay import request
+    except ImportError:
+        sys.exit("brak klienta typer/ingest/oddsrelay.py (funkcja request); dodaj adapter OddsRelay")
+    eng = _engine()
+    d, end = pd.Timestamp(a.date).date(), pd.Timestamp(a.to or a.date).date()
+    while d <= end:
+        events = orc.download_day(d, request, bookmakers=a.bookmakers)
+        print(d, clv.store_closing(eng, orc.parse({"data": events})))
+        d += timedelta(days=1)
+
+
+def cmd_clv(a):
+    from typer.learn import clv
+    text, summary, _ = clv.report(_engine(), since=a.since, until=a.until, role=a.role or None,
+                                  csv_path=config.ROOT / "live" / "clv.csv")
+    print(text)
+    if a.json:
+        print(json.dumps(summary, indent=1, default=float))
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Typer pilkarski")
     ap.add_argument("-v", "--verbose", action="store_true")
@@ -151,6 +182,15 @@ def main(argv=None):
     p.add_argument("--holdout", action="store_true")
     p.add_argument("--force-holdout", action="store_true")
     p.add_argument("--compare", default=None, help="lista zestawow warstw po przecinku (walidacja)")
+    p = sub.add_parser("closing", help="zamkniecia bukmacherow z OddsRelay /v2/historical/closing")
+    p.add_argument("--date", required=True, help="dzien UTC (archiwum od 2026-10-17)")
+    p.add_argument("--to", default=None, help="ostatni dzien zakresu (domyslnie --date)")
+    p.add_argument("--bookmakers", default=None, help="lista kluczy bukmacherow po przecinku")
+    p = sub.add_parser("clv", help="raport CLV zapisanych typow")
+    p.add_argument("--since", default=None)
+    p.add_argument("--until", default=None)
+    p.add_argument("--role", default="champion", help="champion | challenger | pusty = wszystkie")
+    p.add_argument("--json", action="store_true")
     p = sub.add_parser("tune")
     p.add_argument("--rounds", type=int, default=4)
     p = sub.add_parser("journal")

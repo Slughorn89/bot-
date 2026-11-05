@@ -60,6 +60,20 @@ Co z tego wynika:
 Źródła z licencjami i limitami: `config/sources.yaml`. Flashscore: tylko ręczna weryfikacja, bez scrapowania
 (regulamin zabrania pobierania treści bez zgody).
 
+## CLV względem zamknięcia (Betfair i bukmacherzy UK)
+
+`python cli.py clv [--since RRRR-MM-DD] [--until ...] [--json]` liczy CLV zapisanych typów (tabela `bets`)
+jako `kurs_wzięty / kurs_zamknięcia_bez_marży - 1` i zapisuje szczegóły do `live/clv.csv`.
+
+* **Betfair (główny punkt odniesienia):** snapshot giełdy `betfair_exchange` z feedu OddsRelay na żywo,
+  0 do 10 minut przed startem (`kind='close'`). Archiwum OddsRelay nie ma giełd (zapytanie o giełdę daje
+  403 `exchange_history_unavailable`), więc te zamknięcia zbieramy sami od pierwszego dnia.
+* **Bukmacherzy UK (zapas):** `python cli.py closing --date RRRR-MM-DD [--to ...]` pobiera
+  `/v2/historical/closing` (region `uk`, archiwum od 2026-10-17), zdejmuje marżę u każdego bukmachera
+  i bierze medianę. Typ bez zamknięcia Betfair dostaje CLV względem tego konsensusu (kolumna `benchmark`).
+
+Wymaga `ODDSRELAY_KEY` w `.env` i dostępu do hosta `api.oddsrelay.io`.
+
 ## 4. Architektura
 
 ```
