@@ -175,9 +175,20 @@ def report(engine: sa.Engine, since=None, until=None, role: str | None = "champi
     return report_text(s), s, t
 
 
-def store_closing(engine: sa.Engine, closing: pd.DataFrame, max_shift_hours: float = 6) -> dict:
-    """Zamkniecia bukmacherow (wynik oddsrelay_closing.parse) -> odds_snapshots, z mapowaniem nazw
-    na mecze w bazie. Mecz musi zgadzac sie obiema druzynami w jednej lidze i godzina startu."""
+def store_live_close(engine: sa.Engine, snap: pd.DataFrame, bookmakers: tuple[str, ...] = (BETFAIR,)
+                     ) -> dict:
+    """Snapshot na zywo (wynik oddsrelay.parse) -> odds_snapshots: tylko wiersze kind="close"
+    (0..10 min przed startem) wskazanych venue, domyslnie gieldy Betfair (cena back)."""
+    if snap.empty:
+        return dict(snapshots=0, unmatched=0)
+    s = snap[(snap["kind"] == "close") & snap["bookmaker"].isin(bookmakers)]
+    return store_closing(engine, s, source="oddsrelay")
+
+
+def store_closing(engine: sa.Engine, closing: pd.DataFrame, max_shift_hours: float = 6,
+                  source: str = HIST_SOURCE) -> dict:
+    """Zamkniecia (wynik oddsrelay_closing.parse albo snapshot na zywo) -> odds_snapshots, z mapowaniem
+    nazw na mecze w bazie. Mecz musi zgadzac sie obiema druzynami w jednej lidze i godzina startu."""
     from typer.entities.mapping import resolve_many
     if closing.empty:
         return dict(snapshots=0, unmatched=0)
@@ -187,7 +198,7 @@ def store_closing(engine: sa.Engine, closing: pd.DataFrame, max_shift_hours: flo
     pad = pd.Timedelta(hours=max_shift_hours)
     ev = ev[(ev["kickoff_utc"] >= lo - pad) & (ev["kickoff_utc"] <= hi + pad)]
     manual = db.read_df(engine, "SELECT league, raw_name, canonical FROM entity_map "
-                                "WHERE source = :s AND status = 'manual'", s=HIST_SOURCE)
+                                "WHERE source = :s AND status = 'manual'", s=source)
     pairs = closing[["source_event_id", "home_raw", "away_raw", "kickoff_utc"]].drop_duplicates("source_event_id")
     matched, maps = [], []
     for lg, evl in ev.groupby("league"):
@@ -199,7 +210,7 @@ def store_closing(engine: sa.Engine, closing: pd.DataFrame, max_shift_hours: flo
         p = p[(p["kickoff_utc"] - p["kickoff_utc_ev"]).abs() <= pad]
         matched.append(p[["source_event_id", "event_id"]])
         used = set(p["home_raw"]) | set(p["away_raw"])
-        maps += [dict(source=HIST_SOURCE, league=lg, raw_name=k, canonical=v, score=1.0, status="auto")
+        maps += [dict(source=source, league=lg, raw_name=k, canonical=v, score=1.0, status="auto")
                  for k, v in mapping.items() if k in used]
     m = pd.concat(matched) if matched else pd.DataFrame(columns=["source_event_id", "event_id"])
     m = m.drop_duplicates("source_event_id", keep=False)  # dwa mecze pasuja = nie zgadujemy
@@ -207,9 +218,10 @@ def store_closing(engine: sa.Engine, closing: pd.DataFrame, max_shift_hours: flo
     j = closing.merge(m, on="source_event_id")
     rows = []
     for r in j.itertuples(index=False):
-        ts = pd.Timestamp(r.close_at) if r.close_at else r.kickoff_utc
+        when = getattr(r, "close_at", None) or getattr(r, "snapshot_utc", None)
+        ts = pd.Timestamp(when) if when is not None and when == when else r.kickoff_utc
         ts = ts.tz_localize("UTC") if ts.tzinfo is None else ts.tz_convert("UTC")
-        rows.append(dict(event_id=r.event_id, source=HIST_SOURCE, bookmaker=r.bookmaker, market=r.market,
+        rows.append(dict(event_id=r.event_id, source=source, bookmaker=r.bookmaker, market=r.market,
                          selection=r.selection, price=r.price, kind="close",
                          snapshot_utc=ts.to_pydatetime()))
     db.upsert(engine, db.odds_snapshots, rows,

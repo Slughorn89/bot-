@@ -128,3 +128,23 @@ def test_cli_clv(tmp_engine, monkeypatch, capsys, tmp_path):
     monkeypatch.setattr(cli.config, "ROOT", tmp_path)
     cli.main(["clv"])
     assert "Raport CLV: 1 zapisanych typów" in capsys.readouterr().out
+
+
+def test_snapshot_na_zywo_zapisuje_tylko_zamkniecie_betfair(tmp_engine):
+    """Wiersze w kontrakcie adaptera typer/ingest/oddsrelay.py (parse)."""
+    _setup(tmp_engine)
+    snap_ts = pd.Timestamp("2026-10-18T13:55:00Z")
+    base = dict(source="oddsrelay", source_event_id="r1", home_raw="Arsenal FC", away_raw="Chelsea",
+                kickoff_utc=pd.Timestamp(KO), market="1X2", line=None, snapshot_utc=snap_ts,
+                minutes_to_kickoff=5.0, kind="close")
+    rows = [dict(base, bookmaker="betfair_exchange", is_exchange=True, selection=s, price=p, lay_price=p + 0.02)
+            for s, p in (("1", 2.02), ("X", 3.55), ("2", 4.0))]
+    rows += [dict(base, bookmaker="bet365", is_exchange=False, selection="1", price=1.9, lay_price=float("nan"))]
+    rows += [dict(base, bookmaker="betfair_exchange", is_exchange=True, selection="1", price=2.2,
+                  lay_price=2.3, kind="taken", snapshot_utc=pd.Timestamp("2026-10-18T12:00:00Z"))]
+    out = clv.store_live_close(tmp_engine, pd.DataFrame(rows))
+    assert out["snapshots"] == 3
+    sn = db.read_df(tmp_engine, "SELECT bookmaker, source, kind FROM odds_snapshots")
+    assert set(sn["bookmaker"]) == {"betfair_exchange"} and set(sn["source"]) == {"oddsrelay"}
+    t = clv.tips_clv(tmp_engine)
+    assert t.loc[0, "benchmark"] == "betfair" and t.loc[0, "close_betfair"] == 2.02

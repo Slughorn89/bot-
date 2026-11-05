@@ -12,6 +12,7 @@
   python cli.py journal  [--classify ID KLASA --note TEKST]
   python cli.py day      --as-of RRRR-MM-DD     caly cykl dnia w trybie odtworzeniowym
   python cli.py closing  --date RRRR-MM-DD [--to RRRR-MM-DD]  zamkniecia bukmacherow (OddsRelay, archiwum)
+  python cli.py betfair-close                     snapshot zamkniecia Betfair (cron co 5 min w dni meczowe)
   python cli.py clv      [--since ...] [--until ...]       raport CLV zapisanych typow (Betfair, bukmacherzy)
 """
 from __future__ import annotations
@@ -154,6 +155,19 @@ def cmd_closing(a):
         d += timedelta(days=1)
 
 
+def cmd_betfair_close(a):
+    """Snapshot OddsRelay na zywo; zapisuje tylko zamkniecie gieldy Betfair (0..10 min przed startem)."""
+    from typer.learn import clv
+    try:
+        from typer.ingest import oddsrelay
+    except ImportError:
+        sys.exit("brak klienta typer/ingest/oddsrelay.py; dodaj adapter OddsRelay")
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    events, tokens = oddsrelay.download(now)
+    print(clv.store_live_close(_engine(), oddsrelay.parse(events, now)), "tokeny:", tokens)
+
+
 def cmd_clv(a):
     from typer.learn import clv
     text, summary, _ = clv.report(_engine(), since=a.since, until=a.until, role=a.role or None,
@@ -186,6 +200,7 @@ def main(argv=None):
     p.add_argument("--date", required=True, help="dzien UTC (archiwum od 2026-10-17)")
     p.add_argument("--to", default=None, help="ostatni dzien zakresu (domyslnie --date)")
     p.add_argument("--bookmakers", default=None, help="lista kluczy bukmacherow po przecinku")
+    sub.add_parser("betfair-close", help="zapis zamkniecia Betfair ze snapshotu OddsRelay na zywo")
     p = sub.add_parser("clv", help="raport CLV zapisanych typow")
     p.add_argument("--since", default=None)
     p.add_argument("--until", default=None)
@@ -199,7 +214,7 @@ def main(argv=None):
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO if a.verbose else logging.WARNING,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    globals()[f"cmd_{a.cmd}"](a)
+    globals()[f"cmd_{a.cmd.replace('-', '_')}"](a)
 
 
 if __name__ == "__main__":
