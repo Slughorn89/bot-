@@ -80,6 +80,11 @@ def parse(raw: bytes, league: str, *, kind: str = "main", allow_unplayed: bool =
     if kind == "new" and "League" in df.columns and league == "POL":
         df = df[df["League"].astype(str).str.contains("Ekstraklasa", case=False, na=False)]
     mp = MAIN_MAP if kind == "main" else NEW_MAP
+    need = ["home", "away"] + ([] if allow_unplayed else ["fthg", "ftag"])
+    missing = [c for c in need if not any(x in df.columns for x in mp[c])] + \
+              (["Date"] if "Date" not in df.columns else [])
+    if missing:  # zrodlo zmienilo format: test kontraktu czerwony, nie cicha pustka
+        raise schema.ContractError(f"football-data.co.uk {league}: brak kolumn dla {missing}")
     out = pd.DataFrame(index=df.index)
     for col, cands in mp.items():
         out[col] = _pick(df, cands)

@@ -50,7 +50,9 @@ Co z tego wynika:
    jest nieznany, więc używamy ich wyłącznie jako benchmarku rynku, nigdy jako kursu „wziętego”.
    W kopii wykryliśmy i naprawiliśmy zamienione dni z miesiącami (`experiments.md`, wpis 0).
 3. **Brak składów i kontuzji.** To największa „ślepa plamka” (oficjalne składy ~60 min przed meczem to
-   największa pojedyncza aktualizacja informacji). Tabela `lineups` jest gotowa, źródła brak.
+   największa pojedyncza aktualizacja informacji). Adapter API-Football (`typer/ingest/api_football.py`) zbiera je
+   do tabeli `lineups`, gdy podasz `API_FOOTBALL_KEY` i host będzie dostępny. Model jeszcze ich nie używa,
+   bo nie ma historii do walidacji.
 
 **Żeby odblokować pełną wersję:** w ustawieniach środowiska (Network access) dodaj do dozwolonych hostów
 `www.football-data.co.uk` (wyniki + zamknięcia Pinnacle + `fixtures.csv`) i `api.the-odds-api.com`
@@ -66,9 +68,11 @@ Co z tego wynika:
 typer/
   config/            sports.yaml, sources.yaml, gates.yaml, model.yaml (wynik strojenia)
   typer/
-    ingest/          xgabora (GitHub), footballdata_uk (docelowe), odds_api; schema = kontrakt danych
+    ingest/          xgabora (GitHub), footballdata_uk (docelowe), odds_api, api_football (składy);
+                     schema = kontrakt danych, budget = limity zapytań API
     store/           SQLAlchemy: 12 tabel minimum, predictions i bets tylko do dopisywania (triggery), alembic
-    entities/        mapowanie nazw drużyn: alias -> dopasowanie rozmyte -> kolejka do ręcznej weryfikacji
+    entities/        mapowanie nazw drużyn: alias -> dopasowanie rozmyte -> kolejka do ręcznej weryfikacji;
+                     history = spójność nazw w historii (zmiany zapisu w trakcie sezonu)
     features/        reguły "as of" (odcięcie piątek/wtorek jak zbieranie kursów), forma drużyn
     models/          baseline (częstości), ratings/elo, scores/online_poisson (rdzeń), scores/dixon_coles
                      (challenger, penaltyblog), scores/matrix (Poisson + korekta DC, normalizacja do 1),
@@ -77,11 +81,14 @@ typer/
     betting/         de-vig, przewaga, ułamkowy Kelly, limity (2%/zakład, 10%/dzień, 1 zakład/mecz, stop -25%)
     learn/           settle (rozliczenie jako widok), journal (dziennik błędów), champion (bootstrap sparowany)
     pipeline/        engine (walk forward), tune, layers (kalibracja, LightGBM, mieszanka z rynkiem), backtest, daily
-    report/          raport dzienny + webhook n8n
+    report/          fmt (tokeny i formaty), render (komponenty, CLI/Telegram/HTML), daily (JSON raportu,
+                     dzienny i tygodniowy, webhook n8n), analysis (kontrole danych, korekta Bonferroniego)
   tools/evaluate.py  bramki jakości (Załącznik A skilla, bez zmian)
   tests/             pytest (sekcja 12 skilla)
   experiments.md     dziennik eksperymentów
-  cli.py             fetch | snapshot | predict | settle | learn | report | backtest | tune | journal | day
+  cli.py             fetch | snapshot | lineups | predict | settle | learn | report | analyze | budget |
+                     backtest | tune | journal | day
+  sql/analiza.sql    szablony zapytań PostgreSQL (sekcja 14.4)
   scripts/           crontab.txt (Europe/Warsaw), run.sh (log + alarm przy błędzie)
 ```
 
@@ -125,12 +132,19 @@ Co to znaczy po ludzku:
    Dowodu przewagi (CLV) nie ma i bez kursów zamknięcia być nie może.
 4. **Ekstraklasa:** jedyny segment z flagą „słaby” (luka +0,016 do benchmarku). Dane kończą się w 2024, nie ma
    strzałów, a moment kursów jest nieznany. Typy dla Ekstraklasy traktuj ostrożnie.
-5. **Do obserwacji:** na holdoucie Premier League 1X2 ma minimalną, ale istotną lukę do rynku i alarm dryfu
-   od lutego 2026. Holdout jest spalony, więc to idzie do monitoringu, nie do strojenia.
+5. **Premier League (tryb NAPRAWA, skill v2):** alarm dryfu E0/1X2 z holdoutu znika przy nowych progach
+   detektora (k = 0,2, h = 20), a flaga „słaby” (luka +0,0024) nie przechodzi korekty Bonferroniego na
+   10 segmentów (p = 0,043 przy progu 0,005). Najpewniej przypadek. Hipoteza o kalibracji typuje jako
+   challenger `op-v1-nocal` w cieniu. Przy okazji diagnozy znalazły się i zostały naprawione trzy zmiany zapisu
+   nazw w źródle w trakcie sezonu (Forest, Gladbach, Górnik): `experiments.md`, wpisy 11 do 14.
+
+**Ponowna ocena narzędziem v2** (te same zamrożone predykcje, bez przeliczania): werdykt bez zmian; nowa bramka
+„baseline w każdym rynku” przechodzi (holdout: 1X2 −0,0949, O/U −0,0107, BTTS −0,0021); jeden zakład na mecz OK.
+Raporty v2: `backtest/v2/`.
 
 **Co dalej, w kolejności wpływu:** (1) odblokować `www.football-data.co.uk` i `api.the-odds-api.com`, żeby mieć
-kursy zamknięcia i snapshoty na żywo (CLV); (2) źródło składów i kontuzji (np. API-Football z kluczem),
-bo to największa brakująca informacja; (3) prawdziwe xG; (4) dopiero potem paper trading przez min.
+kursy zamknięcia i snapshoty na żywo (CLV); (2) klucz API-Football i dostęp do `v3.football.api-sports.io`
+(adapter już jest), żeby zacząć zbierać składy, bo to największa brakująca informacja; (3) prawdziwe xG; (4) dopiero potem paper trading przez min.
 4 tygodnie / 300 zakładów i ponowne bramki. Gdy przewagi nadal nie będzie, uczciwa odpowiedź brzmi:
 typer daje dobre prawdopodobieństwa, ale nie daje powodu, żeby grać.
 
@@ -140,7 +154,8 @@ typer daje dobre prawdopodobieństwa, ale nie daje powodu, żeby grać.
 cd typer
 python -m venv .venv && .venv/bin/pip install -r requirements.txt
 cp .env.example .env            # klucze tylko tutaj
-.venv/bin/python -m pytest -q   # testy z sekcji 12
+.venv/bin/python -m pytest -q -m "not slow"   # szybkie testy (< 1 min, przy każdym commicie)
+.venv/bin/python -m pytest -q                  # wszystkie, z testami statystycznymi i regresją (nocą)
 .venv/bin/alembic upgrade head  # schemat bazy (albo automatycznie przy pierwszym poleceniu)
 
 .venv/bin/python cli.py backtest                 # walidacja: plik predykcji + evaluate.py + werdykt
@@ -149,10 +164,19 @@ cp .env.example .env            # klucze tylko tutaj
 .venv/bin/python cli.py tune                     # strojenie ocen online na walidacji
 
 # cykl dzienny (na żywo, po odblokowaniu źródeł)
-.venv/bin/python cli.py fetch && .venv/bin/python cli.py snapshot
-.venv/bin/python cli.py predict --lead-minutes 90
-.venv/bin/python cli.py settle && .venv/bin/python cli.py report --send
-.venv/bin/python cli.py learn                    # przegląd tygodniowy od daty wdrożenia championa
+.venv/bin/python cli.py fetch && .venv/bin/python cli.py snapshot   # snapshot pilnuje budżetu kredytów
+.venv/bin/python cli.py lineups                  # składy i kontuzje (API-Football), na razie tylko zbieranie
+.venv/bin/python cli.py predict --lead-minutes 90   # champion + challenger w cieniu; zakłady tylko champion
+.venv/bin/python cli.py settle && .venv/bin/python cli.py report --send --html live/dzis.html
+.venv/bin/python cli.py learn                    # evaluate.py od daty wdrożenia + challenger vs champion
+.venv/bin/python cli.py report --weekly          # przegląd tygodniowy: bramki, segmenty po korekcie, kontrole
+.venv/bin/python cli.py budget                   # zużycie limitów API i szacunek kredytów z historii
+
+# analiza wyników (sekcja 14) i render dowolnego raportu evaluate.py (np. backtestu) do CLI + HTML
+.venv/bin/python cli.py analyze --league POL --market 1X2 --since 2025-08-01
+.venv/bin/python cli.py analyze --csv backtest/preds_market_valid.csv --league POL,E0 --market 1X2
+.venv/bin/python cli.py report --from-json backtest/v2/report_market_holdout.json \
+    --csv backtest/preds_market_holdout.csv --html live/holdout.html
 
 # tryb odtworzeniowy: cała pętla na prawdziwym dniu z historii (np. gdy źródła na żywo są niedostępne)
 .venv/bin/python cli.py day --as-of 2026-08-30
@@ -161,6 +185,40 @@ cp .env.example .env            # klucze tylko tutaj
 Harmonogram: `scripts/crontab.txt` (07:00 pobranie, co 15 min snapshoty i typy 60 do 90 min przed meczem,
 02:00 rozliczenie i raport, poniedziałek 06:00 przegląd tygodniowy, 1. dnia miesiąca challenger).
 
+### Budżet zapytań (sekcja 5 v2)
+
+| Źródło | Limit (plan darmowy, wg skilla, listopad 2026) | Jak go pilnujemy |
+|---|---|---|
+| The Odds API | 500 kredytów/mies., koszt = rynki × regiony | snapshot typu raz na ligę i dzień meczowy, zamknięcie na każdą godzinę startu; zamknięcia mają priorytet, przy braku budżetu „typ” traci totals, potem odpada. Na danych 2025/26 dla 5 lig: średnio 380, maks. 498 kredytów/mies. |
+| API-Football | 100 zapytań/dzień, reset o północy UTC | terminarz i kontuzje raz na ligę i dzień, skład raz na mecz |
+
+Zużycie liczymy z nagłówków API (`x-requests-used`, `x-ratelimit-requests-remaining`) w `live/budget.json`;
+zapytanie ponad budżet (z 10% rezerwy) nie wychodzi, tylko trafia jako alarm do raportu.
+
+### Spójność nazw (sekcja 4)
+
+Nazwy różniące się tylko interpunkcją łączymy automatycznie (z logiem). Każda inna zmiana nazwy w trakcie sezonu
+(jedna nazwa znika, druga pojawia się zaraz po) **blokuje pobranie** z komunikatem, dopóki człowiek nie wpisze
+decyzji do `config/aliases.yaml`. Nic po cichu.
+
+### Raporty (sekcja 13)
+
+Jeden JSON (`schema: typer.report/v2`) i trzy widoki z tymi samymi tokenami: CLI (`[OK]`, `[UWAGA]`, `[BLAD]`,
+`[--]`, szerokość ≤ 100), Telegram (✅ ⚠️ ⛔ ➖, wiadomości ≤ 4096 znaków, najpierw werdykt i typy, każdy alarm
+osobno) i HTML (kontrast ≥ 4,5:1, status zawsze podpisany słowem, `<th scope>`, cyfry stałej szerokości).
+Formaty liczb są w jednym miejscu: `typer/report/fmt.py`. Metryka z n < 100 dostaje `[--]` i dopisek
+„za mało danych”, ROI zawsze z przedziałem.
+
+### Testy (sekcja 12)
+
+* `tests/test_evaluate.py` i `tests/synth.py`: Załączniki D i C skilla bez zmian (18 testów narzędzia).
+* Właściwości (`hypothesis`): macierz, O/U, AH 0 = DNB, de-vig, Kelly, limity, Elo; `betting/` i `markets/`
+  mają 100% pokrycia gałęzi.
+* Złoty plik aliasów, kontrakty adapterów (pole zniknęło = test czerwony), podróż w czasie na wszystkich cechach,
+  modele z wyciekiem dla każdej klasy (oceny online, LightGBM), void i zwroty w rozliczeniu, challenger bez
+  awansu poniżej 300 zdarzeń, snapshot raportu, strażnik penaltyblog/scipy, regresja log loss i ECE.
+* CI: `.github/workflows/typer.yml` (szybkie testy przy pushu i PR, pełne nocą; kod 3 z `evaluate.py` blokuje).
+
 ### Nauka dzień po dniu
 
 * Oceny online: po każdym meczu. Kalibracja i warstwy: dopasowywane na całej historii przy każdym typowaniu.
@@ -168,15 +226,18 @@ Harmonogram: `scripts/crontab.txt` (07:00 pobranie, co 15 min snapshoty i typy 6
   (`SZUM?` przy czerwonej kartce). Człowiek ustala klasę: `python cli.py journal --classify ID SLEPA_PLAMKA --note "brak składu"`.
   Cechę dodajemy dopiero, gdy ta sama ślepa plamka wraca kilka razy i poprawia walidację.
 * Dryf: CUSUM w `evaluate.py` z `--since` = data wdrożenia bieżącej wersji (z `model_registry`).
-* Champion/challenger: nowa wersja typuje w cieniu (`role = challenger`), awans tylko gdy CI90 różnicy log loss
-  w sparowanym bootstrapie < 0 na ≥ 300 zdarzeniach i bramki są zaliczone (`learn/champion.py`).
+* Champion/challenger: challengerzy z `config/model.yaml` typują w cieniu przy każdym `predict`
+  (`role = challenger`, bez zakładów), awans tylko gdy CI90 różnicy log loss w sparowanym bootstrapie < 0
+  na ≥ 300 zdarzeniach i bramki są zaliczone (`learn/champion.py`).
+* Dryf: progi detektora w `config/gates.yaml` (`drift.k`, `drift.h`); po kilku tygodniach na żywo policz fałszywe
+  alarmy i w razie potrzeby podnieś `h`.
 
 ### Webhook n8n
 
-`python cli.py report --send` wysyła POST z JSON-em na `N8N_WEBHOOK_URL`: pola `data`, `typy` (lista zakładów:
-godz, liga, mecz, rynek, selekcja, p, kurs_fair, kurs, przewaga, stawka), `wczoraj`, `okna` (30/90 dni z evaluate.py),
-`alarmy`, `wnioski` i `tekst` (gotowy raport). W n8n wystarczy Webhook → Telegram (Send Message, tekst `{{$json.body.tekst}}`).
-Bez webhooka raport ląduje w `live/report_<data>.json`.
+`python cli.py report --send` wysyła POST z JSON-em na `N8N_WEBHOOK_URL`: dane raportu (`schema`, `typy`,
+`wczoraj`, `okna`, `segmenty`, `alarmy`, `wnioski`) plus gotowe widoki: `telegram` (lista wiadomości ≤ 4096 znaków),
+`html` (załącznik) i `tekst` (CLI). n8n niczego nie liczy: Webhook → Split Out (`telegram`) → Telegram Send Message.
+Lokalnie zawsze zapisuje się `live/report_<data>.json`, `.txt` i `.html`.
 
 ## 7. Atrybucja
 

@@ -115,8 +115,10 @@ def window_metrics(w: dict) -> list[dict]:
 def render_cli(p: dict) -> str:
     L = [f"TYPER  {p['data']}  (model {p.get('model', {}).get('version', '?')})"]
     st, txt = fmt.verdict_status(p.get("stan_modelu", {}).get("werdykt"))
-    L.append(f"Stan modelu: {fmt.token(st)} {txt} ({fmt.n(p.get('stan_modelu', {}).get('n'))}, "
-             f"od wdrożenia {p.get('stan_modelu', {}).get('od', '?')})")
+    bad = p.get("stan_modelu", {}).get("niezaliczone") or []
+    L += _wrap(f"Stan modelu: {fmt.token(st)} {txt} ({fmt.n(p.get('stan_modelu', {}).get('n'))}, "
+               f"od wdrożenia {p.get('stan_modelu', {}).get('od', '?')})"
+               + (f"; niezaliczone bramki: {', '.join(bad)}" if bad else ""), indent="")
     L.append("Typy na dziś")
     sent = [t for t in p.get("typy", []) if t["stan"] != "ponizej_progu"]
     for t in sent:
@@ -158,8 +160,10 @@ def render_cli(p: dict) -> str:
 def render_telegram(p: dict) -> list[str]:
     """Lista wiadomosci. 1: werdykt + typy, 2: metryki, potem kazdy alarm osobno, na koncu wnioski."""
     st, txt = fmt.verdict_status(p.get("stan_modelu", {}).get("werdykt"))
+    bad = p.get("stan_modelu", {}).get("niezaliczone") or []
     m1 = [f"TYPER {p['data']}", f"Stan modelu: {fmt.token(st, 'tg')} {txt} "
-                                f"({fmt.n(p.get('stan_modelu', {}).get('n'))})", "", "Typy na dziś"]
+                                f"({fmt.n(p.get('stan_modelu', {}).get('n'))})"
+                                + (f"\nniezaliczone bramki: {', '.join(bad)}" if bad else ""), "", "Typy na dziś"]
     sent = [t for t in p.get("typy", []) if t["stan"] != "ponizej_progu"]
     for t in sent:
         moved = f" (kurs się ruszył: {fmt.odds(t['kurs_poprzedni'])} → {fmt.odds(t['kurs'])})" \

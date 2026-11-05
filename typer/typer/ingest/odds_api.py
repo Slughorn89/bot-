@@ -46,8 +46,15 @@ def download(sport_key: str, *, regions: str = "eu", markets: str = "h2h,totals"
 
 def parse(raw: bytes, league: str, snapshot_utc: datetime) -> pd.DataFrame:
     """Plaska tabela snapshotu: jeden wiersz = bukmacher x rynek x selekcja."""
+    from typer.ingest.schema import ContractError
     rows = []
-    for ev in json.loads(raw):
+    data = json.loads(raw)
+    if not isinstance(data, list):
+        raise ContractError(f"The Odds API: oczekiwana lista meczow, jest {type(data).__name__}: {str(data)[:200]}")
+    for ev in data:
+        missing = {"id", "home_team", "away_team", "commence_time", "bookmakers"} - set(ev)
+        if missing:
+            raise ContractError(f"The Odds API: brak pol {sorted(missing)}")
         home, away = ev["home_team"], ev["away_team"]
         ko = pd.Timestamp(ev["commence_time"]).tz_convert("UTC")
         mins = (ko - pd.Timestamp(snapshot_utc)).total_seconds() / 60

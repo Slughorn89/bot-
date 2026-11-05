@@ -51,6 +51,8 @@ def select_and_stake(cands: list[dict], limits: Limits = Limits(), fraction: flo
         return []
     scored = []
     for c in cands:
+        if not c.get("odds") or c["odds"] <= 1.0 or not 0.0 < c["p"] < 1.0:
+            continue  # kurs dziesietny musi byc > 1, p w (0, 1): inaczej to blad danych, nie zaklad
         e = edge(c["p"], c["odds"], tax_rate)
         if e >= threshold:
             f = min(kelly_fraction(c["p"], c["odds"], fraction, tax_rate), limits.max_per_bet)

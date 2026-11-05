@@ -2,6 +2,10 @@
 # Klucz ligi = kod football-data.co.uk (wspolny dla adapterow).
 football:
   timezone: Europe/Warsaw
+  # Rozliczenie (sekcja 12: void wedlug reguly z danych). Mecz o tych statusach = void dla wszystkich
+  # predykcji i zakladow, nawet jesli zrodlo podaje jakis wynik (np. przerwany przy 1:0).
+  # Linie calkowite O/U i AH 0 maja zwrot (push) przy remisie na linii.
+  void_statuses: [postponed, abandoned, cancelled]
   markets: ["1X2", "OU2.5", "BTTS"]
   leagues:
     E0:

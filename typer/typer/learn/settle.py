@@ -9,10 +9,12 @@ import sqlalchemy as sa
 from typer.betting.core import devig
 from typer.store import db
 
+from typer import config
+
 SQL_SETTLED = """
 SELECT p.id AS prediction_id, p.event_id, p.market, p.selection, p.p_model, p.p_baseline,
        p.model_version, p.role, p.odds_taken, p.predicted_utc, p.kickoff_utc,
-       e.league, e.sport, e.home, e.away, r.fthg, r.ftag, r.hr, r.ar
+       e.league, e.sport, e.status, e.home, e.away, r.fthg, r.ftag, r.hr, r.ar
 FROM predictions p
 JOIN events e ON e.event_id = p.event_id
 JOIN results r ON r.event_id = p.event_id
@@ -39,6 +41,8 @@ def settled(engine: sa.Engine, role: str | None = "champion", since=None) -> pd.
     df = db.read_df(engine, SQL_SETTLED)
     if df.empty:
         return df
+    void = set(config.sports().get("football", {}).get("void_statuses", []))
+    df = df[~df["status"].isin(void)]  # void: przelozony/przerwany/odwolany nie wchodzi do oceny
     if role:
         df = df[df["role"] == role]
     if since is not None:

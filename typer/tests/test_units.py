@@ -91,3 +91,27 @@ def test_kalibracja_poprawia_przesuniete_prawdopodobienstwa():
     P = np.c_[p_bad, 1 - p_bad]
     Q = Multiclass("vector").fit(P, 1 - y).transform(P)
     assert np.allclose(Q.sum(1), 1)
+
+
+def test_ah_cwiartkowa_w_ah_probs_odrzucona():
+    with pytest.raises(ValueError, match="cwiartkowa"):
+        mk.ah_probs(score_matrix(1.4, 1.1), -0.75)
+
+
+def test_ah_strona_gosci_symetryczna():
+    m = score_matrix(1.3, 1.3, 0.0)  # symetryczny mecz: gosc +0.5 = gospodarz +0.5
+    assert mk.ah_expected_profit(m, 0.5, 1.9, side="away") == pytest.approx(mk.ah_expected_profit(m, 0.5, 1.9))
+    m2 = score_matrix(2.0, 0.8)
+    assert mk.ah_expected_profit(m2, -0.5, 2.0, side="away") < mk.ah_expected_profit(m2, -0.5, 2.0)
+
+
+def test_all_markets_spojne():
+    out = mk.all_markets(score_matrix(1.6, 1.2, -0.05))
+    assert set(out) == {"1X2", "BTTS", "OU1.5", "OU2.5", "OU3.5"}
+    for k, v in out.items():
+        assert sum(v.values()) == pytest.approx(1.0), k
+
+
+def test_zerowa_przewaga_przy_progu_zero_nie_jest_zakladem():
+    assert select_and_stake([dict(event_id="e", market="1X2", selection="1", p=0.5, odds=2.0)],
+                            threshold=0.0) == []

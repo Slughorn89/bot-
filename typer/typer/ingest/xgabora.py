@@ -60,8 +60,14 @@ def download(ref: str | None = None, max_age_hours: float | None = None) -> byte
     return fetch(url, SOURCE, f"Matches_{ref[:12]}.csv", max_age_hours=age)
 
 
+REQUIRED = ["Division", "MatchDate", "HomeTeam", "AwayTeam", "FTHome", "FTAway", "OddHome", "OddDraw", "OddAway"]
+
+
 def parse(raw: bytes, leagues: dict, since: str | None = None, ref: str = "") -> pd.DataFrame:
     df = pd.read_csv(io.BytesIO(raw), low_memory=False)
+    missing = [c for c in REQUIRED if c not in df.columns]
+    if missing:  # zrodlo zmienilo format: stop, zamiast po cichu liczyc na pustych kolumnach
+        raise schema.ContractError(f"xgabora: brak kolumn {missing}")
     df = df[df["Division"].isin(list(leagues))]
     df = df[[c for c in RENAME if c in df.columns]].rename(columns=RENAME)
     df["date"] = pd.to_datetime(df["date"])

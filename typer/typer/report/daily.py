@@ -104,7 +104,8 @@ def build_payload(engine: sa.Engine, day=None) -> dict:
     p: dict = dict(schema=SCHEMA, typ="dzienny", data=str(day),
                    model=dict(version=champ.get("version", m.get("version")), od=ref))
     stan, rep_ref, _ = evaluate_window(engine, pd.Timestamp(ref).date()) if ref else ({}, {}, None)
-    p["stan_modelu"] = dict(werdykt=stan.get("werdykt"), n=stan.get("n"), od=ref)
+    failed = [b["bramka"] for b in (rep_ref or {}).get("bramki", []) if b.get("twarda") and b["wynik"] == "BLAD"]
+    p["stan_modelu"] = dict(werdykt=stan.get("werdykt"), n=stan.get("n"), od=ref, niezaliczone=failed)
     p["typy"] = _tips(engine, day, m.get("value_threshold", 0.05))
     p["wczoraj"] = _yesterday(engine, day)
     p["okna"] = {}
