@@ -66,7 +66,7 @@ Co z tego wynika:
 typer/
   config/            sports.yaml, sources.yaml, gates.yaml, model.yaml (wynik strojenia)
   typer/
-    ingest/          xgabora (GitHub), footballdata_uk (docelowe), odds_api; schema = kontrakt danych
+    ingest/          xgabora (GitHub), footballdata_uk (docelowe), odds_api, oddsrelay (UK + Betfair); schema = kontrakt danych
     store/           SQLAlchemy: 12 tabel minimum, predictions i bets tylko do dopisywania (triggery), alembic
     entities/        mapowanie nazw drużyn: alias -> dopasowanie rozmyte -> kolejka do ręcznej weryfikacji
     features/        reguły "as of" (odcięcie piątek/wtorek jak zbieranie kursów), forma drużyn

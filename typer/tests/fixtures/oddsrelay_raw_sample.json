@@ -1,0 +1,19 @@
+{"data": [
+  {"id": "or_evt_1", "previous_ids": [], "sport_key": "soccer", "competition_key": "soccer_epl",
+   "commence_time": "2026-11-08T15:00:00Z", "home_team": "Arsenal", "away_team": "Chelsea",
+   "bookmakers": [
+     {"key": "bet365", "markets": [{"key": "h2h", "outcomes": [
+       {"name": "Arsenal", "price": 2.10}, {"name": "Draw", "price": 3.40}, {"name": "Chelsea", "price": 3.50}]}]},
+     {"key": "williamhill", "markets": [{"key": "h2h", "outcomes": [
+       {"name": "Arsenal", "price": 2.05}, {"name": "Draw", "price": 3.50}, {"name": "Chelsea", "price": 3.60}]}]}],
+   "exchanges": [
+     {"key": "betfair_exchange", "markets": [{"key": "h2h", "outcomes": [
+       {"name": "Arsenal", "back": [{"price": 2.16, "available": 1200}, {"price": 2.14, "available": 800}],
+                           "lay": [{"price": 2.18, "available": 900}, {"price": 2.20, "available": 400}]},
+       {"name": "Draw", "back": [{"price": 3.55, "available": 300}], "lay": [{"price": 3.65, "available": 250}]},
+       {"name": "Chelsea", "back": [{"price": 3.70, "available": 500}], "lay": [{"price": 3.80, "available": 450}]}]}]},
+     {"key": "smarkets", "markets": [{"key": "h2h", "outcomes": [
+       {"name": "Arsenal", "back": 2.14, "lay": 2.20}]}]}]},
+  {"id": "or_outright", "sport_key": "soccer", "competition_key": "soccer_epl", "event_name": "Premier League Winner",
+   "commence_time": "2027-05-23T15:00:00Z", "bookmakers": []}
+]}

@@ -32,6 +32,18 @@ the_odds_api:
   limit: zuzycie widac w naglowkach x-requests-remaining / x-requests-used
   dostepne_w_srodowisku: false
 
+oddsrelay:
+  opis: Kursy na zywo bukmacherow i gield z UK i Irlandii (w tym Betfair Exchange) przez GET /v2/odds/raw; snapshoty "w chwili typu" i "zamkniecia" do CLV
+  url: https://api.oddsrelay.io
+  klucz_env: ODDSRELAY_KEY   # wysylany tylko w naglowku Authorization: Bearer
+  parametry: {region: uk, sports: soccer, markets: h2h}   # regionu "pl" nie ma
+  licencja: komercyjna; plan Free 50 000 tokenow na 14 dni od rejestracji, plany platne do wlasnego uzytku
+  limit: tokeny; stan w naglowkach X-Tokens-Cost / X-Tokens-Remaining / X-Tokens-Reset, 402 = brak tokenow
+  tokens_alarm: 5000          # ponizej tylu tokenow adapter loguje ostrzezenie
+  max_tokens_per_call: null   # liczba = najpierw darmowa wycena (quote=true), drozsze wywolanie nie idzie
+  historia: /v2/historical/closing tylko bukmacherzy (gieldy 403), wiec zamkniecie Betfair zbieramy sami ze snapshotow
+  dostepne_w_srodowisku: false   # api.oddsrelay.io zablokowany przez proxy sesji chmurowej (sprawdzone 2026-11-05)
+
 penaltyblog:
   opis: Dixon-Coles z wagami czasowymi, Poisson; challenger dla ocen online
   pakiet: penaltyblog==1.13.1
