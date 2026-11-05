@@ -40,3 +40,11 @@ goal_models:
   ridge: 3.0
   use_context: false      # cechy kontekstu pogorszyly J istotnie (wpis 18)
   variant_per_league: {E0: bivariate, D1: bivariate, I1: bivariate, SP1: bivariate, F1: bivariate, POL: bivariate}
+# Modul 3: rozne (typer/models/corners). Strojenie wersji A (bez stanu gry) na walidacji 2018-07..2025-06,
+# metryka glowna: log loss rozkladu lacznego (rozne_dom, rozne_gosc). Siatka: backtest/corners/grid_final.json,
+# decyzje: experiments.md (wpisy 20+). Te same parametry dostaja wszystkie wersje, wiec A vs B jest uczciwe.
+corner_models:
+  half_life: 365
+  ridge: 60.0
+  use_style: true           # rozne/strzaly oddane i dopuszczane + rozne na strzal (as of), pogoda gdy jest
+  n_sims: 20000             # symulacje przebiegu meczu na mecz (wersja ze stanem gry)
