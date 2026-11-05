@@ -237,6 +237,8 @@ There is no Reddit ad library endpoint.
 
 TikTok popular videos, creators and songs endpoints no longer exist. For those signals combine the trending feed, popular hashtags, `search/top` and `song/videos`.
 
+`/v1/tiktok/hashtags/popular` is still in the official CLI catalog, but some users reported 404s for it. If it returns 404, fall back to `/v1/tiktok/search/hashtag` and hashtags seen in the trending feed.
+
 ### Audience, creators and commerce
 | What | Endpoint | Cost |
 |---|---|---|
@@ -300,4 +302,4 @@ Pass the cursor from the previous response back as the same-named param. The hel
 
 ## Updating this skill
 
-`references/endpoints.md` and `scripts/endpoints.json` are generated from `api-config/` in the official `ScrapeCreators/scrapecreators-cli` repo. When the API changes, regenerate them rather than editing rows by hand. Run `python3 scripts/test_sc.py` after changing the helper.
+`references/endpoints.md` and `scripts/endpoints.json` are generated from `api-config/` in the official `ScrapeCreators/scrapecreators-cli` repo by `scripts/sync-endpoints.py` at the root of the `ScrapeCreators/social-media-research-skills` repo. When the API changes, rerun that script rather than editing rows by hand. Run `python3 scripts/test_sc.py` in this skill after changing the helper.

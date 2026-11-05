@@ -49,7 +49,7 @@ Use this skill when the user asks to:
 | Signal | Endpoint examples |
 |---|---|
 | TikTok trending feed | `/v1/tiktok/get-trending-feed` |
-| TikTok popular hashtags | `/v1/tiktok/hashtags/popular` (`period`, `countryCode`, `industry`) |
+| TikTok popular hashtags | `/v1/tiktok/hashtags/popular` (`period`, `countryCode`, `industry`); on 404 fall back to `/v1/tiktok/search/hashtag` |
 | TikTok sounds | sound IDs from trending or search results, then `/v1/tiktok/song` and `/v1/tiktok/song/videos` (`clipId`) |
 | TikTok autocomplete | `/v1/tiktok/search/suggestions` |
 | TikTok search | `/v1/tiktok/search/top`, `/v1/tiktok/search/keyword`, `/v1/tiktok/search/hashtag` |
