@@ -18,3 +18,7 @@ backtest/goal_models/grid.json
 backtest/corners/*.pkl
 backtest/corners/*.log
 backtest/corners/grid.json
+backtest/calibration/*.pkl
+backtest/calibration/*.log
+reports/calibration/**/*.png
+!reports/calibration/**/*_razem.png

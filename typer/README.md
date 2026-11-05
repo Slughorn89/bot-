@@ -164,6 +164,7 @@ cp .env.example .env            # klucze tylko tutaj
 .venv/bin/python cli.py tune                     # strojenie ocen online na walidacji
 .venv/bin/python cli.py goals --half-life 240 --w-xg 0.2   # moduł 2: warianty modelu goli
 .venv/bin/python cli.py corners                  # moduł 3: rożne, wersja ze stanem gry i bez, różnice z CI
+.venv/bin/python cli.py calibrate                # moduł 6: marża, kalibracja po ECE, blend per liga, CLV i ROI
 
 # cykl dzienny (na żywo, po odblokowaniu źródeł)
 .venv/bin/python cli.py fetch && .venv/bin/python cli.py snapshot   # snapshot pilnuje budżetu kredytów
@@ -283,6 +284,31 @@ Wyniki (`backtest/corners/`, experiments.md wpisy 20 do 23, holdout raz):
 * Kursów na rożne brak, więc nie ma benchmarku rynkowego.
 
 `python cli.py corners` powtarza porównanie na walidacji (`--holdout` tylko raz).
+
+### Kalibracja i metryki (moduł 6)
+
+* **Usuwanie marży** (`typer/betting/devig.py`): proporcjonalna, Shina i potęgowa. Wybór: Shin dla 1X2, potęgowa
+  dla O/U (`config/model.yaml: devig`).
+* **Metryki** (`typer/metrics/scores.py`, `plots.py`): log loss, Brier, ECE (10 przedziałów równej liczności, dla 1X2
+  średnia po klasach) z CI z bootstrapu. Wykresy niezawodności z przedziałami Wilsona trafiają do
+  `reports/calibration/<okres>/`, obok każdego CSV z liczbami.
+* **Kalibracja** (`typer/models/calibration/select.py`): kandydaci per rynek i liga, wybór po ECE z bezpiecznikiem
+  „średnio nie gorszy log loss” i kontrolą stabilności przy innych przedziałach. Obok wyniku pokazana jest „podłoga
+  szumu” ECE.
+* **Blend per liga** (`layers.blend_fn(per_league=True, shrink_k=…)`): kurs w chwili typu, nigdy zamknięcie.
+* **KPI** (`typer/metrics/kpi.py`): CLV względem zamknięcia Pinnacle jako miara główna, ROI z CI90 i CI95 pomocniczo,
+  opcja podatku 12%. W cyklu dziennym `settle` zapisuje CLV do tabeli `bet_clv` (migracja 0004, tylko do
+  dopisywania). Brak ostrego zamknięcia oznacza „n/d”, a nie kurs miękkiego bukmachera.
+* **Zamknięcia historyczne:** `pipeline/data.load_closing()` (football-data.co.uk, cache w `data/`).
+
+Wyniki (walidacja 2018/19 do 2024/25, `backtest/calibration/m6.json`, experiments.md wpisy 24 do 28):
+* **Kalibracja:** poprawia sam model (J −0,0018, istotnie). Ponad championem daje tylko −0,0007 (na granicy
+  istotności), a na holdoucie 0. Zostaje challenger `op-v1-m6`.
+* **ECE per liga** jest na poziomie szumu: idealny model przy ok. 2500 meczach ma ECE ok. 0,02.
+* **Waga per liga:** waga modelu w blendzie wynosi 0 w każdej lidze, więc zostaje waga globalna.
+* **CLV typów modelu: −6,7%** (losowy zakład Bet365: −5,4%), holdout −6,2%. Model nie ma przewagi nad zamknięciem.
+
+`python cli.py calibrate` powtarza całość (ok. 2 minuty).
 
 ### Budżet zapytań (sekcja 5 v2)
 

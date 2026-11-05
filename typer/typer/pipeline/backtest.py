@@ -60,6 +60,24 @@ LAYER_SETS = {
 }
 
 
+class _LazyM6(list):
+    """online+blend_shin+cal_m6: wybor kalibracji z config/model.yaml (calibration_m6), czytany przy uzyciu."""
+    def __iter__(self):
+        from typer.models.calibration.select import calibrate_select_fn
+        m = config.model_params()
+        dv = (m.get("devig") or {}).get("wziety", {}).get("1X2", "shin")
+        return iter([L.blend_fn(devig_method=dv), calibrate_select_fn(m.get("calibration_m6") or {})])
+
+    def __len__(self):
+        return 2
+
+    def __bool__(self):
+        return True
+
+
+LAYER_SETS["online+blend_shin+cal_m6"] = _LazyM6()
+
+
 def build_frame(df: pd.DataFrame | None = None, params: Params | None = None,
                 predict_from: str = "2008-07-01") -> pd.DataFrame:
     df = df if df is not None else load_matches()

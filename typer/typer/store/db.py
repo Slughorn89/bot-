@@ -150,6 +150,24 @@ bets = Table(
     Column("placed_utc", DateTime(timezone=True), nullable=False, default=utcnow),
 )
 
+# CLV zakladu (modul 6): osobna tabela, bo bets jest tylko do dopisywania. Jeden wiersz na zaklad,
+# liczony przy rozliczeniu z kursu zamkniecia OSTREGO bukmachera (bez niego wiersza nie ma).
+bet_clv = Table(
+    "bet_clv", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("bet_id", Integer, nullable=False, unique=True),
+    Column("event_id", String(160), nullable=False, index=True),
+    Column("market", String(20), nullable=False),
+    Column("selection", String(20), nullable=False),
+    Column("odds_taken", Float, nullable=False),
+    Column("close_odds", Float, nullable=False),
+    Column("close_odds_fair", Float, nullable=False),
+    Column("close_book", String(40), nullable=False),
+    Column("devig_method", String(20), nullable=False),
+    Column("clv", Float, nullable=False),
+    Column("computed_utc", DateTime(timezone=True), nullable=False, default=utcnow),
+)
+
 results = Table(
     "results", metadata,
     Column("event_id", String(160), primary_key=True),
@@ -224,7 +242,7 @@ from typer.store.records_db import build as _build_record_tables  # noqa: E402
 
 RECORD_TABLES = _build_record_tables(metadata)
 
-APPEND_ONLY = ("predictions", "bets")
+APPEND_ONLY = ("predictions", "bets", "bet_clv")
 
 
 def _append_only_ddl(dialect: str) -> list[str]:

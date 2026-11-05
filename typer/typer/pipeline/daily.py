@@ -389,4 +389,5 @@ def settle_day(engine: sa.Engine, as_of=None) -> dict:
         db.store_matches(engine, load_matches(refresh=True))
     s = settle.settled(engine, role=None)
     n_j = journal.update_journal(engine, s[s["role"] == "champion"]) if len(s) else 0
-    return dict(settled=int(s["event_id"].nunique()) if len(s) else 0, journal=n_j)
+    n_clv = settle.record_clv(engine)
+    return dict(settled=int(s["event_id"].nunique()) if len(s) else 0, journal=n_j, clv=n_clv)

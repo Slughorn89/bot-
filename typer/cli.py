@@ -15,6 +15,7 @@
   python cli.py tune                            strojenie ocen online na walidacji
   python cli.py goals [--half-life 480 --w-xg 0.2]   model goli: warianty, wybor per liga
   python cli.py corners [--holdout]             model rozne: z efektem stanu gry i bez, roznica log loss z CI
+  python cli.py calibrate                       modul 6: marza, kalibracja po ECE, blend per liga, CLV i ROI z CI
   python cli.py analyze  [--league POL --market 1X2 --since ... --csv plik]  analiza (sekcja 14)
   python cli.py journal  [--classify ID KLASA --note TEKST]
   python cli.py day      --as-of RRRR-MM-DD     caly cykl dnia w trybie odtworzeniowym
@@ -264,6 +265,13 @@ def cmd_corners(a):
         print(compare(res, x, y, by_league=(x, y) == ("A", "B")).to_string(index=False))
 
 
+def cmd_calibrate(a):
+    """Modul 6: pelny przebieg (backtest/calibration/run_m6.py), wynik w m6.json i reports/calibration/."""
+    import subprocess
+    subprocess.run([sys.executable, str(config.ROOT / "backtest" / "calibration" / "run_m6.py")], cwd=config.ROOT,
+                   check=True)
+
+
 def cmd_tune(a):
     from typer.pipeline.data import load_matches, split_dates
     from typer.pipeline.tune import coordinate_search
@@ -332,6 +340,7 @@ def main(argv=None):
     p.add_argument("--no-context", action="store_true")
     p = sub.add_parser("corners", help="modul 3: rozne, wersja z efektem stanu gry i bez")
     p.add_argument("--holdout", action="store_true")
+    sub.add_parser("calibrate", help="modul 6: kalibracja, marza, blend per liga, CLV i ROI z CI")
     p = sub.add_parser("tune")
     p.add_argument("--rounds", type=int, default=4)
     p = sub.add_parser("journal")

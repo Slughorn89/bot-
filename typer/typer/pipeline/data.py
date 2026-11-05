@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 import pickle
 
+import numpy as np
 import pandas as pd
 
 from typer import config
@@ -46,3 +47,35 @@ def load_matches(since: str | None = None, refresh: bool = False, ref: str | Non
 def split_dates() -> dict:
     s = config.gates()["split"]
     return {k: pd.Timestamp(v).date() for k, v in s.items()}
+
+
+CLOSE_COLS = ["close_h", "close_d", "close_a", "close_o25", "close_u25"]
+CLOSE_CACHE = config.DATA_DIR / "closing_fduk.pkl"
+
+
+def load_closing(first_season: int = 2012, refresh: bool = False) -> pd.DataFrame:
+    """Kursy zamkniecia Pinnacle z football-data.co.uk (PSC*, PC>2.5/PC<2.5) per event_id, z cache.
+    Tylko do oceny (CLV, porownanie z rynkiem); model i blend nigdy ich nie widza."""
+    from datetime import date
+    from typer.ingest import footballdata_uk as fd
+    last = date.today().year if date.today().month >= 7 else date.today().year - 1
+    seasons = [f"{y}-{str(y + 1)[2:]}" for y in range(first_season, last + 1)]
+    key = (tuple(seasons), PARSER_VERSION, str(config.load_yaml("aliases.yaml")))
+    if CLOSE_CACHE.exists() and not refresh:
+        with open(CLOSE_CACHE, "rb") as f:
+            c = pickle.load(f)
+        if c.get("key") == key:
+            return c["df"]
+    df = fd.load(seasons)[["event_id"] + CLOSE_COLS].drop_duplicates("event_id", keep="last")
+    config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    with open(CLOSE_CACHE, "wb") as f:
+        pickle.dump({"key": key, "df": df}, f)
+    return df
+
+
+def attach_closing(frame: pd.DataFrame, closing: pd.DataFrame | None = None) -> pd.DataFrame:
+    """Dolacza zamkniecia Pinnacle (nadpisuje puste close_*), kolumna close_book = 'pinnacle' tam, gdzie sa."""
+    closing = closing if closing is not None else load_closing()
+    out = frame.drop(columns=[c for c in CLOSE_COLS if c in frame.columns]).merge(closing, on="event_id", how="left")
+    out["close_book"] = np.where(out["close_h"].notna(), "pinnacle", None)
+    return out
