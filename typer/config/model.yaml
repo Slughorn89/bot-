@@ -48,3 +48,5 @@ corner_models:
   ridge: 60.0
   use_style: true           # rozne/strzaly oddane i dopuszczane + rozne na strzal (as of), pogoda gdy jest
   n_sims: 20000             # symulacje przebiegu meczu na mecz (wersja ze stanem gry)
+  state: false              # efekt stanu gry wylaczony: B gorszy od A na walidacji (wpis 22), B_shape tez (wpis 23)
+  frailty: true             # frailty dominacji (A0 -> A: -0.0218 log loss rozkladu lacznego)

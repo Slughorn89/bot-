@@ -1,7 +1,7 @@
 """Publiczne API modelu rożnych (modul 3).
 
     gm = GoalModel("bivariate", half_life=240, w_xg=0.2).fit(mecze_ligi, cutoff)       # modul 2
-    cm = CornerModel(state=True).fit(mecze_ligi, cutoff)
+    cm = CornerModel().fit(mecze_ligi, cutoff)             # wersja A (bez stanu gry), parametry z config/model.yaml
     out = cm.predict("Arsenal", "Chelsea", score_matrix=gm.predict("Arsenal", "Chelsea")["matrix"])
     out["joint"]    # 51x51, P(rozne gospodarza = i, rozne goscia = j)
     out["markets"]  # O/U lacznie 6.5..13.5, per druzyna 2.5..7.5, handicap -5..+5, kto wiecej rożnych
@@ -24,7 +24,7 @@ from typer.models.corners.simulate import N_SIMS, corner_distribution
 class CornerModel:
     half_life: float = 365.0
     ridge: float = 3.0
-    state: bool = True
+    state: bool = False              # decyzja z backtestu: bez stanu gry (experiments.md, wpisy 22-23)
     frailty: bool = True
     window_days: int = 1095
     n_sims: int = N_SIMS

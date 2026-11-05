@@ -29,6 +29,10 @@ Metryka strojenia: J = log loss 1X2 + 0,5 × (log loss O/U 2.5 + log loss BTTS).
 | 17 | 2026-11-05 | Wybór wariantu per liga coś da | Sparowany bootstrap J (wariant − domyślny), zmiana tylko przy CI90 < 0 | Wobec ocen online: online wygrywa we wszystkich 6 ligach (E0: ujemny dwumianowy −0,0008, CI90 −0,0046 do +0,0028). Między trzema wariantami: dwuwymiarowy Poisson wszędzie (D1 Dixon-Coles −0,0017, CI90 −0,0045 do +0,0012; E0 ujemny dwumianowy −0,00004) | Bez zmiany championa; `config/model.yaml: goal_models` |
 | 18 | 2026-11-05 | Cechy kontekstu (odpoczynek, mecze w 7 dniach, mecz o nic z tabeli „as of”, derby) poprawią model goli | Jedna zmiana: najlepsze ustawienie z kontekstem i bez | Z kontekstem J 1,67971, bez 1,67916: różnica +0,00056, CI90 +0,00010 do +0,00100 (istotnie gorzej) | Odrzucone. Pogoda, sędzia i podróż nieocenione (brak danych w tej sesji). Do sprawdzenia osobno: sam odpoczynek |
 | 19 | 2026-11-05 | Korekta składu (xG+xA dostępnych zawodników) | Mechanizm + test syntetyczny | Brak historii składów i xG zawodników, więc brak oceny na danych | Zbudowane, niewłączone. Ocena po zebraniu danych z API-Football |
+| 20 | 2026-11-05 | Moduł 3: rożne z NB per drużyna z korektą na rywala (A0) i z „frailty dominacji” (A, ujemna zależność rożnych w meczu) pobiją średnią ligi | Walk forward na walidacji, 12 532 mecze z rożnymi (5 lig, Ekstraklasa bez rożnych w danych). Siatka half-life {180, 365, 730} × ridge {3, 10, 30, 60, 100} × cechy stylu, wybór po log loss rozkładu łącznego (metryka główna ustalona przed uruchomieniem) | Najlepiej half-life 365, ridge 60, ze stylem: 4,64280 (start 4,66272). A vs baseline ligowy: łączny −0,0843 (CI95 −0,0918 do −0,0768), per drużyna O/U 4,5 −0,036 i −0,031, handicap −1,5 −0,047, „kto więcej” −0,052; **O/U 9,5 łącznie −0,0021 (CI95 −0,0052 do +0,0009), czyli bez istotnej przewagi**. A vs A0: łączny −0,0218, ale O/U 9,5 +0,0011 (frailty lekko szkodzi tej linii) | Przyjęte: wersja A. Mocny ridge = siła rożnych drużyny to cecha stabilna, a łączną liczbę rożnych w meczu trudniej przewidzieć niż podział. Po drodze naprawiony błąd z CI: siatka rozkładu 0..30 ucinała ogon przy skrajnych r i σ (średnia −1,3%), teraz 0..50, granice dopasowania r ≥ 3, σ ≤ 0,5 |
+| 21 | 2026-11-05 | Cechy stylu zamiast dośrodkowań i posiadania w tercji (brak legalnego źródła): rożne i strzały oddane/dopuszczane, rożne na strzał, as of (EWMA 8 meczów) | Jedna zmiana w siatce z wpisu 20 | Najlepszy ze stylem 4,64280 vs najlepszy bez 4,64796: −0,0052. Zysk na rynkach per drużyna, handicapie i „kto więcej”; **O/U 9,5 gorsze o +0,0016** (0,68618 vs 0,68462). Pogoda: kolumny gotowe, brak danych (Open-Meteo zablokowane w tej sesji) | Przyjęte po metryce głównej, z jawnym kosztem na sumie. Przy słabym ridge styl pomaga bardziej (kompensuje przeuczenie sił) |
+| 22 | 2026-11-05 | **Efekt stanu gry** (przegrywający bije więcej rożnych): γ z wyniku do przerwy i końcowego, 20 000 symulacji przebiegu z macierzy modułu 2 na mecz (B) poprawi rozkład rożnych względem A | Te same parametry co A, wspólne liczby losowe, sparowany bootstrap meczów | Oszacowania: przegrywający ×1,06 do ×1,21 rożnych (γ_T 0,06 do 0,19 zależnie od ligi), prowadzący ×0,77 do ×0,87 (γ_L −0,14 do −0,26). **Walidacja B − A: łączny +0,00384 (CI90 +0,00326 do +0,00443, CI95 +0,00315 do +0,00455)**, gorzej we wszystkich 5 ligach i na wszystkich rynkach (O/U 9,5 +0,0015, handicap +0,0007). Diagnoza: korekta średnich z B idzie w złą stronę (gdzie B daje gospodarzowi +2% względem A, ma on 0,97 prognozy A; korelacja z błędem A −0,03). Podwójne liczenie wariancji wykluczone (minuty goli to 8% wariancji mnożnika) | **Odrzucone.** γ z wyników to powiązanie, nie przyczyna: miesza styl i przebieg meczu (drużyna z kontry prowadzi i ma mało rożnych). Przed meczem przewidywane prowadzenie oznacza przewagę siły, a ta daje rożne. Kod zostaje (`state: false`), test na danych minutowych w backlogu |
+| 23 | 2026-11-05 | Post hoc: stan gry pomaga choć w kształcie rozkładu (zależność, rozrzut), gdy średnie zostają z A (B_shape) | Mnożniki z symulacji znormalizowane do średniej 1 w każdym meczu, γ, r, σ z B | Łączny +0,00058 (CI95 +0,00031 do +0,00087), pozostałe rynki 0,0000 do +0,0001 | Odrzucone. Holdoutu nie używam na wariant post hoc |
 
 ## Holdout (2025-07-01 do 2026-09-03, 1851 meczów, uruchomiony raz: 2026-10-31 09:11 UTC)
 
@@ -49,8 +53,30 @@ Obserwacje do monitoringu (bez strojenia, holdout spalony):
 * Serie A O/U 2.5: luka +0,0010 (CI90 +0,0003 do +0,0017).
 Kolejny uczciwy test wymaga nowego okresu (paper trading od wdrożenia).
 
+## Holdout rożnych (moduł 3; 2025-07-01 do 2026-09-03, 1851 meczów, uruchomiony raz: 2026-11-05 13:27 UTC)
+
+Parametry zamrożone przed uruchomieniem (`config/model.yaml: corner_models`). Log loss, niżej = lepiej.
+
+| Rynek | A (produkcja) | B (stan gry) | A0 (bez frailty) | Baseline (średnie ligi) | B − A (CI95) | A − baseline (CI95) |
+|---|---|---|---|---|---|---|
+| Rozkład łączny (dom, gość) | 4,63857 | 4,64367 | 4,65451 | 4,70738 | +0,0051 (+0,0033 do +0,0070) | −0,0688 (−0,0875 do −0,0504) |
+| Suma dokładnie | 2,62969 | 2,63186 | 2,63293 | 2,63377 | +0,0022 (+0,0011 do +0,0033) | −0,0041 (−0,0145 do +0,0069) |
+| O/U 9,5 łącznie | 0,68952 | 0,69114 | 0,68875 | 0,68850 | +0,0016 (+0,0008 do +0,0025) | +0,0010 (−0,0067 do +0,0092) |
+| Gospodarz O/U 4,5 | 0,66000 | 0,66226 | 0,65989 | 0,68336 | +0,0023 (+0,0013 do +0,0033) | −0,0234 (−0,0348 do −0,0116) |
+| Gość O/U 4,5 | 0,64867 | 0,64958 | 0,64868 | 0,67514 | +0,0009 (0,0000 do +0,0018) | −0,0265 (−0,0377 do −0,0154) |
+| Handicap gospodarza −1,5 | 0,64632 | 0,64771 | 0,64706 | 0,68727 | +0,0014 (+0,0003 do +0,0025) | −0,0410 (−0,0535 do −0,0279) |
+| Kto więcej rożnych (3 wyniki) | 0,88689 | 0,88875 | 0,88724 | 0,93271 | +0,0019 (+0,0008 do +0,0030) | −0,0458 (−0,0590 do −0,0330) |
+
+Wnioski: holdout potwierdza walidację. B gorsze od A we wszystkich ligach (łączny: od +0,0032 w D1 do +0,0082 w SP1).
+A bije średnią ligi na rynkach per drużyna, handicapie i „kto więcej”, ale **nie na sumie rożnych** (O/U 9,5).
+Kursów na rożne nie mamy, więc nie ma porównania z rynkiem ani CLV. **Werdykt: rożne tylko do typowania; O/U sumy nie typujemy z tego modelu.**
+
 ## Backlog cech (ze ślepych plamek i raportów)
 1. Składy i kontuzje (~60 min przed meczem): największa brakująca informacja; tabela `lineups` gotowa, brak źródła.
 2. Kursy zamknięcia Pinnacle (football-data.co.uk): odblokowują CLV i bramkę `clv_dodatni`.
 3. Prawdziwe xG (Understat/FBref zamiast proxy ze strzałów), strzały dla Ekstraklasy.
 4. Rho / częstość BTTS per liga (wpis 9), dryf przewagi gospodarza w Premier League (holdout).
+5. Minuty goli i rożnych (zdarzenia API-Football): efekt stanu gry z porównania tempa rożnych przed golem i po nim w tym samym meczu, bez zakłóceń stylem (wpis 22).
+6. Kalibracja sumy rożnych: średnie A są zbyt rozstrzelone (decyle przewidywanej sumy 8,43 do 11,46, obserwowane 8,68 do 10,75; nachylenie ok. 0,7). Osobne ściąganie „tempa meczu” i „podziału” albo krocząca rekalibracja sumy.
+7. Przewaga goli z modułu 2 jako cecha rożnych: faworyt meczu ma więcej rożnych, niż przewiduje A (diagnoza z wpisu 22).
+8. Kursy na rożne (legalne źródło): bez nich brak benchmarku rynkowego i CLV dla rożnych.

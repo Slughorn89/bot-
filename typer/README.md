@@ -162,6 +162,8 @@ cp .env.example .env            # klucze tylko tutaj
 .venv/bin/python cli.py backtest --compare online,online+cal,online+cal+blend
 .venv/bin/python cli.py backtest --holdout       # RAZ, na końcu (zostaje znacznik backtest/HOLDOUT_USED)
 .venv/bin/python cli.py tune                     # strojenie ocen online na walidacji
+.venv/bin/python cli.py goals --half-life 240 --w-xg 0.2   # moduł 2: warianty modelu goli
+.venv/bin/python cli.py corners                  # moduł 3: rożne, wersja ze stanem gry i bez, różnice z CI
 
 # cykl dzienny (na żywo, po odblokowaniu źródeł)
 .venv/bin/python cli.py fetch && .venv/bin/python cli.py snapshot   # snapshot pilnuje budżetu kredytów
@@ -247,6 +249,40 @@ Wynik walidacji 2018/19 do 2024/25 (`backtest/goal_models/grid_final.json`):
 * cechy kontekstu pogorszyły wynik istotnie, więc są wyłączone.
 
 `python cli.py goals --half-life 240 --w-xg 0.2` powtarza porównanie i wybór per liga.
+
+### Model rożnych (moduł 3)
+
+`typer/models/corners/`:
+* **średnie:** ujemny dwumianowy per drużyna z korektą na rywala, `log μ = c + h + atk[drużyna] − obr[rywal] + β·x`,
+  z wagami czasowymi i regularyzacją (`fit.py`);
+* **zależność w meczu:** „frailty dominacji” `u ~ N(0, σ²)`: gospodarz dostaje `e^{+u}`, gość `e^{−u}`, a średnie
+  zostają zachowane. Bez tego dwa niezależne NB dają za szeroki rozkład sumy (korelacja reszt w danych −0,19);
+* **cechy stylu „as of”** (`typer/features/corners_style.py`): rożne i strzały oddane oraz dopuszczane, rożne na
+  strzał. Dośrodkowań i posiadania w tercji rywala nie ma w żadnym dostępnym, legalnym źródle. Pogoda wchodzi, gdy
+  będą dane z Open-Meteo;
+* **efekt stanu gry** (`state.py`, `simulate.py`): γ dla przegrywania i prowadzenia, 20 000 symulacji przebiegu meczu
+  z macierzy wyników modułu 2. **Zbudowany, ale wyłączony** (`state: false`), bo pogarsza wynik (niżej).
+
+Wyjście (`CornerModel.predict`): rozkład łączny 0..50 × 0..50, a z niego (`markets.py`):
+* O/U łącznie 6,5 do 13,5,
+* O/U per drużyna 2,5 do 7,5,
+* handicap od −5 do +5 co 0,5 (zwrot na liniach całkowitych),
+* „kto więcej rożnych”.
+
+Wyniki (`backtest/corners/`, experiments.md wpisy 20 do 23, holdout raz):
+
+| | Walidacja 2018/19 do 2024/25 (12 532 mecze) | Holdout 2025/26 + start 2026/27 (1851) |
+|---|---|---|
+| B (ze stanem gry) − A, rozkład łączny | +0,0038 (CI95 +0,0032 do +0,0046) | +0,0051 (CI95 +0,0033 do +0,0070) |
+| A − średnia ligi, rozkład łączny | −0,0843 | −0,0688 |
+| A − średnia ligi, O/U 9,5 łącznie | −0,0021 (nieistotne) | +0,0010 (nieistotne) |
+
+* Efekt stanu gry szacowany z wyniku do przerwy i końcowego nie jest przyczynowy. W predykcji przesuwa średnie w złą
+  stronę. Do poprawnego oszacowania potrzebne są minuty goli i rożnych.
+* Model bije średnią ligi na rynkach per drużyna, handicapie i „kto więcej”, ale nie na sumie rożnych.
+* Kursów na rożne brak, więc nie ma benchmarku rynkowego.
+
+`python cli.py corners` powtarza porównanie na walidacji (`--holdout` tylko raz).
 
 ### Budżet zapytań (sekcja 5 v2)
 
