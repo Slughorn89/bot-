@@ -216,7 +216,17 @@ cp .env.example .env            # klucze tylko tutaj
 .venv/bin/python cli.py day --as-of 2026-08-30
 ```
 
-Harmonogram: `scripts/crontab.txt` (07:00 pobranie, co 15 min snapshoty i typy 60 do 90 min przed meczem,
+**Windows** (skrypty w `scripts/windows/`, napisane bez możliwości uruchomienia na Windows w sesji budowy, więc pierwszy raz odpal ręcznie i zajrzyj do `logs\cron.log`):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File typer\scripts\windows\setup.ps1        # .venv, zależności, .env, migracje, testy
+typer\.venv\Scripts\python.exe typer\cli.py lineups --dry-run                           # (z katalogu typer) koszt zapytań API-Football
+powershell -ExecutionPolicy Bypass -File typer\scripts\windows\run.ps1 -Zadanie co15      # jeden cykl ręcznie
+powershell -ExecutionPolicy Bypass -File typer\scripts\windows\harmonogram.ps1            # zadania jak crontab (Harmonogram zadań, folder Typer)
+powershell -ExecutionPolicy Bypass -File typer\scripts\windows\harmonogram.ps1 -Usun      # usunięcie zadań
+```
+
+Harmonogram (Linux): `scripts/crontab.txt` (07:00 pobranie, co 15 min snapshoty i typy 60 do 90 min przed meczem,
 02:00 rozliczenie i raport, poniedziałek 06:00 przegląd tygodniowy, 1. dnia miesiąca challenger).
 
 ### Nauka dzień po dniu
