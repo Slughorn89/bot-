@@ -18,7 +18,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from typer.metrics.scores import ece, per_event_log_loss
+from typer.metrics.scores import ece, paired_diff_ci, per_event_log_loss
 from typer.models.calibration.calibrate import Binary, Multiclass
 from typer.pipeline.layers import P1X2, outcomes
 
@@ -82,9 +82,7 @@ def market_arrays(df: pd.DataFrame, market: str) -> tuple[np.ndarray, np.ndarray
 
 
 def _paired_ci95(d: np.ndarray, n_boot: int = 2000, seed: int = 7) -> tuple[float, float]:
-    rng = np.random.default_rng(seed)
-    m = d[rng.integers(0, len(d), (n_boot, len(d)))].mean(axis=1)
-    return float(np.percentile(m, 2.5)), float(np.percentile(m, 97.5))
+    return paired_diff_ci(d, n_boot, seed)["ci95"]
 
 
 def ece_noise_floor(P, n_sim: int = 30, seed: int = 11) -> float:

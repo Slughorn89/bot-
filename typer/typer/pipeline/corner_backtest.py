@@ -23,6 +23,7 @@ import pandas as pd
 from typer import config
 from typer.features.asof import prediction_cutoff
 from typer.features.corners_style import style_features
+from typer.metrics.scores import paired_diff_ci
 from typer.models.corners.fit import fit_corners
 from typer.models.corners.markets import diff_pmf, total_pmf
 from typer.models.corners.simulate import N_SIMS, corner_distribution
@@ -141,13 +142,8 @@ def run(matches: pd.DataFrame, start, end, workers: int = 4, **kw) -> pd.DataFra
 
 
 def paired_ci(diff: np.ndarray, n_boot: int = 4000, seed: int = 7) -> dict:
-    """Srednia roznica i przedzialy CI90 / CI95 ze sparowanego bootstrapu (losowanie meczow)."""
-    diff = np.asarray(diff, float)
-    rng = np.random.default_rng(seed)
-    m = diff[rng.integers(0, len(diff), (n_boot, len(diff)))].mean(axis=1)
-    q = np.percentile(m, [2.5, 5, 95, 97.5])
-    return dict(mean=float(diff.mean()), ci90=(float(q[1]), float(q[2])), ci95=(float(q[0]), float(q[3])),
-                n=int(len(diff)))
+    """Srednia roznica i CI90 / CI95 ze sparowanego bootstrapu (metrics.scores.paired_diff_ci)."""
+    return paired_diff_ci(diff, n_boot, seed)
 
 
 def compare(res: pd.DataFrame, a: str, b: str, metrics=METRICS, by_league: bool = True) -> pd.DataFrame:

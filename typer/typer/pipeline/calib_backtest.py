@@ -22,7 +22,7 @@ from typer import config
 from typer.betting.devig import METHODS, devig_rows
 from typer.metrics.kpi import bet_report, clv, settle_profit
 from typer.metrics.plots import reliability_plot
-from typer.metrics.scores import brier, ece, log_loss, per_event_log_loss
+from typer.metrics.scores import brier, ece, log_loss, paired_diff_ci, per_event_log_loss
 from typer.models.calibration.select import MARKETS, calibrate_select_fn, market_arrays, select, uniform_choice
 from typer.pipeline import layers as L
 
@@ -33,10 +33,9 @@ CAL_RUNS = [("none", "none"), ("vector_L", "platt_L"), ("vector_G", "platt_G"), 
 
 
 def _ci(d: np.ndarray, n_boot: int = 2000, seed: int = 7) -> dict:
-    rng = np.random.default_rng(seed)
-    m = d[rng.integers(0, len(d), (n_boot, len(d)))].mean(axis=1)
-    return dict(srednia=float(d.mean()), ci90=tuple(np.percentile(m, [5, 95]).round(5)),
-                ci95=tuple(np.percentile(m, [2.5, 97.5]).round(5)))
+    c = paired_diff_ci(d, n_boot, seed)
+    return dict(srednia=c["mean"], ci90=tuple(round(x, 5) for x in c["ci90"]),
+                ci95=tuple(round(x, 5) for x in c["ci95"]))
 
 
 # ---------------- usuwanie marzy ----------------
@@ -94,11 +93,9 @@ def quality(df: pd.DataFrame) -> dict:
 
 
 def per_match_j(df: pd.DataFrame) -> np.ndarray:
-    j = np.zeros(len(df))
-    for market, w in (("1X2", 1.0), ("OU2.5", 0.5), ("BTTS", 0.5)):
-        P, y = market_arrays(df, market)
-        j += w * per_event_log_loss(P, y)
-    return j
+    """J na mecz (ta sama definicja co w module 2: goal_backtest.per_match_j)."""
+    from typer.pipeline.goal_backtest import per_match_j as _j
+    return _j(df).to_numpy()
 
 
 def compare(a: pd.DataFrame, b: pd.DataFrame) -> dict:

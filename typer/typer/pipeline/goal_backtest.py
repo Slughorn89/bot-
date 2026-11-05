@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 
 from typer.features.asof import prediction_cutoff
+from typer.metrics.scores import paired_diff_ci
 from typer.features.context import context_features
 from typer.models.goals.distributions import VARIANTS, fit_extra, matrix
 from typer.models.goals.fit import fit_strengths
@@ -105,10 +106,9 @@ def per_match_j(df: pd.DataFrame) -> pd.Series:
 
 
 def paired_ci(diff: np.ndarray, n_boot: int = 2000, seed: int = 7) -> tuple[float, float, float]:
-    rng = np.random.default_rng(seed)
-    idx = rng.integers(0, len(diff), (n_boot, len(diff)))
-    m = diff[idx].mean(axis=1)
-    return float(diff.mean()), float(np.percentile(m, 5)), float(np.percentile(m, 95))
+    """(srednia, dolna CI90, gorna CI90) - cienka nakladka na metrics.scores.paired_diff_ci."""
+    c = paired_diff_ci(diff, n_boot, seed)
+    return c["mean"], c["ci90"][0], c["ci90"][1]
 
 
 def select_per_league(cands: dict[str, pd.DataFrame], default: str) -> pd.DataFrame:

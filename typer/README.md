@@ -106,7 +106,7 @@ typer/
 
 ## 5. Wyniki i werdykt (walidacja 2018/19 do 2024/25, holdout 2025/26 + start 2026/27)
 
-Szczegóły i wszystkie odrzucone pomysły: `experiments.md`. Pełne raporty `evaluate.py`: `backtest/report_*.txt`.
+Szczegóły i wszystkie odrzucone pomysły: `experiments.md`. Pełne raporty `evaluate.py` (v2): `backtest/v2/`; `cli.py backtest` tworzy je na nowo w `backtest/report_*.txt`.
 
 **Werdykt (walidacja i holdout): GOTOWY tylko do typowania (brak dowodu przewagi nad rynkiem).**
 

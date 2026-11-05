@@ -12,9 +12,9 @@ import numpy as np
 
 
 def devig(odds) -> np.ndarray:
-    """Proporcjonalne zdjecie marzy: p_i = (1/o_i) / sum(1/o)."""
-    inv = 1.0 / np.asarray(odds, dtype=float)
-    return inv / inv.sum(axis=-1, keepdims=True)
+    """Proporcjonalne zdjecie marzy: p_i = (1/o_i) / sum(1/o). Metody Shina i potegowa: betting/devig.py."""
+    from typer.betting.devig import proportional
+    return proportional(odds)
 
 
 def overround(odds) -> float:

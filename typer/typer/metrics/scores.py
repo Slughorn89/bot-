@@ -100,5 +100,16 @@ def bootstrap_ci(fn, arrays, n_boot: int = 2000, seed: int = 7, levels=(90, 95))
     return out
 
 
+def paired_diff_ci(d, n_boot: int = 2000, seed: int = 7) -> dict:
+    """Sparowany bootstrap roznicy na zdarzenie (np. log loss B - A): srednia, CI90, CI95.
+    Jedyna implementacja w projekcie: uzywaja jej goal_backtest, corner_backtest, calib_backtest i select."""
+    d = np.asarray(d, float)
+    rng = np.random.default_rng(seed)
+    m = d[rng.integers(0, len(d), (n_boot, len(d)))].mean(axis=1)
+    q = np.percentile(m, [2.5, 5, 95, 97.5])
+    return dict(mean=float(d.mean()), ci90=(float(q[1]), float(q[2])), ci95=(float(q[0]), float(q[3])),
+                n=int(len(d)))
+
+
 def summary(P, y, bins: int = 10) -> dict:
     return dict(n=int(len(y)), log_loss=log_loss(P, y), brier=brier(P, y), ece=ece(P, y, bins))
