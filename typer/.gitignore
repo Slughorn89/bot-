@@ -17,3 +17,4 @@ backtest/goal_models/*.log
 backtest/goal_models/grid.json
 backtest/corners/*.pkl
 backtest/corners/*.log
+backtest/corners/grid.json
