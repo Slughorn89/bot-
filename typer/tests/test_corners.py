@@ -86,6 +86,18 @@ def test_stan_gry_przesuwa_rozne_w_strone_slabszego():
     assert mb["mean_home"] < ma["mean_home"] and mb["mean_away"] > ma["mean_away"]
 
 
+def test_wariant_ksztaltu_zachowuje_srednie_bez_stanu():
+    """B_shape: stan gry zmienia rozrzut i zaleznosc, ale nie srednie meczu (te zostaja z wersji A)."""
+    from dataclasses import replace
+    m = matrix("bivariate", 2.4, 0.6, 0.05)
+    a = _strengths(state=False, gT=0, gL=0)
+    sh = replace(a, g_trail=0.15, g_lead=-0.25, state=True, normalize_state=True)
+    ma = mk.corner_markets(corner_distribution(a, "X", "Y")["joint"])
+    ms = mk.corner_markets(corner_distribution(sh, "X", "Y", m)["joint"])
+    assert abs(ma["mean_home"] - ms["mean_home"]) < 1e-3 and abs(ma["mean_away"] - ms["mean_away"]) < 1e-3
+    assert abs(ma["total"][9.5]["over"] - ms["total"][9.5]["over"]) > 1e-4      # ksztalt sie zmienia
+
+
 def test_ziarno_powtarzalne_a_szum_mc_maly():
     m = matrix("bivariate", 1.5, 1.2, 0.1)
     s = _strengths()

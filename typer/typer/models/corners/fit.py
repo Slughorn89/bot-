@@ -77,6 +77,7 @@ class CornerStrengths:
     sigma: float = 0.0
     p1: float = 0.45                  # udzial goli w pierwszej polowie (do symulacji przebiegu)
     state: bool = False
+    normalize_state: bool = False     # True: stan gry zmienia tylko ksztalt rozkladu, srednie meczu bez zmian
     info: dict = field(default_factory=dict)
 
     def team(self, t: str) -> tuple[float, float]:

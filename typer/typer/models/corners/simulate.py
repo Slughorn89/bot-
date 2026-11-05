@@ -59,6 +59,8 @@ def corner_distribution(s: CornerStrengths, home: str, away: str, score_matrix: 
     rng = np.random.default_rng(seed)
     lead, trail, wts, scores = simulate_states(score_matrix, s.p1, n_sims, rng)
     Mh, Ma = multipliers(lead, trail, s.g_trail, s.g_lead)
+    if s.normalize_state:   # srednie z modelu bez stanu, z symulacji tylko zmiennosc i zaleznosc
+        Mh, Ma = Mh / np.dot(wts, Mh), Ma / np.dot(wts, Ma)
     P = joint_pmf(mu_h, mu_a, s.r, s.sigma, Mh, Ma, wts)
     return dict(joint=P, mu_h=mu_h * float(np.dot(wts, Mh)), mu_a=mu_a * float(np.dot(wts, Ma)),
                 n_sims=n_sims, sim_scores=scores)

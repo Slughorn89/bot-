@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 from concurrent.futures import ProcessPoolExecutor
+from dataclasses import replace
 
 import numpy as np
 import pandas as pd
@@ -37,6 +38,8 @@ VARIANTS = {
     "A": dict(frailty=True, state=False),
     "B": dict(frailty=True, state=True),
 }
+# post hoc (po wyniku B gorszego od A): srednie z A, a z B tylko ksztalt rozkladu (gamma, r, sigma)
+SHAPE_VARIANT = {"B_shape": dict(shape_of=("A", "B"))}
 METRICS = ["ll_joint", "ll_total", "ll_ou95", "ll_home45", "ll_away45", "ll_hcp15", "ll_most"]
 
 
@@ -95,6 +98,11 @@ def run_league(df: pd.DataFrame, start, end, half_life: float = 365.0, ridge: fl
         g_extra = fit_extra(g_var, GD["gh"], GD["ga"], GD["mh"], GD["ma"], GD["w"])
         fits = {}
         for name, v in variants.items():
+            if "shape_of" in v:
+                a, b = (fits[x] for x in v["shape_of"])
+                fits[name] = replace(a, g_trail=b.g_trail, g_lead=b.g_lead, r=b.r, sigma=b.sigma, p1=b.p1,
+                                     state=True, normalize_state=True)
+                continue
             st = use_style and v.get("style", True)
             m = trc.to_numpy()
             S, _ = fit_corners(df[trc], c, half_life, v.get("ridge", ridge), state=v["state"],
