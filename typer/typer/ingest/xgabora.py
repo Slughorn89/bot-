@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 
 from typer import config
+from typer.entities.history import harmonize
 from typer.ingest import schema
 from typer.ingest.base import fetch
 from typer.ingest.seasons import assign_seasons
@@ -100,6 +101,8 @@ def parse(raw: bytes, leagues: dict, since: str | None = None, ref: str = "") ->
     for lg, idx in df.groupby("league").groups.items():
         df.loc[idx, "season"] = assign_seasons(df.loc[idx, "date"])
     df = df.dropna(subset=["fthg", "ftag"])  # tylko rozegrane
+    # spojnosc nazw: zmiany zapisu w trakcie sezonu (np. "Nottm Forest" -> "Nott'm Forest")
+    df = harmonize(df, config.load_yaml("aliases.yaml"))
     df["event_id"] = [schema.make_event_id(l, d, h, a)
                       for l, d, h, a in zip(df["league"], df["date"], df["home"], df["away"])]
     df, bad_odds = schema.clean_odds(df)

@@ -6,6 +6,15 @@ value_threshold: 0.05       # minimalna przewaga p*kurs-1
 kelly_fraction: 0.25
 tax_rate: 0.0               # w Polsce u legalnego bukmachera: 0.12
 bet_markets: ["1X2", "OU2.5"]
+# Challengerzy typuja w cieniu (role=challenger) na tych samych meczach, bez zakladow.
+# Awans: >= 300 wspolnych zdarzen, CI90 roznicy log loss (sparowany bootstrap) < 0, bramki OK.
+challengers:
+  - version: op-v1-nocal
+    layers: online+blend
+    changes: >-
+      NAPRAWA 2026-11-04 (holdout E0 1X2 luka +0.0024): hipoteza, ze globalna kalibracja po mieszance
+      psuje rynek w E0. Na walidacji gorszy od championa o 0.0003 (1X2), na holdoucie luka E0 nieistotna
+      po korekcie Bonferroniego, wiec tylko test w cieniu na nowym okresie.
 online_poisson:
   lr_team: 0.014336
   lr_home: 0.0026667

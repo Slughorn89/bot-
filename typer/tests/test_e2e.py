@@ -29,10 +29,15 @@ def test_pelny_cykl(patched, tmp_engine, synth, tmp_path):
         st = daily.fetch(tmp_engine, as_of=d)
         assert st["fixtures"] > 0
         preds = daily.predict(tmp_engine, as_of=d)
-        assert len(preds) == st["fixtures"] * 7  # 1X2 (3) + O/U (2) + BTTS (2)
-        p1 = preds[preds["market"] == "1X2"].groupby("event_id")["p_model"].sum()
+        n_var = len(daily.variants())
+        assert len(preds) == st["fixtures"] * 7 * n_var  # (1X2 3 + O/U 2 + BTTS 2) x wersje modelu
+        assert set(preds["role"]) == ({"champion", "challenger"} if n_var > 1 else {"champion"})
+        p1 = preds[preds["market"] == "1X2"].groupby(["event_id", "model_version"])["p_model"].sum()
         assert ((p1 - 1).abs() < 1e-9).all()
-        daily.place_bets(tmp_engine, preds)
+        bets = daily.place_bets(tmp_engine, preds)
+        if len(bets):  # challenger nigdy nie gra
+            champ = set(preds.loc[preds["role"] == "champion", "id"])
+            assert set(bets["prediction_id"]) <= champ
         # ponowne uruchomienie tego samego dnia nie dubluje predykcji (idempotencja bez nadpisywania)
         assert daily.predict(tmp_engine, as_of=d).empty
         out = daily.settle_day(tmp_engine, as_of=d)
@@ -47,7 +52,7 @@ def test_pelny_cykl(patched, tmp_engine, synth, tmp_path):
     from typer.learn import settle
     csv = tmp_path / "live_preds.csv"
     df = settle.export_preds(tmp_engine, csv)
-    assert len(df) == total_preds
+    assert len(df) == total_preds // len(daily.variants())  # eksport championa
     p = subprocess.run([sys.executable, str(ROOT / "tools" / "evaluate.py"), str(csv),
                         "--json", str(tmp_path / "r.json")], capture_output=True, text=True)
     assert p.returncode in (0, 1, 2), p.stderr

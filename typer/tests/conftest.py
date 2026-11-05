@@ -6,7 +6,7 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from tests.synth import make_matches  # noqa: E402
+from tests.synth_league import make_matches  # noqa: E402
 
 
 @pytest.fixture(scope="session")

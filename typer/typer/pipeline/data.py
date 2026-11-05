@@ -16,12 +16,14 @@ from typer.ingest.base import SourceUnavailable
 
 log = logging.getLogger("typer.data")
 CACHE = config.DATA_DIR / "matches.pkl"
+# zmiana parsera (np. naprawa nazw) = nowy klucz cache, zeby nie czytac starych, blednych danych
+PARSER_VERSION = 2
 
 
 def load_matches(since: str | None = None, refresh: bool = False, ref: str | None = None) -> pd.DataFrame:
     since = since or config.gates()["split"]["data_od"]
     ref = ref or config.sources()["xgabora"]["ref"]
-    key = (since, ref)
+    key = (since, ref, PARSER_VERSION, str(config.load_yaml("aliases.yaml")))
     if CACHE.exists() and not refresh:
         with open(CACHE, "rb") as f:
             cached = pickle.load(f)

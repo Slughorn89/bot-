@@ -119,7 +119,13 @@ def load(seasons: list[str], leagues: dict | None = None) -> pd.DataFrame:
         else:
             for s in seasons:
                 frames.append(parse(download_season(f["code"], s), lg, kind="main"))
-    return pd.concat(frames, ignore_index=True) if frames else schema.empty_frame()
+    if not frames:
+        return schema.empty_frame()
+    from typer.entities.history import harmonize
+    out = harmonize(pd.concat(frames, ignore_index=True), config.load_yaml("aliases.yaml"))
+    out["event_id"] = [schema.make_event_id(l, d, h, a)
+                       for l, d, h, a in zip(out["league"], out["date"], out["home"], out["away"])]
+    return schema.validate(out)
 
 
 def load_fixtures(leagues: dict | None = None) -> pd.DataFrame:

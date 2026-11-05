@@ -44,7 +44,8 @@ def cmd_predict(a):
     eng = _engine()
     preds = daily.predict(eng, as_of=a.as_of, lead_minutes=getattr(a, "lead_minutes", None))
     bets = daily.place_bets(eng, preds) if len(preds) else preds
-    print(f"predykcje: {len(preds)} wierszy, zaklady papierowe: {len(bets)}")
+    per_role = preds.groupby("role").size().to_dict() if len(preds) else {}
+    print(f"predykcje: {len(preds)} wierszy {per_role}, zaklady papierowe (tylko champion): {len(bets)}")
 
 
 def cmd_settle(a):
