@@ -60,6 +60,24 @@ LAYER_SETS = {
 }
 
 
+class _LazyM6(list):
+    """online+blend_shin+cal_m6: wybor kalibracji z config/model.yaml (calibration_m6), czytany przy uzyciu."""
+    def __iter__(self):
+        from typer.models.calibration.select import calibrate_select_fn
+        m = config.model_params()
+        dv = (m.get("devig") or {}).get("wziety", {}).get("1X2", "shin")
+        return iter([L.blend_fn(devig_method=dv), calibrate_select_fn(m.get("calibration_m6") or {})])
+
+    def __len__(self):
+        return 2
+
+    def __bool__(self):
+        return True
+
+
+LAYER_SETS["online+blend_shin+cal_m6"] = _LazyM6()
+
+
 def build_frame(df: pd.DataFrame | None = None, params: Params | None = None,
                 predict_from: str = "2008-07-01") -> pd.DataFrame:
     df = df if df is not None else load_matches()
@@ -127,8 +145,19 @@ def run_evaluate(csv: Path, *, since=None, until=None, value_threshold=None, by=
     g = config.gates().get("gates", {})
     for k, v in g.items():
         cmd += [f"--{k.replace('_', '-')}", str(v)]
+    dr = config.gates().get("drift", {})
+    if "k" in dr:
+        cmd += ["--drift-k", str(dr["k"])]
+    if "h" in dr:
+        cmd += ["--drift-h", str(dr["h"])]
     p = subprocess.run(cmd, capture_output=True, text=True)
+    # kod 3 = plik lamie kontrakt danych: zaden werdykt, tylko opis bledu (stderr)
     return p.returncode, p.stdout + (p.stderr if p.returncode not in (0, 1, 2) else "")
+
+
+EXIT_CODES = {0: "GOTOWY do typowania i gry (CLV potwierdzony)",
+              1: "GOTOWY tylko do typowania (brak dowodu przewagi nad rynkiem)",
+              2: "NIEGOTOWY", 3: "ZLY PLIK (kontrakt danych)"}
 
 
 def holdout_marker() -> Path:
@@ -171,7 +200,10 @@ def run(layer_set: str = "online+cal", holdout: bool = False, force_holdout: boo
 
 
 def combined_verdict(code_preds: int, code_market: int) -> str:
-    """Oba pliki musza przejsc twarde bramki. CLV wymaga kursow zamkniecia (football-data.co.uk)."""
+    """Oba pliki musza przejsc twarde bramki. CLV wymaga kursow zamkniecia (football-data.co.uk).
+    Kod 3 (zly plik) zawsze wygrywa: nie ma werdyktu z pliku, ktory lamie kontrakt danych."""
+    if 3 in (code_preds, code_market):
+        return EXIT_CODES[3]
     if code_preds == 2 or code_market == 2:
         return "NIEGOTOWY"
     if code_preds == 0 and code_market in (0, 1):

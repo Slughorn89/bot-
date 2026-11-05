@@ -5,7 +5,14 @@ gates:
   max_gap_vs_market: 0.015
   leak_margin: 0.03
   min_bets: 300
+  min_market_cov: 0.5     # v2: min. odsetek zdarzen z kursem zamkniecia, zeby bramki rynkowe byly wazne
 value_threshold: 0.05     # minimalna przewaga p*kurs-1 dla zakladu w backteście
+
+# Detektor dryfu (CUSUM, evaluate.py v2). k=0.2, h=20: falszywy alarm srednio co ok. 6750 zdarzen.
+# Po kilku tygodniach na zywo policz falszywe alarmy i w razie potrzeby zmien (wyzsze h = mniej alarmow).
+drift:
+  k: 0.2
+  h: 20.0
 
 split:
   data_od: "2005-07-01"        # od tej daty wczytujemy historie

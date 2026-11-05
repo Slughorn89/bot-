@@ -1,0 +1,24 @@
+TYPER  2026-11-07  (model op-v1)
+Stan modelu: [UWAGA] tylko typowanie (n=412, od wdrożenia 2026-11-01)
+Typy na dziś
+  15:30 E0 Arsenal - Chelsea
+    1X2 1 | p 0.54 | kurs fair 1.85 | kurs 2.10 | przewaga +13.6% | stawka 1.2%
+  18:00 D1 Freiburg - Mainz
+    OU2.5 over2.5 | p 0.58 | kurs fair 1.72 | kurs 1.95 | przewaga +13.1% | stawka 0.9%
+    kurs się ruszył: 2.05 -> 1.95
+Wczoraj
+  3 typów, trafione 1, CLV śr. +2.1% (n=3), wynik -0.85 j
+Okno 30 / 90 dni
+  30 dni: [--] log loss 0.9812 | vs rynek 0.9768 (luka +0.0044, n=60) | n=64 (za mało danych) ; [--]
+    ECE 0.041 | n=64 (za mało danych) ; [--] CLV +1.8% [-1.0%, +5.0%] | n=9 (za mało danych) ; [--]
+    ROI +12.0% [-60.0%, +90.0%] | n=9 (za mało danych)
+  90 dni: log loss 0.9744 | vs rynek 0.9731 (luka +0.0013, n=398) | n=412 ; ECE 0.012 | n=412 ; [--]
+    CLV +1.1% [-0.4%, +2.6%] | n=31 (za mało danych) ; [--] ROI -4.3% [-31.0%, +22.0%] | n=31 (za
+    mało danych)
+Alarmy
+  [UWAGA] dryf football/E0/1X2 od 2026-11-05: diagnoza wg sekcji 9.4: potok danych -> odchylenia ->
+    poprawka celowana jako challenger
+  [UWAGA] źródło danych od 2026-11-07 07:00 UTC: terminarz football-data.co.uk niedostepny: HTTP
+    403. Alternatywa: The Odds API (ODDS_API_KEY)
+Wnioski
+  Man City - Wolves 1X2 1 wynik 0:1: p 0.08, klasa SZUM?

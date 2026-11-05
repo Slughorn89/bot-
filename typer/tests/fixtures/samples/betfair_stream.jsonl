@@ -1,0 +1,3 @@
+{"op": "mcm", "pt": 1723899600000, "mc": [{"id": "1.230001", "marketDefinition": {"marketType": "MATCH_ODDS", "eventName": "Arsenal v Wolves"}, "rc": [{"id": 47999, "ltp": 1.27, "tv": 152034.5, "batb": [[0, 1.27, 2100.0]], "batl": [[0, 1.28, 1800.0]]}, {"id": 48000, "ltp": 11.5, "tv": 9800.0}]}]}
+{"op": "heartbeat"}
+{"op": "mcm", "pt": 1723902000000, "mc": [{"id": "1.230001", "rc": [{"id": 47999, "ltp": 1.26, "tv": 210500.0}]}]}

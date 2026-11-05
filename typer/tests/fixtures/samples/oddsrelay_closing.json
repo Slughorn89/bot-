@@ -1,0 +1,14 @@
+{"meta": {"feed_type": "historical_closing", "region": "uk", "date": "2026-10-16", "count": 1, "version": "v2", "next_cursor": null, "historical": true},
+ "data": [
+  {"id": "or_evt_test0001", "sport_key": "soccer_epl", "sport_title": "EPL", "commence_time": "2026-10-16T19:45:00Z",
+   "home_team": "Arsenal", "away_team": "Chelsea",
+   "bookmakers": [
+    {"key": "bet365", "markets": [{"key": "h2h", "outcomes": [
+      {"name": "Arsenal", "ord": 0, "close_at": "2026-10-16T19:44:58Z", "close_price": 2.1, "close_back_price": null, "close_lay_price": null},
+      {"name": "Draw", "ord": 1, "close_at": "2026-10-16T19:44:58Z", "close_price": 3.6, "close_back_price": null, "close_lay_price": null},
+      {"name": "Chelsea", "ord": 2, "close_at": "2026-10-16T19:50:10Z", "close_price": 3.4, "close_back_price": null, "close_lay_price": null}]}]},
+    {"key": "betfair_exchange", "markets": [{"key": "h2h", "outcomes": [
+      {"name": "Arsenal", "ord": 0, "close_at": "2026-10-16T19:44:59Z", "close_price": null, "close_back_price": 2.16, "close_lay_price": 2.18},
+      {"name": "Draw", "ord": 1, "close_at": "2026-10-16T19:44:59Z", "close_price": null, "close_back_price": 3.75, "close_lay_price": 3.8},
+      {"name": "Chelsea", "ord": 2, "close_at": "2026-10-16T19:44:59Z", "close_price": null, "close_back_price": 3.65, "close_lay_price": 3.7}]}]}]}
+ ]}

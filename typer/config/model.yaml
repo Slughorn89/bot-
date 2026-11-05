@@ -6,6 +6,21 @@ value_threshold: 0.05       # minimalna przewaga p*kurs-1
 kelly_fraction: 0.25
 tax_rate: 0.0               # w Polsce u legalnego bukmachera: 0.12
 bet_markets: ["1X2", "OU2.5"]
+# Challengerzy typuja w cieniu (role=challenger) na tych samych meczach, bez zakladow.
+# Awans: >= 300 wspolnych zdarzen, CI90 roznicy log loss (sparowany bootstrap) < 0, bramki OK.
+challengers:
+  - version: op-v1-nocal
+    layers: online+blend
+    changes: >-
+      NAPRAWA 2026-11-04 (holdout E0 1X2 luka +0.0024): hipoteza, ze globalna kalibracja po mieszance
+      psuje rynek w E0. Na walidacji gorszy od championa o 0.0003 (1X2), na holdoucie luka E0 nieistotna
+      po korekcie Bonferroniego, wiec tylko test w cieniu na nowym okresie.
+  - version: op-v1-m6
+    layers: online+blend_shin+cal_m6
+    changes: >-
+      MODUL 6 2026-11-05: marza Shina/potegowa w blendzie, kalibracja per rynek i liga wybrana po ECE
+      (calibration_m6). Walidacja: J -0.00072 (CI95 -0.00145..+0.00001) vs champion, ECE 1X2 0.0091 vs 0.0099;
+      holdout (drugie spojrzenie): +0.00016 (CI95 -0.00136..+0.00176). Tylko test w cieniu.
 online_poisson:
   lr_team: 0.014336
   lr_home: 0.0026667
@@ -22,3 +37,34 @@ online_poisson:
   init_home: 0.25
   xg_sot: 0.27
   xg_off: 0.006
+# Modul 2: model goli (typer/models/goals). Strojenie i wybor na walidacji 2018-07..2025-06
+# (backtest/goal_models/grid_final.json, experiments.md wpisy 16-19). Champion produkcyjny zostaje
+# przy ocenach online: zaden wariant nie byl istotnie lepszy w zadnej lidze.
+goal_models:
+  half_life: 240
+  w_xg: 0.2
+  ridge: 3.0
+  use_context: false      # cechy kontekstu pogorszyly J istotnie (wpis 18)
+  variant_per_league: {E0: bivariate, D1: bivariate, I1: bivariate, SP1: bivariate, F1: bivariate, POL: bivariate}
+# Modul 3: rozne (typer/models/corners). Strojenie wersji A (bez stanu gry) na walidacji 2018-07..2025-06,
+# metryka glowna: log loss rozkladu lacznego (rozne_dom, rozne_gosc). Siatka: backtest/corners/grid_final.json,
+# decyzje: experiments.md (wpisy 20+). Te same parametry dostaja wszystkie wersje, wiec A vs B jest uczciwe.
+corner_models:
+  half_life: 365
+  ridge: 60.0
+  use_style: true           # rozne/strzaly oddane i dopuszczane + rozne na strzal (as of), pogoda gdy jest
+  n_sims: 20000             # symulacje przebiegu meczu na mecz (wersja ze stanem gry)
+  state: false              # efekt stanu gry wylaczony: B gorszy od A na walidacji (wpis 22), B_shape tez (wpis 23)
+  frailty: true             # frailty dominacji (A0 -> A: -0.0218 log loss rozkladu lacznego)
+
+# Modul 6 (experiments.md wpisy 24-28, backtest/calibration/m6.json). Usuwanie marzy: wybor po log loss
+# zdjetego rynku na walidacji (kurs wziety Bet365 i zamkniecie Pinnacle daly te same zwyciezcow).
+devig:
+  wziety: {"1X2": shin, "OU2.5": power}       # najlepsze na kursie wzietym; blend bierze jedna metode (shin) dla obu rynkow, jak w backtescie
+  zamkniecie: {"1X2": shin, "OU2.5": power}   # do CLV (uczciwe zamkniecie Pinnacle)
+# Kalibracja wybrana po ECE (bezpiecznik: srednio nie gorszy log loss) na OOF blendu per liga, k = inf
+# (waga per liga nic nie dala, wiec globalna). Uzywa jej challenger op-v1-m6.
+calibration_m6:
+  "1X2": {_global: none, D1: temperature_L, E0: none, F1: none, I1: vector_L, POL: vector_L, SP1: none}
+  "OU2.5": {_global: none, D1: none, E0: none, F1: platt_G, I1: platt_G, POL: none, SP1: none}
+  "BTTS": {_global: platt_G, D1: none, E0: platt_G, F1: platt_L, I1: platt_L, POL: platt_G, SP1: platt_G}

@@ -1,0 +1,33 @@
+{
+ "schema": "typer.report/v2", "typ": "dzienny", "data": "2026-11-07",
+ "model": {"version": "op-v1", "od": "2026-11-01"},
+ "stan_modelu": {"werdykt": "GOTOWY tylko do typowania (brak dowodu przewagi nad rynkiem)", "n": 412, "od": "2026-11-01"},
+ "typy": [
+  {"godz": "15:30", "liga": "E0", "mecz": "Arsenal - Chelsea", "rynek": "1X2", "selekcja": "1", "p": 0.541,
+   "kurs_fair": 1.848, "kurs": 2.1, "przewaga": 0.1361, "stawka": 0.012, "kurs_poprzedni": null, "stan": "normalny"},
+  {"godz": "18:00", "liga": "D1", "mecz": "Freiburg - Mainz", "rynek": "OU2.5", "selekcja": "over2.5", "p": 0.58,
+   "kurs_fair": 1.724, "kurs": 1.95, "przewaga": 0.131, "stawka": 0.009, "kurs_poprzedni": 2.05, "stan": "kurs_sie_ruszyl"},
+  {"godz": "20:45", "liga": "I1", "mecz": "Roma - Lazio", "rynek": "1X2", "selekcja": "X", "p": 0.29,
+   "kurs_fair": 3.448, "kurs": 3.5, "przewaga": 0.015, "stawka": 0.0, "kurs_poprzedni": null, "stan": "ponizej_progu"}
+ ],
+ "wczoraj": {"typy": 3, "trafione": 1, "clv": 0.021, "clv_n": 3, "wynik_j": -0.85},
+ "okna": {
+  "30": {"n": 64, "ll": 0.9812, "ece": 0.041, "ll_rynek": 0.9768, "n_rynek": 60, "luka": 0.0044,
+         "zaklady": {"n_bets": 9, "roi": 0.12, "roi_ci90": [-0.6, 0.9], "clv_sr": 0.018, "clv_ci90": [-0.01, 0.05]}},
+  "90": {"n": 412, "ll": 0.9744, "ece": 0.012, "ll_rynek": 0.9731, "n_rynek": 398, "luka": 0.0013,
+         "zaklady": {"n_bets": 31, "roi": -0.043, "roi_ci90": [-0.31, 0.22], "clv_sr": 0.011, "clv_ci90": [-0.004, 0.026]}}
+ },
+ "segmenty": [
+  {"sport": "football", "league": "E0", "market": "1X2", "n": 140, "ll_model": 0.99, "luka_vs_rynek": 0.0031,
+   "luka_ci90": [0.0004, 0.0058], "ece": 0.02, "slaby": true},
+  {"sport": "football", "league": "D1", "market": "OU2.5", "n": 60, "ll_model": 0.68, "luka_vs_rynek": -0.001,
+   "luka_ci90": [-0.004, 0.002], "ece": 0.03, "slaby": false}
+ ],
+ "alarmy": [
+  {"typ": "dryf", "segment": "football/E0/1X2", "od": "2026-11-05", "ile": 1,
+   "co_zrobic": "diagnoza wg sekcji 9.4: potok danych -> odchylenia -> poprawka celowana jako challenger"},
+  {"typ": "źródło danych", "segment": "", "od": "2026-11-07 07:00 UTC",
+   "info": "terminarz football-data.co.uk niedostepny: HTTP 403. Alternatywa: The Odds API (ODDS_API_KEY)"}
+ ],
+ "wnioski": ["Man City - Wolves 1X2 1 wynik 0:1: p 0.08, klasa SZUM?"]
+}

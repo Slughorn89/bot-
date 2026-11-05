@@ -40,6 +40,8 @@ events = Table(
     Column("source", String(60)),
     Column("first_seen_utc", DateTime(timezone=True), default=utcnow),
     Column("updated_utc", DateTime(timezone=True), default=utcnow, onupdate=utcnow),
+    Column("available_at", DateTime(timezone=True)),   # od kiedy terminarz byl publiczny (szacunek)
+    Column("fetched_at", DateTime(timezone=True)),
 )
 
 participants = Table(
@@ -75,6 +77,8 @@ odds_snapshots = Table(
     Column("price", Float, nullable=False),
     Column("kind", String(10), nullable=False),  # taken | close | prematch | bench
     Column("snapshot_utc", DateTime(timezone=True), nullable=False),
+    Column("available_at", DateTime(timezone=True)),   # = snapshot (zamkniecie: start meczu)
+    Column("fetched_at", DateTime(timezone=True)),
     UniqueConstraint("event_id", "source", "bookmaker", "market", "selection", "snapshot_utc",
                      name="uq_odds"),
 )
@@ -87,8 +91,13 @@ lineups = Table(
     Column("player", String(120), nullable=False),
     Column("is_starter", Boolean),
     Column("position", String(10)),
+    Column("status", String(20)),      # start | lawka | nieobecny | watpliwy | zawieszenie
+    Column("reason", String(160)),     # np. powod kontuzji
     Column("published_utc", DateTime(timezone=True)),
     Column("source", String(40)),
+    Column("available_at", DateTime(timezone=True)),
+    Column("fetched_at", DateTime(timezone=True)),
+    UniqueConstraint("event_id", "team", "player", "status", "source", name="uq_lineup"),
 )
 
 ratings_history = Table(
@@ -141,6 +150,24 @@ bets = Table(
     Column("placed_utc", DateTime(timezone=True), nullable=False, default=utcnow),
 )
 
+# CLV zakladu (modul 6): osobna tabela, bo bets jest tylko do dopisywania. Jeden wiersz na zaklad,
+# liczony przy rozliczeniu z kursu zamkniecia OSTREGO bukmachera (bez niego wiersza nie ma).
+bet_clv = Table(
+    "bet_clv", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("bet_id", Integer, nullable=False, unique=True),
+    Column("event_id", String(160), nullable=False, index=True),
+    Column("market", String(20), nullable=False),
+    Column("selection", String(20), nullable=False),
+    Column("odds_taken", Float, nullable=False),
+    Column("close_odds", Float, nullable=False),
+    Column("close_odds_fair", Float, nullable=False),
+    Column("close_book", String(40), nullable=False),
+    Column("devig_method", String(20), nullable=False),
+    Column("clv", Float, nullable=False),
+    Column("computed_utc", DateTime(timezone=True), nullable=False, default=utcnow),
+)
+
 results = Table(
     "results", metadata,
     Column("event_id", String(160), primary_key=True),
@@ -152,6 +179,8 @@ results = Table(
     Column("ar", Integer),
     Column("source", String(60)),
     Column("settled_utc", DateTime(timezone=True), default=utcnow),
+    Column("available_at", DateTime(timezone=True)),   # start + 2h15 (konserwatywny koniec meczu)
+    Column("fetched_at", DateTime(timezone=True)),
 )
 
 error_journal = Table(
@@ -181,7 +210,39 @@ model_registry = Table(
     Column("drift_reference_date", String(10)),   # --since dla evaluate.py
 )
 
-APPEND_ONLY = ("predictions", "bets")
+raw_fetches = Table(
+    "raw_fetches", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("source", String(40), nullable=False, index=True),
+    Column("url", Text, nullable=False),
+    Column("params_hash", String(16)),
+    Column("status", String(80)),
+    Column("from_cache", Boolean),
+    Column("path", Text),
+    Column("sha256", String(64)),
+    Column("bytes", Integer),
+    Column("note", Text),
+    Column("fetched_at", DateTime(timezone=True), nullable=False),
+)
+
+venues = Table(
+    "venues", metadata,
+    Column("league", String(10), primary_key=True),
+    Column("team", String(80), primary_key=True),
+    Column("venue", String(120)),
+    Column("city", String(80)),
+    Column("latitude", Float),
+    Column("longitude", Float),
+    Column("source", String(40)),
+    Column("fetched_at", DateTime(timezone=True)),
+)
+
+# tabele rekordow (team_match_stats, weather, news_messages, tennis_* ...) generowane z modeli pydantic
+from typer.store.records_db import build as _build_record_tables  # noqa: E402
+
+RECORD_TABLES = _build_record_tables(metadata)
+
+APPEND_ONLY = ("predictions", "bets", "bet_clv")
 
 
 def _append_only_ddl(dialect: str) -> list[str]:
@@ -280,23 +341,28 @@ def read_df(engine: sa.Engine, sql: str, **params) -> pd.DataFrame:
         return pd.read_sql(sa.text(sql), c, params=params)
 
 
-def store_matches(engine: sa.Engine, df: pd.DataFrame) -> dict:
-    """Mecze ze wspolnego schematu -> events, results, odds_snapshots."""
+def store_matches(engine: sa.Engine, df: pd.DataFrame, fetched_at: datetime | None = None) -> dict:
+    """Mecze ze wspolnego schematu -> events, results, odds_snapshots (ze znacznikami available_at)."""
+    from datetime import timedelta
+    from typer.ingest.core.records import POST_MATCH_LAG
+    fetched_at = fetched_at or utcnow()
     ev, res, odds = [], [], []
     for r in df.itertuples(index=False):
         played = pd.notna(r.fthg) and pd.notna(r.ftag)
+        ko_dt = pd.Timestamp(r.kickoff_utc).to_pydatetime()
         ev.append(dict(event_id=r.event_id, sport=r.sport, league=r.league, season=r.season,
-                       kickoff_utc=pd.Timestamp(r.kickoff_utc).to_pydatetime(),
-                       time_known=bool(r.time_known), home=r.home, away=r.away,
-                       status="finished" if played else "scheduled", source=r.source))
+                       kickoff_utc=ko_dt, time_known=bool(r.time_known), home=r.home, away=r.away,
+                       status="finished" if played else "scheduled", source=r.source,
+                       available_at=min(fetched_at, ko_dt - timedelta(days=1)), fetched_at=fetched_at))
         if played:
             res.append(dict(event_id=r.event_id, fthg=int(r.fthg), ftag=int(r.ftag),
                             hthg=None if pd.isna(r.hthg) else int(r.hthg),
                             htag=None if pd.isna(r.htag) else int(r.htag),
                             hr=None if pd.isna(r.hr) else int(r.hr),
-                            ar=None if pd.isna(r.ar) else int(r.ar), source=r.source))
-        ko = pd.Timestamp(r.kickoff_utc).to_pydatetime()
-        snaps = {"prematch": collection_time(r.date), "close": ko, "bench": ko}
+                            ar=None if pd.isna(r.ar) else int(r.ar), source=r.source,
+                            available_at=ko_dt + POST_MATCH_LAG, fetched_at=max(fetched_at, ko_dt + POST_MATCH_LAG)))
+        ko = ko_dt
+        snaps = {"prematch": min(collection_time(r.date), fetched_at), "close": ko, "bench": ko}
         for kind, prefix, book in (("prematch", "odds", "b365"), ("close", "close", "pinnacle"),
                                    ("bench", "bench", "unknown")):
             for mkt, sels in (("1X2", ("h", "d", "a")), ("OU2.5", ("o25", "u25"))):
@@ -307,7 +373,8 @@ def store_matches(engine: sa.Engine, df: pd.DataFrame) -> dict:
                         sel = {"h": "1", "d": "X", "a": "2", "o25": "over2.5", "u25": "under2.5"}[s]
                         odds.append(dict(event_id=r.event_id, source=r.source, bookmaker=book,
                                          market=mkt, selection=sel, price=float(v), kind=kind,
-                                         snapshot_utc=snaps[kind]))
+                                         snapshot_utc=snaps[kind], available_at=snaps[kind],
+                                         fetched_at=max(fetched_at, snaps[kind])))
     upsert(engine, events, ev, ["event_id"])
     upsert(engine, results, res, ["event_id"])
     upsert(engine, odds_snapshots, odds,

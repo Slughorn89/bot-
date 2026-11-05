@@ -1,0 +1,57 @@
+# CI typera (sekcja 12.3 skilla typer-sportowy)
+name: typer
+
+on:
+  push:
+    paths: ["typer/**", ".github/workflows/typer.yml"]
+  pull_request:
+    paths: ["typer/**", ".github/workflows/typer.yml"]
+  schedule:
+    - cron: "30 1 * * *"   # nocny pelny przebieg (UTC)
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: typer
+
+jobs:
+  szybkie:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: typer/requirements.txt
+      - run: pip install -r requirements.txt
+      - name: Testy szybkie (< 1 min)
+        run: python -m pytest -q -m "not slow"
+      - name: Kontrakt evaluate.py (kod 3 blokuje merge)
+        run: |
+          python tests/synth.py honest > /tmp/preds.csv
+          set +e
+          python tools/evaluate.py /tmp/preds.csv --value-threshold 0.03 --json /tmp/report.json > /dev/null
+          code=$?
+          set -e
+          echo "kod wyjscia evaluate.py: $code"
+          test "$code" -le 1
+
+  pelne:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: typer/requirements.txt
+      - run: pip install -r requirements.txt
+      - name: Dane do testu regresji (przypiety commit xgabora)
+        run: python -c "from typer.pipeline.data import load_matches; print(load_matches().shape)"
+      - name: Wszystkie testy (statystyczne, regresja, e2e)
+        run: python -m pytest -q

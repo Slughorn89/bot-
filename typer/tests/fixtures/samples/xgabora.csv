@@ -1,0 +1,4 @@
+Division,MatchDate,MatchTime,HomeTeam,AwayTeam,FTHome,FTAway,HTHome,HTAway,HomeShots,AwayShots,HomeTarget,AwayTarget,HomeFouls,AwayFouls,HomeCorners,AwayCorners,HomeYellow,AwayYellow,HomeRed,AwayRed,OddHome,OddDraw,OddAway,MaxHome,MaxDraw,MaxAway,Over25,Under25,MaxOver25,MaxUnder25,HandiSize,HandiHome,HandiAway
+E0,2024-08-17,15:00:00,Arsenal,Wolves,2,0,1,0,18,9,6,3,17,14,8,2,2,2,0,0,1.25,6.5,10,1.28,7,11.5,1.44,2.75,1.48,2.9,-1.75,1.95,1.95
+E0,2024-08-24,15:00:00,Wolves,Chelsea,2,6,1,2,9,15,3,9,12,10,4,6,3,1,0,0,4.0,3.8,1.85,4.2,4.0,1.9,1.6,2.3,1.65,2.4,0.5,1.9,2.0
+POL,2024-08-17,18:00:00,Legia,Lech Poznan,1,1,0,1,,,,,,,,,,,,,2.10,3.40,3.30,2.20,3.50,3.40,,,,,,,

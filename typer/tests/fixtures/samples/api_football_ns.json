@@ -1,0 +1,9 @@
+{"get": "fixtures", "errors": [], "results": 1, "response": [{
+ "fixture": {"id": 7002, "referee": "B. Testowy, England", "date": "2024-08-24T14:00:00+00:00",
+             "status": {"long": "Not Started", "short": "NS", "elapsed": null}},
+ "league": {"id": 39, "season": 2024},
+ "teams": {"home": {"id": 39, "name": "Wolves"}, "away": {"id": 49, "name": "Chelsea"}},
+ "goals": {"home": null, "away": null}, "score": {"halftime": {"home": null, "away": null}},
+ "events": [], "statistics": [], "players": [],
+ "lineups": [{"team": {"name": "Wolves"}, "startXI": [{"player": {"id": 5, "name": "Testowy Kapitan", "pos": "D"}}], "substitutes": []}]
+}]}

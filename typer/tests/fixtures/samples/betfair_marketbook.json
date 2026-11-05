@@ -1,0 +1,1 @@
+{"jsonrpc": "2.0", "result": [{"marketId": "1.230001", "runners": [{"selectionId": 47999, "lastPriceTraded": 1.27, "totalMatched": 152034.5, "ex": {"availableToBack": [{"price": 1.27, "size": 2100}], "availableToLay": [{"price": 1.28, "size": 1800}]}}]}], "id": 1}

@@ -1,0 +1,5 @@
+{"errors": [], "response": [
+ {"player": {"id": 31, "name": "Testowy Kontuzjowany", "type": "Missing Fixture", "reason": "Knee Injury"},
+  "team": {"id": 1, "name": "HOME_PLACEHOLDER"}, "fixture": {"id": 9001}},
+ {"player": {"id": 32, "name": "Testowy Pauzujacy", "type": "Missing Fixture", "reason": "Red Card Suspension"},
+  "team": {"id": 2, "name": "AWAY_PLACEHOLDER"}, "fixture": {"id": 9001}}]}

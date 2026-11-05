@@ -1,0 +1,26 @@
+raw,candidates,expected
+Manchester United,Man United;Man City;Liverpool,Man United
+Man Utd,Man United;Man City;Liverpool,Man United
+Manchester City,Man United;Man City;Liverpool,Man City
+Wolverhampton Wanderers,Wolves;West Ham;Watford,Wolves
+Tottenham Hotspur,Tottenham;Arsenal,Tottenham
+Spurs,Tottenham;Arsenal,Tottenham
+Nottingham Forest,Nott'm Forest;Newcastle,Nott'm Forest
+Brighton and Hove Albion,Brighton;Brentford,Brighton
+Bayern München,Bayern Munich;Dortmund,Bayern Munich
+Borussia Mönchengladbach,M'gladbach;Dortmund,M'gladbach
+Eintracht Frankfurt,Ein Frankfurt;Freiburg,Ein Frankfurt
+1. FC Köln,FC Koln;Mainz,FC Koln
+Atlético de Madrid,Ath Madrid;Ath Bilbao;Real Madrid,Ath Madrid
+Athletic Club,Ath Madrid;Ath Bilbao;Real Madrid,Ath Bilbao
+RCD Espanyol,Espanol;Getafe,Espanol
+Internazionale,Inter;Milan,Inter
+AC Milan,Inter;Milan,Milan
+Paris Saint-Germain,Paris SG;Paris FC;Lyon,Paris SG
+AS Saint-Etienne,St Etienne;Lyon,St Etienne
+Legia Warszawa,Legia;Lech Poznan,Legia
+Raków Częstochowa,Rakow;Legia,Rakow
+Newcastle,Newcastle;Man United,Newcastle
+Manchester,Man United;Man City,PENDING
+Real,Real Madrid;Real Sociedad;Real Betis,PENDING
+Zupelnie Inna Druzyna,Arsenal;Chelsea,PENDING

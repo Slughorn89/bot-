@@ -3,12 +3,17 @@ pandas==3.1.0
 numpy==2.5.4
 scipy==1.18.1
 scikit-learn==1.9.1
+matplotlib==3.11.2
 lightgbm==4.7.0
 SQLAlchemy==2.1.6
 alembic==1.20.1
 PyYAML==6.0.3
 requests==2.34.2
+pydantic==2.14.2
+# opcjonalnie (Telegram): telethon
 python-dotenv==1.2.4
 penaltyblog==1.13.1
 pytest==9.2.0
+hypothesis==6.170.14
+pytest-cov==7.1.0
 # PostgreSQL (produkcja): psycopg[binary]

@@ -1,5 +1,12 @@
 # Zrodla danych: licencja, limity, klucze (klucze tylko w .env, nigdy tutaj).
-# Stan "dostepne_w_srodowisku" sprawdzony 2026-10-31 w sesji chmurowej (proxy z lista dozwolonych hostow).
+# Stan "dostepne_w_srodowisku" sprawdzony 2026-11-05 w sesji chmurowej (proxy z lista dozwolonych hostow).
+# Limity i cenniki wg skilla typer-sportowy v2 (zweryfikowane tam w listopadzie 2026). Z tej sesji nie dalo sie
+# ich potwierdzic, bo hosty sa zablokowane: sprawdz ponownie po odblokowaniu i popraw date weryfikacji.
+data_weryfikacji_limitow: "2026-11 (wg skilla), niepotwierdzone z tej sesji"
+# Sposob uzycia danych: prywatne | komercyjne | nieustalone. Zrodla z licencja niekomercyjna
+# (Match Charting Project CC BY-NC-SA, darmowe Open-Meteo) przy "komercyjne" same sie blokuja,
+# przy "nieustalone" dzialaja z ostrzezeniem. Ustal to przed sprzedaza typow komukolwiek.
+licencja_uzycia: nieustalone
 xgabora:
   opis: Kopia football-data.co.uk (wyniki, strzaly, kartki, kursy Bet365 i maksymalne sprzed meczu) + ClubElo
   repo: https://github.com/xgabora/Club-Football-Match-Data-2000-2025
@@ -9,6 +16,7 @@ xgabora:
   url: https://raw.githubusercontent.com/xgabora/Club-Football-Match-Data-2000-2025/{ref}/data/Matches.csv
   licencja: MIT (repozytorium); dane zrodlowe football-data.co.uk (darmowe, z podaniem zrodla) i ClubElo
   limit: brak (raw.githubusercontent.com), plik ~45 MB
+  limit_na_minute: 30
   dostepne_w_srodowisku: true
   braki: brak kursow zamkniecia (nie da sie liczyc CLV w backteście), Ekstraklasa konczy sie 2024-12-08 i nie ma strzalow ani O/U
   nie_uzywac: [C_LTH, C_LTA, C_VHD, C_VAD, C_HTB, C_PHB]  # klastry liczone ze statystyk meczu = wyciek
@@ -19,8 +27,10 @@ football_data_uk:
   url_nowe_ligi: https://www.football-data.co.uk/new/{code}.csv
   url_terminarz: https://www.football-data.co.uk/fixtures.csv
   url_terminarz_nowe: https://www.football-data.co.uk/new_league_fixtures.csv
+  historia: od 2005/06, zamkniecia Pinnacle w PSCH/PSCD/PSCA (historyczne zamkniecia bierzemy stad)
   licencja: darmowe do uzytku, z podaniem zrodla (football-data.co.uk)
   limit: brak oficjalnego; pobieraj rzadko (raz dziennie), z cache w raw/
+  limit_na_minute: 20
   dostepne_w_srodowisku: false   # host www.football-data.co.uk zablokowany przez polityke sieci sesji
   uwagi: Glowne zrodlo docelowe. Daje kursy zamkniecia, wiec odblokowuje bramke clv_dodatni.
 
@@ -28,17 +38,100 @@ the_odds_api:
   opis: Kursy na zywo wielu bukmacherow (h2h, totals); do snapshotow "w chwili typu" i "zamkniecia"
   url: https://api.the-odds-api.com/v4/sports/{sport}/odds
   klucz_env: ODDS_API_KEY
-  licencja: komercyjna, plan darmowy z miesiecznym limitem zapytan (sprawdz aktualny na stronie)
-  limit: zuzycie widac w naglowkach x-requests-remaining / x-requests-used
+  licencja: komercyjna; ok. 40 bukmacherow
+  limit: darmowy plan 500 kredytow miesiecznie; zapytanie kosztuje rynki x regiony, historyczne 10x wiecej.
+    Zuzycie z naglowkow x-requests-used / x-requests-remaining (typer/ingest/budget.py)
+  budzet_miesiac: 500
+  rezerwa: 0.1             # 10% zapasu na powtorki i reczne zapytania
+  limit_na_minute: 30
+  regiony: [eu]
+  rynki_zamkniecie: [h2h, totals]   # zamkniecie ma priorytet: bez niego nie ma CLV
+  rynki_typ: [h2h, totals]          # przy braku budzetu planer zostawia samo h2h, potem nic
+  szacunek: >-
+    Plan "typ raz na lige i dzien meczowy + zamkniecie na kazda godzine startu" dla 5 lig top na danych
+    2025/26: srednio 380, maks. 498 kredytow/miesiac. Z Ekstraklasa w szczycie przekracza limit:
+    planer degraduje "typ" (najpierw bez totals). Gdy dziala fixtures.csv, Odds API trzeba tylko do zamkniec.
+  dostepne_w_srodowisku: false
+
+oddsrelay:
+  opis: >-
+    Kursy UK i Irlandii (58 bukmacherow, w tym bet365) i gield (Betfair, Matchbook, Smarkets).
+    Do snapshotow "w chwili typu" (bet365, tylko zaklady papierowe: bet365 nie jest legalny w Polsce)
+    i do zamkniec gieldowych do CLV (Betfair = ostre zamkniecie tam, gdzie brak Pinnacle)
+  url: https://api.oddsrelay.io
+  klucz_env: ODDSRELAY_KEY
+  licencja: komercyjna B2B; dane licencjonowane, bez zakladow
+  limit: >-
+    tokeny: koszt zapytania zalezy od filtrow (quote=true podaje koszt za darmo); plan probny
+    50 000 tokenow na 14 dni; ETag + If-None-Match = 304 bez kosztu. Naglowki X-RateLimit-*, x-tokens-remaining
+  budzet_miesiac: 50000
+  rezerwa: 0.1
+  limit_na_minute: 20
+  region: uk
+  bukmacherzy_typ: [bet365]
+  gieldy_zamkniecie: [betfair_exchange]
+  dostepne_w_srodowisku: true    # host odpowiada; bez klucza 401
+
+api_football:
+  opis: Sklady (startXI, lawka) i kontuzje/zawieszenia; najwieksza brakujaca informacja (slepa plamka nr 1)
+  url: https://v3.football.api-sports.io
+  klucz_env: API_FOOTBALL_KEY     # naglowek x-apisports-key
+  licencja: komercyjna (API-Sports); plan darmowy 100 zapytan dziennie, ograniczone sezony, reset o polnocy UTC,
+    platne od 19 USD/mies.
+  budzet_dzien: 100
+  rezerwa: 0.1
+  limit_na_minute: 10      # plan darmowy: limit na minute do weryfikacji po odblokowaniu
+  ligi: {E0: 39, D1: 78, I1: 135, SP1: 140, F1: 61, POL: 106}
+  plan: >-
+    1 zapytanie terminarza na lige i dzien meczowy + 1 zapytanie skladow na mecz (60 min przed startem)
+    + 1 zapytanie kontuzji na lige i dzien. Weekend top 5 lig + Ekstraklasa: ok. 6 + 6 + do 50 = ponizej 100.
+  uwaga: Sklady na razie tylko zbieramy (tabela lineups). Ceche dodamy, gdy bedzie historia do walidacji.
   dostepne_w_srodowisku: false
 
 penaltyblog:
   opis: Dixon-Coles z wagami czasowymi, Poisson; challenger dla ocen online
-  pakiet: penaltyblog==1.13.1
+  pakiet: penaltyblog==1.13.1 (z scipy==1.18.1)
   repo: https://github.com/martineastwood/penaltyblog
   commit_sprawdzony: 6870f0e762e9cba35fa722dc14a8daeaf8bc6134
   licencja: MIT
+  zgodnosc_scipy: >-
+    Skill: penaltyblog 1.5.1 wymaga scipy<=1.15.3 (nowsze psuje dopasowanie). My uzywamy 1.13.1 + scipy 1.18.1
+    i pilnujemy tego testem tests/test_vendor_dc.py (penaltyblog vs niezalezne MLE, maks. roznica p 0.002).
   dostepne_w_srodowisku: true (PyPI)
+
+open_meteo:
+  opis: Pogoda. Prognoza (na zywo), prognozy archiwalne sprzed N dni (backtest), obserwacje (tylko analiza)
+  url: https://api.open-meteo.com/v1/forecast | previous-runs-api | archive-api | geocoding-api
+  licencja: "darmowe API tylko niekomercyjnie, dane CC BY 4.0 (podaj zrodlo); komercyjnie plan platny"
+  limit: wg strony ok. 10 000 zapytan/dzien, 5 000/h, 600/min w planie darmowym (do weryfikacji)
+  limit_na_minute: 300
+  dostepne_w_srodowisku: false
+
+telegram:
+  opis: Publiczne kanaly newsowe (sklady, kontuzje) przez oficjalne API klienta MTProto (Telethon)
+  klucz_env: TELEGRAM_API_ID, TELEGRAM_API_HASH (my.telegram.org), sesja w data/telegram.session
+  licencja: Telegram API Terms of Service; tresci naleza do autorow kanalow, zawsze z linkiem t.me
+  kanaly: []               # tylko publiczne kanaly (nazwy uzytkownika), np. oficjalne kanaly klubow
+  limit_na_minute: 20      # FloodWait od Telegrama respektujemy dokladnie
+  dostepne_w_srodowisku: false
+
+betfair:
+  opis: Betfair Exchange (kursy back/lay, LTP, wolumen w czasie); stream i pliki Historical Data
+  klucz_env: BETFAIR_APP_KEY, BETFAIR_USERNAME, BETFAIR_PASSWORD
+  licencja: Betfair API Terms; wymaga konta i legalnego dostepu w kraju uzytkownika
+  wlaczony: false          # wlacz dopiero po potwierdzeniu legalnego dostepu (w Polsce prawdopodobnie brak)
+  limit_na_minute: 60
+  dostepne_w_srodowisku: false
+
+tennis_mcp:
+  opis: Tennis Abstract Match Charting Project (mecze, statystyki serwisu, punkty)
+  repo: https://github.com/JeffSackmann/tennis_MatchChartingProject
+  ref: 1813a1309b7ed7ebf1c7e884b32bf675d00e4edf   # 2026-09-18
+  url: https://raw.githubusercontent.com/JeffSackmann/tennis_MatchChartingProject/{ref}/{file}
+  licencja: CC BY-NC-SA 4.0, wylacznie niekomercyjnie, z podaniem autora (Jeff Sackmann / Tennis Abstract)
+  uwaga: tennis_atp, tennis_wta i tennis_slam_pointbypoint nie sa juz publiczne (sprawdzone 2026-11-05)
+  limit_na_minute: 30
+  dostepne_w_srodowisku: true
 
 flashscore:
   opis: Tylko reczna weryfikacja. Brak publicznego API, regulamin zabrania pobierania tresci bez zgody (Livesport).

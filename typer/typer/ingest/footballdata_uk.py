@@ -39,6 +39,8 @@ MAIN_MAP = {
     "close_h": ["PSCH"], "close_d": ["PSCD"], "close_a": ["PSCA"],
     "close_o25": ["PC>2.5"], "close_u25": ["PC<2.5"],
     "ah_line": ["AHh", "BbAHh"], "ah_h": ["B365AHH"], "ah_a": ["B365AHA"],
+    # tryb extended
+    "hc": ["HC"], "ac": ["AC"], "hf": ["HF"], "af": ["AF"], "hy": ["HY"], "ay": ["AY"], "referee": ["Referee"],
 }
 # nowe ligi (np. POL): tylko kursy zamkniecia
 NEW_MAP = {
@@ -71,7 +73,9 @@ def _parse_dates(df: pd.DataFrame) -> tuple[pd.Series, pd.Series, pd.Series]:
     return date, utc, known
 
 
-def parse(raw: bytes, league: str, *, kind: str = "main", allow_unplayed: bool = False) -> pd.DataFrame:
+def parse(raw: bytes, league: str, *, kind: str = "main", allow_unplayed: bool = False,
+          extended: bool = False) -> pd.DataFrame:
+    """extended=True: dodatkowo rozne, faule, zolte kartki i sedzia (schema.EXTRA_COLS)."""
     text = raw.decode("utf-8-sig", errors="replace")
     df = pd.read_csv(io.StringIO(text), on_bad_lines="skip")
     df = df.dropna(how="all")
@@ -80,13 +84,18 @@ def parse(raw: bytes, league: str, *, kind: str = "main", allow_unplayed: bool =
     if kind == "new" and "League" in df.columns and league == "POL":
         df = df[df["League"].astype(str).str.contains("Ekstraklasa", case=False, na=False)]
     mp = MAIN_MAP if kind == "main" else NEW_MAP
+    need = ["home", "away"] + ([] if allow_unplayed else ["fthg", "ftag"])
+    missing = [c for c in need if not any(x in df.columns for x in mp[c])] + \
+              (["Date"] if "Date" not in df.columns else [])
+    if missing:  # zrodlo zmienilo format: test kontraktu czerwony, nie cicha pustka
+        raise schema.ContractError(f"football-data.co.uk {league}: brak kolumn dla {missing}")
     out = pd.DataFrame(index=df.index)
     for col, cands in mp.items():
         out[col] = _pick(df, cands)
     date, utc, known = _parse_dates(df)
     out["date"], out["kickoff_utc"], out["time_known"] = date.dt.date, utc, known
     out["league"], out["sport"], out["source"] = league, "football", SOURCE
-    for c in schema.COLUMNS:
+    for c in schema.COLUMNS + schema.EXTRA_COLS:
         if c not in out.columns:
             out[c] = np.nan
     out = out.dropna(subset=["home", "away", "kickoff_utc"])
@@ -98,7 +107,8 @@ def parse(raw: bytes, league: str, *, kind: str = "main", allow_unplayed: bool =
     out, bad = schema.clean_odds(out)
     if any(bad.values()):
         log.warning("%s: wyzerowane bledne grupy kursow %s", league, {k: v for k, v in bad.items() if v})
-    out = out.drop_duplicates("event_id", keep="last")[schema.COLUMNS]
+    cols = schema.COLUMNS + (schema.EXTRA_COLS if extended else [])
+    out = out.drop_duplicates("event_id", keep="last")[cols]
     return schema.validate(out.reset_index(drop=True), allow_unplayed=allow_unplayed)
 
 
@@ -119,7 +129,13 @@ def load(seasons: list[str], leagues: dict | None = None) -> pd.DataFrame:
         else:
             for s in seasons:
                 frames.append(parse(download_season(f["code"], s), lg, kind="main"))
-    return pd.concat(frames, ignore_index=True) if frames else schema.empty_frame()
+    if not frames:
+        return schema.empty_frame()
+    from typer.entities.history import harmonize
+    out = harmonize(pd.concat(frames, ignore_index=True), config.load_yaml("aliases.yaml"))
+    out["event_id"] = [schema.make_event_id(l, d, h, a)
+                       for l, d, h, a in zip(out["league"], out["date"], out["home"], out["away"])]
+    return schema.validate(out)
 
 
 def load_fixtures(leagues: dict | None = None) -> pd.DataFrame:

@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 
 from typer import config
+from typer.entities.history import harmonize
 from typer.ingest import schema
 from typer.ingest.base import fetch
 from typer.ingest.seasons import assign_seasons
@@ -35,6 +36,9 @@ RENAME = {
     "Over25": "odds_o25", "Under25": "odds_u25",
     "MaxOver25": "max_o25", "MaxUnder25": "max_u25",
     "HandiSize": "ah_line", "HandiHome": "ah_h", "HandiAway": "ah_a",
+    # tryb extended (sedziego w tej kopii nie ma)
+    "HomeCorners": "hc", "AwayCorners": "ac", "HomeFouls": "hf", "AwayFouls": "af",
+    "HomeYellow": "hy", "AwayYellow": "ay",
 }
 
 
@@ -59,8 +63,15 @@ def download(ref: str | None = None, max_age_hours: float | None = None) -> byte
     return fetch(url, SOURCE, f"Matches_{ref[:12]}.csv", max_age_hours=age)
 
 
-def parse(raw: bytes, leagues: dict, since: str | None = None, ref: str = "") -> pd.DataFrame:
+REQUIRED = ["Division", "MatchDate", "HomeTeam", "AwayTeam", "FTHome", "FTAway", "OddHome", "OddDraw", "OddAway"]
+
+
+def parse(raw: bytes, leagues: dict, since: str | None = None, ref: str = "", extended: bool = False) -> pd.DataFrame:
+    """extended=True: dodatkowo rozne, faule i zolte kartki (schema.EXTRA_COLS)."""
     df = pd.read_csv(io.BytesIO(raw), low_memory=False)
+    missing = [c for c in REQUIRED if c not in df.columns]
+    if missing:  # zrodlo zmienilo format: stop, zamiast po cichu liczyc na pustych kolumnach
+        raise schema.ContractError(f"xgabora: brak kolumn {missing}")
     df = df[df["Division"].isin(list(leagues))]
     df = df[[c for c in RENAME if c in df.columns]].rename(columns=RENAME)
     df["date"] = pd.to_datetime(df["date"])
@@ -94,22 +105,28 @@ def parse(raw: bytes, leagues: dict, since: str | None = None, ref: str = "") ->
                        "max_a", "max_o25", "max_u25", "ah_line", "ah_h", "ah_a"]] = np.nan
         if not meta.get("has_shots", True):
             df.loc[df["league"] == lg, ["hs", "as_", "hst", "ast"]] = np.nan
+    for c in schema.EXTRA_COLS:
+        if c not in df.columns:
+            df[c] = np.nan
     df["sport"] = "football"
     df["source"] = f"{SOURCE}@{ref[:7]}" if ref else SOURCE
     df["season"] = ""
     for lg, idx in df.groupby("league").groups.items():
         df.loc[idx, "season"] = assign_seasons(df.loc[idx, "date"])
     df = df.dropna(subset=["fthg", "ftag"])  # tylko rozegrane
+    # spojnosc nazw: zmiany zapisu w trakcie sezonu (np. "Nottm Forest" -> "Nott'm Forest")
+    df = harmonize(df, config.load_yaml("aliases.yaml"))
     df["event_id"] = [schema.make_event_id(l, d, h, a)
                       for l, d, h, a in zip(df["league"], df["date"], df["home"], df["away"])]
     df, bad_odds = schema.clean_odds(df)
     if any(bad_odds.values()):
         log.warning("wyzerowane bledne grupy kursow: %s", {k: v for k, v in bad_odds.items() if v})
     df = df.drop_duplicates("event_id", keep="last")
-    df = df[schema.COLUMNS].sort_values(["kickoff_utc", "league", "home"], kind="stable")
+    df = df[schema.COLUMNS + (schema.EXTRA_COLS if extended else [])].sort_values(
+        ["kickoff_utc", "league", "home"], kind="stable")
     return schema.validate(df.reset_index(drop=True))
 
 
-def load(since: str | None = None, ref: str | None = None) -> pd.DataFrame:
+def load(since: str | None = None, ref: str | None = None, extended: bool = False) -> pd.DataFrame:
     ref = ref or config.sources()["xgabora"]["ref"]
-    return parse(download(ref), config.leagues(), since=since, ref=ref)
+    return parse(download(ref), config.leagues(), since=since, ref=ref, extended=extended)

@@ -82,3 +82,22 @@ def all_markets(m: np.ndarray, ou_lines=(1.5, 2.5, 3.5)) -> dict[str, dict[str, 
     for ln in ou_lines:
         out[f"OU{ln:g}"] = {k: v for k, v in p_ou(m, ln).items() if k != "push"}
     return out
+
+
+OU_LINES = tuple(x + 0.5 for x in range(6))                      # 0.5 .. 5.5
+AH_LINES = tuple(round(-2.5 + 0.25 * i, 2) for i in range(21))   # -2.5 .. +2.5 co 0.25
+
+
+def market_bundle(m: np.ndarray, ou_lines=OU_LINES, ah_lines=AH_LINES) -> dict:
+    """Wszystkie rynki z jednej macierzy (modul 2): 1X2, O/U 0.5..5.5, BTTS, AH dla gospodarza.
+    AH: dla linii polowkowych i calkowitych win/push/lose; cwiartkowe jako srednia dwoch polowek stawki."""
+    out = {"1X2": p_1x2(m), "BTTS": p_btts(m)}
+    for ln in ou_lines:
+        out[f"OU{ln:g}"] = {k: v for k, v in p_ou(m, ln).items() if k != "push"}
+    for ln in ah_lines:
+        if (ln * 4) % 2 == 0:
+            out[f"AH{ln:+g}"] = ah_probs(m, ln)
+        else:
+            a, b = ah_probs(m, ln - 0.25), ah_probs(m, ln + 0.25)
+            out[f"AH{ln:+g}"] = {k: (a[k] + b[k]) / 2 for k in ("win", "push", "lose")}
+    return out

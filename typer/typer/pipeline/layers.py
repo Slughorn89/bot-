@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import minimize_scalar
 
-from typer.betting.core import devig
+from typer.betting.devig import devig_rows
 from typer.models.calibration.calibrate import Binary, Multiclass
 
 log = logging.getLogger("typer.layers")
@@ -108,17 +108,15 @@ def gbm_fn(features: list[str] = FEATURES):
 
 
 # ---------------- mieszanka z rynkiem ----------------
-def market_probs(df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Rynek w chwili typu bez marzy: (P1X2, maska1X2, p_over, maskaOU)."""
-    o1 = df[["odds_h", "odds_d", "odds_a"]].to_numpy(float)
-    m1 = np.isfinite(o1).all(axis=1)
-    P = np.full_like(o1, np.nan)
-    P[m1] = devig(o1[m1])
-    o2 = df[["odds_o25", "odds_u25"]].to_numpy(float)
-    m2 = np.isfinite(o2).all(axis=1)
-    po = np.full(len(df), np.nan)
-    po[m2] = devig(o2[m2])[:, 0]
-    return P, m1, po, m2
+def market_probs(df: pd.DataFrame, method: str = "proportional"
+                 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Rynek W CHWILI TYPU (kurs "wziety", nigdy zamkniecie) bez marzy: (P1X2, maska1X2, p_over, maskaOU).
+    method: proportional | shin | power (betting/devig.py, wybor w module 6)."""
+    P = devig_rows(df[["odds_h", "odds_d", "odds_a"]].to_numpy(float), method)
+    m1 = np.isfinite(P).all(axis=1)
+    Po = devig_rows(df[["odds_o25", "odds_u25"]].to_numpy(float), method)
+    m2 = np.isfinite(Po).all(axis=1)
+    return P, m1, Po[:, 0], m2
 
 
 def _pool(Pm, Pk, w):
@@ -132,24 +130,53 @@ def _fit_w(Pm, Pk, y):
     return minimize_scalar(f, bounds=(0.0, 1.0), method="bounded").x
 
 
-def blend_fn(fixed_w: tuple[float, float] | None = None):
+def _weights(tr: pd.DataFrame, method: str, min_n: int = 500) -> tuple[float, float, int, int]:
+    """Waga modelu w mieszance (1X2, O/U) z meczow treningowych z kursem; brak danych = 1.0 (sam model)."""
+    y = outcomes(tr)
+    Pk, m1, po, m2 = market_probs(tr, method)
+    w1 = _fit_w(tr.loc[m1, P1X2].to_numpy(), Pk[m1], y["1x2"][m1]) if m1.sum() > min_n else 1.0
+    Po = np.c_[po[m2], 1 - po[m2]]
+    Pmo = np.c_[tr.loc[m2, "p_over"], 1 - tr.loc[m2, "p_over"]]
+    w2 = _fit_w(Pmo, Po, 1 - y["over"][m2]) if m2.sum() > min_n else 1.0
+    return float(w1), float(w2), int(m1.sum()), int(m2.sum())
+
+
+def blend_fn(fixed_w: tuple[float, float] | None = None, per_league: bool = False, shrink_k: float = 500.0,
+             devig_method: str = "proportional", min_league: int = 300):
+    """Mieszanka log-liniowa model + rynek w chwili typu. per_league: waga ligi sciagana do globalnej,
+    w = (n * w_ligi + k * w_glob) / (n + k), n = mecze ligi z kursem w treningu (k = inf -> tylko globalna)."""
     def fp(tr: pd.DataFrame, tg: pd.DataFrame) -> pd.DataFrame:
         tg = tg.copy()
-        y = outcomes(tr)
-        Pk, m1, po, m2 = market_probs(tr)
         if fixed_w:
-            w1, w2 = fixed_w
+            wg1, wg2 = fixed_w
         else:
-            w1 = _fit_w(tr.loc[m1, P1X2].to_numpy(), Pk[m1], y["1x2"][m1]) if m1.sum() > 500 else 1.0
-            Po = np.c_[po[m2], 1 - po[m2]]
-            Pmo = np.c_[tr.loc[m2, "p_over"], 1 - tr.loc[m2, "p_over"]]
-            w2 = _fit_w(Pmo, Po, 1 - y["over"][m2]) if m2.sum() > 500 else 1.0
-        Pk, m1, po, m2 = market_probs(tg)
-        tg.loc[m1, P1X2] = _pool(tg.loc[m1, P1X2].to_numpy(), Pk[m1], w1)
+            wg1, wg2, _, _ = _weights(tr, devig_method)
+        W = {}
+        for lg in tg["league"].unique():
+            w1, w2 = wg1, wg2
+            if per_league and not fixed_w and np.isfinite(shrink_k):
+                t = tr[tr["league"] == lg]
+                l1, l2, n1, n2 = _weights(t, devig_method, min_n=min_league)
+                if n1 > min_league:
+                    w1 = (n1 * l1 + shrink_k * wg1) / (n1 + shrink_k)
+                if n2 > min_league:
+                    w2 = (n2 * l2 + shrink_k * wg2) / (n2 + shrink_k)
+            W[lg] = (w1, w2)
+        Pk, m1, po, m2 = market_probs(tg, devig_method)
+        w1v = tg["league"].map(lambda x: W[x][0]).to_numpy(float)
+        w2v = tg["league"].map(lambda x: W[x][1]).to_numpy(float)
+        if m1.any():
+            Pm = tg.loc[m1, P1X2].to_numpy()
+            L = w1v[m1, None] * np.log(np.clip(Pm, EPS, 1)) + (1 - w1v[m1, None]) * np.log(np.clip(Pk[m1], EPS, 1))
+            E = np.exp(L - L.max(axis=1, keepdims=True))
+            tg.loc[m1, P1X2] = E / E.sum(axis=1, keepdims=True)
         if m2.any():
             Pmo = np.c_[tg.loc[m2, "p_over"], 1 - tg.loc[m2, "p_over"]]
-            tg.loc[m2, "p_over"] = _pool(Pmo, np.c_[po[m2], 1 - po[m2]], w2)[:, 0]
-        tg["w_model_1x2"], tg["w_model_ou"] = w1, w2
+            Pko = np.c_[po[m2], 1 - po[m2]]
+            L = w2v[m2, None] * np.log(np.clip(Pmo, EPS, 1)) + (1 - w2v[m2, None]) * np.log(np.clip(Pko, EPS, 1))
+            E = np.exp(L - L.max(axis=1, keepdims=True))
+            tg.loc[m2, "p_over"] = (E / E.sum(axis=1, keepdims=True))[:, 0]
+        tg["w_model_1x2"], tg["w_model_ou"] = w1v, w2v
         return tg
     return fp
 

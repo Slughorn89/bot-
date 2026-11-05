@@ -105,26 +105,45 @@ def _fixtures_from_db(engine: sa.Engine, day) -> pd.DataFrame:
 
 
 def snapshot_odds(engine: sa.Engine, now: datetime | None = None) -> dict:
-    """Snapshot kursow z The Odds API dla lig z konfiguracji. Nazwy druzyn mapowane na kanoniczne;
-    niepewne trafiaja do entity_map ze statusem 'pending' i ich mecze sa pomijane (nie zgadujemy)."""
+    """Snapshoty kursow z The Odds API w budzecie (typer/ingest/budget.py): 'taken' raz na lige i dzien
+    meczowy przed pierwszym typem, 'close' dla kazdej godziny startu w oknie 10 min przed meczem.
+    Nazwy druzyn mapowane na kanoniczne; niepewne trafiaja do entity_map ('pending') i ich mecze sa
+    pomijane (nie zgadujemy)."""
     from typer.entities.mapping import resolve_many
     from typer.ingest import odds_api
+    from typer.ingest.budget import Ledger, plan_odds_snapshots
     now = now or datetime.now(timezone.utc)
     ev = db.read_df(engine, "SELECT event_id, league, home, away, kickoff_utc FROM events "
                             "WHERE status = 'scheduled'")
     if ev.empty:
-        return dict(snapshots=0, pending=0)
+        return dict(snapshots=0, pending=0, zapytania=0)
     ev["kickoff_utc"] = pd.to_datetime(ev["kickoff_utc"], utc=True)
+    have = db.read_df(engine, "SELECT o.event_id, o.kind, o.snapshot_utc, e.league, e.kickoff_utc FROM odds_snapshots o "
+                              "JOIN events e ON e.event_id = o.event_id WHERE o.source = 'the_odds_api'")
+    done = set()
+    if len(have):
+        have["kickoff_utc"] = pd.to_datetime(have["kickoff_utc"], utc=True)
+        have["snapshot_utc"] = pd.to_datetime(have["snapshot_utc"], utc=True)
+        for r in have.itertuples(index=False):
+            done.add((r.league, "close", str(r.kickoff_utc)) if r.kind == "close"
+                     else (r.league, "taken", str(r.snapshot_utc.date())))
+    ledger = Ledger()
+    plans = plan_odds_snapshots(ev, now, done, ledger)
     manual = db.read_df(engine, "SELECT league, raw_name, canonical FROM entity_map "
                                 "WHERE source = 'the_odds_api' AND status = 'manual'")
-    rows, pending_total = [], 0
-    for lg, meta in config.leagues().items():
+    leagues = config.leagues()
+    rows, pending_total, calls = [], 0, 0
+    for plan in plans:
+        meta = leagues.get(plan.league, {})
         if not meta.get("odds_api"):
             continue
+        lg = plan.league
         try:
-            snap = odds_api.parse(odds_api.download(meta["odds_api"], now=now), lg, now)
+            snap = odds_api.parse(odds_api.download(meta["odds_api"], markets=",".join(plan.markets), now=now,
+                                                    ledger=ledger), lg, now)
+            calls += 1
         except SourceUnavailable as e:
-            alert(f"The Odds API ({lg}) niedostepne: {e}")
+            alert(f"The Odds API ({lg}, {plan.kind}) niedostepne: {e}")
             continue
         if snap.empty:
             continue
@@ -149,23 +168,110 @@ def snapshot_odds(engine: sa.Engine, now: datetime | None = None) -> dict:
             rows.append(dict(event_id=r.event_id, source="the_odds_api", bookmaker=r.bookmaker,
                              market=r.market, selection=r.selection, price=r.price, kind=r.kind,
                              snapshot_utc=pd.Timestamp(r.snapshot_utc).to_pydatetime()))
-    db.upsert(engine, db.odds_snapshots, rows,
-              ["event_id", "source", "bookmaker", "market", "selection", "snapshot_utc"], update=False)
+    key = ("event_id", "source", "bookmaker", "market", "selection", "snapshot_utc")
+    rows = list({tuple(r[k] for k in key): r for r in rows}.values())  # to samo zapytanie dwa razy = jeden wiersz
+    db.upsert(engine, db.odds_snapshots, rows, list(key), update=False)
     if pending_total:
         alert(f"{pending_total} nazw druzyn czeka na reczne mapowanie (entity_map, status pending)")
-    return dict(snapshots=len(rows), pending=pending_total)
+    return dict(snapshots=len(rows), pending=pending_total, zapytania=calls,
+                kredyty_w_miesiacu=ledger.used("the_odds_api", now))
 
 
-def predict(engine: sa.Engine, as_of=None, role: str = "champion", lead_minutes: int | None = None
+def collect_lineups(engine: sa.Engine, now: datetime | None = None, lead_minutes: int = 75) -> dict:
+    """Sklady i kontuzje z API-Football dla meczow startujacych w ciagu lead_minutes (sklady sa ok. 60 min
+    przed meczem). Tylko zbieranie: model ich jeszcze nie uzywa (brak historii do walidacji)."""
+    from typer.entities.mapping import resolve_many
+    from typer.ingest import api_football as af
+    now = now or datetime.now(timezone.utc)
+    src = config.sources().get("api_football", {})
+    ids = src.get("ligi", {})
+    ev = db.read_df(engine, "SELECT event_id, league, season, home, away, kickoff_utc FROM events "
+                            "WHERE status = 'scheduled'")
+    if ev.empty:
+        return dict(mecze=0, wiersze=0)
+    ev["kickoff_utc"] = pd.to_datetime(ev["kickoff_utc"], utc=True)
+    now_ts = pd.Timestamp(now)
+    soon = ev[(ev["kickoff_utc"] > now_ts) & (ev["kickoff_utc"] <= now_ts + pd.Timedelta(minutes=lead_minutes))]
+    have = db.read_df(engine, "SELECT DISTINCT event_id FROM lineups WHERE source = 'api_football' AND status = 'start'")
+    soon = soon[~soon["event_id"].isin(set(have["event_id"]) if len(have) else set())]
+    rows, n_matched = [], 0
+    for (lg, day), g in soon.groupby(["league", soon["kickoff_utc"].dt.date]):
+        if lg not in ids:
+            continue
+        season = int(str(g["season"].iloc[0])[:4])
+        try:
+            fx = af.parse_fixtures(af.download("/fixtures", dict(league=ids[lg], season=season, date=str(day)),
+                                               now=now, max_age_hours=6, stamp=str(day)))
+            inj = af.parse_injuries(af.download("/injuries", dict(league=ids[lg], season=season, date=str(day)),
+                                                now=now, max_age_hours=6, stamp=str(day)))
+        except SourceUnavailable as e:
+            alert(f"API-Football ({lg} {day}) niedostepne: {e}")
+            continue
+        if fx.empty:
+            continue
+        cands = sorted(set(ev.loc[ev["league"] == lg, "home"]) | set(ev.loc[ev["league"] == lg, "away"]))
+        mapping, pending = resolve_many(list(fx["home_raw"]) + list(fx["away_raw"]), cands)
+        db.upsert(engine, db.entity_map, [dict(source="api_football", league=lg, raw_name=k, canonical=v, score=1.0,
+                                               status="auto") for k, v in mapping.items()] +
+                  [dict(source="api_football", league=lg, raw_name=m.raw, canonical=m.canonical, score=m.score,
+                        status="pending") for m in pending], ["source", "league", "raw_name"], update=False)
+        fx["home"], fx["away"] = fx["home_raw"].map(mapping), fx["away_raw"].map(mapping)
+        j = g.merge(fx.dropna(subset=["home", "away"]), on=["home", "away"], suffixes=("", "_af"))
+        j = j[(j["kickoff_utc"] - j["kickoff_utc_af"]).abs() <= pd.Timedelta(hours=3)]
+        for r in j.itertuples(index=False):
+            try:
+                lu = af.parse_lineups(af.download("/fixtures/lineups", dict(fixture=int(r.fixture_id)), now=now))
+            except (SourceUnavailable, ValueError) as e:
+                alert(f"API-Football sklady {r.event_id}: {e}")
+                continue
+            n_matched += 1
+            part = pd.concat([lu, inj[inj["fixture_id"] == r.fixture_id].drop(columns="fixture_id")]) if len(inj) else lu
+            for x in part.itertuples(index=False):
+                team = mapping.get(x.team_raw)
+                if team is None:
+                    continue
+                rows.append(dict(event_id=r.event_id, team=team, player=x.player, is_starter=bool(x.is_starter),
+                                 position=x.position, status=x.status, reason=x.reason,
+                                 published_utc=now, source="api_football"))
+    db.upsert(engine, db.lineups, rows, ["event_id", "team", "player", "status", "source"], update=False)
+    return dict(mecze=n_matched, wiersze=len(rows))
+
+
+def variants() -> list[dict]:
+    """Champion + challengerzy z config/model.yaml. Challenger typuje w cieniu (role=challenger),
+    na tych samych meczach, i nie stawia zakladow (sekcja 9.5)."""
+    m = config.model_params()
+    out = [dict(version=m.get("version", "op-dev"), layers=m.get("layers", "online+cal"), role="champion",
+                params=None, changes="champion")]
+    for c in m.get("challengers", []) or []:
+        out.append(dict(version=c["version"], layers=c.get("layers", out[0]["layers"]), role="challenger",
+                        params=c.get("online_poisson"), changes=c.get("changes", "")))
+    return out
+
+
+def _params_for(v: dict):
+    base = params_from_config()
+    if not v.get("params"):
+        return base
+    from dataclasses import replace
+    return replace(base, **v["params"])
+
+
+def predict(engine: sa.Engine, as_of=None, role: str | None = None, lead_minutes: int | None = None
             ) -> pd.DataFrame:
-    """Predykcje dla terminarza. Dopisywane, nigdy nadpisywane.
+    """Predykcje dla terminarza: champion i challengerzy. Dopisywane, nigdy nadpisywane.
     lead_minutes: na zywo typujemy tylko mecze startujace w ciagu N minut (po skladach, 60-90 min
-    przed meczem). Bez tego: wszystkie mecze z dnia as_of / najblizszych 3 dni."""
-    cfg = model_cfg()
+    przed meczem). Bez tego: wszystkie mecze z dnia as_of / najblizszych 3 dni.
+    role: ogranicz do jednej roli (champion albo challenger); domyslnie obie."""
     today = pd.Timestamp(as_of).date() if as_of else datetime.now(timezone.utc).date()
-    if current(engine) is None:
-        register(engine, cfg["version"], "champion", params_from_config().to_dict(),
-                 "pierwsze wdrozenie", drift_reference_date=str(today))
+    vs = [v for v in variants() if role is None or v["role"] == role]
+    registry = db.read_df(engine, "SELECT version FROM model_registry")
+    known = set(registry["version"]) if len(registry) else set()
+    for v in vs:
+        if v["version"] not in known:
+            register(engine, v["version"], v["role"], _params_for(v).to_dict(),
+                     "pierwsze wdrozenie" if v["role"] == "champion" else v["changes"],
+                     drift_reference_date=str(today))
     hist = load_matches()
     past = hist[hist["date"] < today]
     fx = _fixtures_from_db(engine, today)
@@ -178,26 +284,42 @@ def predict(engine: sa.Engine, as_of=None, role: str = "champion", lead_minutes:
     if fx.empty:
         log.info("brak meczow w terminarzu")
         return pd.DataFrame()
-    eng = Engine(params_from_config(), cutoff_mode="day", collect_features=True)
-    frame = eng.run(past, predict_from="2008-07-01", fixtures=fx)
-    tgt = frame[frame["fthg"].isna()]
-    past_fr = frame[frame["fthg"].notna()]
-    # audyt: cechy "as of" kazdego typowanego meczu i stan ocen w chwili typu
     now = datetime.now(timezone.utc)
+    frames: dict = {}
+    out = []
+    for v in vs:
+        pkey = str(v.get("params"))
+        if pkey not in frames:  # jeden przebieg ocen online na zestaw parametrow
+            eng = Engine(_params_for(v), cutoff_mode="day", collect_features=True)
+            frame = eng.run(past, predict_from="2008-07-01", fixtures=fx)
+            frames[pkey] = (eng, frame)
+        eng, frame = frames[pkey]
+        tgt = frame[frame["fthg"].isna()]
+        past_fr = frame[frame["fthg"].notna()]
+        _audit(engine, eng, tgt, v["version"], now)
+        tgt = L.live_apply(past_fr, tgt, LAYER_SETS[v["layers"]])
+        out.append(_write_predictions(engine, tgt, v["version"], v["role"], now, as_of))
+    return pd.concat(out, ignore_index=True) if out else pd.DataFrame()
+
+
+def _audit(engine, eng, tgt, version, now) -> None:
+    """Audyt: cechy "as of" kazdego typowanego meczu i stan ocen w chwili typu."""
     feat_cols = [c for c in L.FEATURES if c in tgt.columns]
-    db.upsert(engine, db.features, [dict(event_id=r["event_id"], model_version=cfg["version"], as_of_utc=now,
+    db.upsert(engine, db.features, [dict(event_id=r["event_id"], model_version=version, as_of_utc=now,
                                          values={c: float(r[c]) for c in feat_cols})
                                     for r in tgt.to_dict("records")], ["event_id", "model_version"], update=False)
     snap = []
     for lg in tgt["league"].unique():
         for t in eng.model.snapshot(lg):
-            snap.append(dict(model_version=cfg["version"], league=lg, team=t["team"], as_of_utc=now,
+            snap.append(dict(model_version=version, league=lg, team=t["team"], as_of_utc=now,
                              attack=t["attack"], defense=t["defense"],
                              extra=dict(n=t["n"], home_adv=eng.model.home[lg], mu=eng.model.mu[lg])))
     db.append(engine, db.ratings_history, snap)
-    tgt = L.live_apply(past_fr, tgt, LAYER_SETS[cfg["layers"]])
+
+
+def _write_predictions(engine, tgt, version, role, now, as_of) -> pd.DataFrame:
     existing = db.read_df(engine, "SELECT event_id, market, selection FROM predictions "
-                                  "WHERE model_version = :v AND role = :r", v=cfg["version"], r=role)
+                                  "WHERE model_version = :v AND role = :r", v=version, r=role)
     have = set(map(tuple, existing.to_numpy())) if len(existing) else set()
     rows = []
     for r in tgt.itertuples(index=False):
@@ -212,7 +334,7 @@ def predict(engine: sa.Engine, as_of=None, role: str = "champion", lead_minutes:
             if (r.event_id, mkt, sel) in have:
                 continue
             rows.append(dict(event_id=r.event_id, market=mkt, selection=sel, p_model=float(p),
-                             p_baseline=float(b), model_version=cfg["version"], role=role,
+                             p_baseline=float(b), model_version=version, role=role,
                              odds_taken=None if pd.isna(o) else float(o),
                              odds_source="b365_prematch" if as_of else "fixtures",
                              predicted_utc=now, kickoff_utc=pd.Timestamp(r.kickoff_utc).to_pydatetime()))
@@ -240,6 +362,8 @@ def place_bets(engine: sa.Engine, preds: pd.DataFrame) -> pd.DataFrame:
     cfg = model_cfg()
     if preds.empty:
         return preds
+    if "role" in preds.columns:
+        preds = preds[preds["role"] == "champion"]  # challenger typuje w cieniu, nie gra
     c = preds[preds["odds_taken"].notna() & preds["market"].isin(cfg["bet_markets"])]
     cands = [dict(prediction_id=int(r.id), event_id=r.event_id, market=r.market, selection=r.selection,
                   p=r.p_model, odds=r.odds_taken) for r in c.itertuples(index=False)]
@@ -265,4 +389,5 @@ def settle_day(engine: sa.Engine, as_of=None) -> dict:
         db.store_matches(engine, load_matches(refresh=True))
     s = settle.settled(engine, role=None)
     n_j = journal.update_journal(engine, s[s["role"] == "champion"]) if len(s) else 0
-    return dict(settled=int(s["event_id"].nunique()) if len(s) else 0, journal=n_j)
+    n_clv = settle.record_clv(engine)
+    return dict(settled=int(s["event_id"].nunique()) if len(s) else 0, journal=n_j, clv=n_clv)

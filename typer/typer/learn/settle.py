@@ -6,13 +6,16 @@ import numpy as np
 import pandas as pd
 import sqlalchemy as sa
 
-from typer.betting.core import devig
+from typer.betting.devig import devig_rows
+from typer.metrics.kpi import SHARP_BOOKS
 from typer.store import db
+
+from typer import config
 
 SQL_SETTLED = """
 SELECT p.id AS prediction_id, p.event_id, p.market, p.selection, p.p_model, p.p_baseline,
        p.model_version, p.role, p.odds_taken, p.predicted_utc, p.kickoff_utc,
-       e.league, e.sport, e.home, e.away, r.fthg, r.ftag, r.hr, r.ar
+       e.league, e.sport, e.status, e.home, e.away, r.fthg, r.ftag, r.hr, r.ar
 FROM predictions p
 JOIN events e ON e.event_id = p.event_id
 JOIN results r ON r.event_id = p.event_id
@@ -39,6 +42,8 @@ def settled(engine: sa.Engine, role: str | None = "champion", since=None) -> pd.
     df = db.read_df(engine, SQL_SETTLED)
     if df.empty:
         return df
+    void = set(config.sports().get("football", {}).get("void_statuses", []))
+    df = df[~df["status"].isin(void)]  # void: przelozony/przerwany/odwolany nie wchodzi do oceny
     if role:
         df = df[df["role"] == role]
     if since is not None:
@@ -57,22 +62,52 @@ def settled(engine: sa.Engine, role: str | None = "champion", since=None) -> pd.
     return df
 
 
-def closing_odds(engine: sa.Engine) -> pd.DataFrame:
-    """Kurs zamkniecia per selekcja (preferencja: pinnacle, potem najlepszy dostepny) + kurs fair."""
+def _devig_method(market: str) -> str:
+    return (config.model_params().get("devig") or {}).get("zamkniecie", {}).get(market, "proportional")
+
+
+def closing_odds(engine: sa.Engine, sharp_only: bool = True) -> pd.DataFrame:
+    """Kurs zamkniecia per selekcja + kurs uczciwy (bez marzy), z JEDNEGO bukmachera na caly rynek.
+    sharp_only (domyslnie): tylko ostry bukmacher (pinnacle); brak = brak wiersza, bez cichego zastepstwa
+    miekkim kursem. Rynek bez kompletu selekcji u tego bukmachera odpada (marzy nie da sie zdjac)."""
+    cols = ["event_id", "market", "selection", "odds_close", "odds_close_fair", "close_book"]
     sn = db.read_df(engine, "SELECT event_id, bookmaker, market, selection, price, snapshot_utc "
                             "FROM odds_snapshots WHERE kind = 'close'")
     if sn.empty:
-        return pd.DataFrame(columns=["event_id", "market", "selection", "odds_close", "odds_close_fair"])
-    sn["pref"] = (sn["bookmaker"] != "pinnacle").astype(int)
-    sn = sn.sort_values(["pref", "snapshot_utc"], ascending=[True, False])
-    sn = sn.drop_duplicates(["event_id", "market", "selection"])
+        return pd.DataFrame(columns=cols)
+    if sharp_only:
+        sn = sn[sn["bookmaker"].isin(SHARP_BOOKS)]
+    need = {"1X2": 3, "OU2.5": 2}
+    sn = sn.sort_values("snapshot_utc").drop_duplicates(["event_id", "bookmaker", "market", "selection"], keep="last")
     out = []
     for (eid, mkt), g in sn.groupby(["event_id", "market"]):
-        fair = devig(g["price"].to_numpy()) if len(g) > 1 else np.full(len(g), np.nan)
-        for (sel, price), f in zip(g[["selection", "price"]].itertuples(index=False), fair):
+        books = [b for b, gb in g.groupby("bookmaker") if len(gb) == need.get(mkt, len(gb))]
+        if not books:
+            continue
+        book = sorted(books, key=lambda b: (b not in SHARP_BOOKS, b))[0]
+        gb = g[g["bookmaker"] == book]
+        fair = devig_rows(gb["price"].to_numpy(float)[None, :], _devig_method(mkt))[0]
+        for (sel, price), f in zip(gb[["selection", "price"]].itertuples(index=False), fair):
             out.append(dict(event_id=eid, market=mkt, selection=sel, odds_close=price,
-                            odds_close_fair=1 / f if f == f and f > 0 else np.nan))
-    return pd.DataFrame(out)
+                            odds_close_fair=1 / f if f == f and f > 0 else np.nan, close_book=book))
+    return pd.DataFrame(out, columns=cols)
+
+
+def record_clv(engine: sa.Engine) -> int:
+    """Dopisuje CLV dla zakladow, ktore maja juz ostre zamkniecie, a nie maja wiersza w bet_clv."""
+    bets = db.read_df(engine, "SELECT id AS bet_id, event_id, market, selection, odds FROM bets")
+    if bets.empty:
+        return 0
+    have = set(db.read_df(engine, "SELECT bet_id FROM bet_clv")["bet_id"])
+    bets = bets[~bets["bet_id"].isin(have)]
+    co = closing_odds(engine)
+    b = bets.merge(co, on=["event_id", "market", "selection"]).dropna(subset=["odds_close_fair"])
+    rows = [dict(bet_id=int(r.bet_id), event_id=r.event_id, market=r.market, selection=r.selection,
+                 odds_taken=float(r.odds), close_odds=float(r.odds_close), close_odds_fair=float(r.odds_close_fair),
+                 close_book=r.close_book, devig_method=_devig_method(r.market),
+                 clv=float(r.odds / r.odds_close_fair - 1)) for r in b.itertuples(index=False)]
+    db.append(engine, db.bet_clv, rows)
+    return len(rows)
 
 
 def export_preds(engine: sa.Engine, path, role: str = "champion", since=None, version: str | None = None

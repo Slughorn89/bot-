@@ -1,0 +1,18 @@
+{"get": "fixtures", "errors": [], "results": 1, "response": [{
+ "fixture": {"id": 7001, "referee": "A. Testowy, England", "date": "2024-08-17T14:00:00+00:00",
+             "status": {"long": "Match Finished", "short": "FT", "elapsed": 90}},
+ "league": {"id": 39, "season": 2024},
+ "teams": {"home": {"id": 42, "name": "Arsenal"}, "away": {"id": 39, "name": "Wolves"}},
+ "goals": {"home": 2, "away": 0}, "score": {"halftime": {"home": 1, "away": 0}},
+ "events": [
+   {"time": {"elapsed": 25, "extra": null}, "team": {"name": "Arsenal"}, "player": {"name": "Testowy Napastnik"}, "type": "Goal", "detail": "Normal Goal"},
+   {"time": {"elapsed": 74, "extra": null}, "team": {"name": "Arsenal"}, "player": {"name": "Testowy Pomocnik"}, "type": "Goal", "detail": "Penalty"},
+   {"time": {"elapsed": 81, "extra": null}, "team": {"name": "Wolves"}, "player": {"name": "Testowy Obronca"}, "type": "Card", "detail": "Yellow Card"},
+   {"time": {"elapsed": 90, "extra": 3}, "team": {"name": "Wolves"}, "player": {"name": "Testowy Obronca"}, "type": "Card", "detail": "Second Yellow card"},
+   {"time": {"elapsed": 60, "extra": null}, "team": {"name": "Wolves"}, "player": {"name": "X"}, "type": "subst", "detail": "Substitution 1"}],
+ "lineups": [{"team": {"name": "Arsenal"}, "startXI": [{"player": {"id": 1, "name": "Testowy Bramkarz", "pos": "G"}}], "substitutes": [{"player": {"id": 2, "name": "Testowy Rezerwowy", "pos": "M"}}]}],
+ "statistics": [
+   {"team": {"name": "Arsenal"}, "statistics": [{"type": "Shots on Goal", "value": 6}, {"type": "Total Shots", "value": 18}, {"type": "Fouls", "value": 17}, {"type": "Corner Kicks", "value": 8}, {"type": "Ball Possession", "value": "61%"}, {"type": "Yellow Cards", "value": 2}, {"type": "Red Cards", "value": null}, {"type": "expected_goals", "value": "2.14"}]},
+   {"team": {"name": "Wolves"}, "statistics": [{"type": "Shots on Goal", "value": 3}, {"type": "Total Shots", "value": 9}, {"type": "Fouls", "value": 14}, {"type": "Corner Kicks", "value": 2}, {"type": "Ball Possession", "value": "39%"}, {"type": "Yellow Cards", "value": 2}, {"type": "Red Cards", "value": 1}, {"type": "expected_goals", "value": "0.61"}]}],
+ "players": [{"team": {"name": "Arsenal"}, "players": [{"player": {"id": 1, "name": "Testowy Bramkarz"}, "statistics": [{"games": {"minutes": 90, "position": "G"}, "shots": {"total": null, "on": null}, "goals": {"total": null, "assists": null}, "fouls": {"committed": 0, "drawn": 1}, "cards": {"yellow": 0, "red": 0}}]}]}]
+}]}

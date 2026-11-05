@@ -1,0 +1,3 @@
+{"errors": [], "response": [
+ {"fixture": {"id": 9001, "date": "2018-09-08T15:00:00+00:00"},
+  "league": {"id": 39}, "teams": {"home": {"name": "HOME_PLACEHOLDER"}, "away": {"name": "AWAY_PLACEHOLDER"}}}]}

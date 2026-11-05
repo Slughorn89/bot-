@@ -1,0 +1,9 @@
+# Aliasy nazw druzyn w danych historycznych (zrodlo -> nazwa kanoniczna), zweryfikowane recznie.
+# Aliasy roznice tylko interpunkcja ("Nott'm Forest" vs "Nottm Forest") dzialaja automatycznie
+# (typer/entities/history.py). Tutaj trafiaja tylko przypadki, ktorych automat nie jest pewien:
+# wykrywa je kontrola "przekazania" (jedna nazwa znika w trakcie sezonu, druga sie pojawia)
+# i blokuje pobranie, dopoki czlowiek nie wpisze decyzji ponizej.
+POL:
+  # zweryfikowane 2026-11-04: ten sam klub, zmiana zapisu w zrodle od 2023-03-31
+  # (25 meczow jako "Gornik Z." do 2023-03-17, potem 9 jako "Gornik Zabrze")
+  "Gornik Z.": "Gornik Zabrze"
