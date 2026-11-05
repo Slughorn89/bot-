@@ -43,3 +43,13 @@ penaltyblog:
 flashscore:
   opis: Tylko reczna weryfikacja. Brak publicznego API, regulamin zabrania pobierania tresci bez zgody (Livesport).
   uzycie: zadnego scrapowania
+
+oddsrelay_historical:
+  opis: Archiwum kursow zamkniecia bukmacherow UK (/v2/historical/closing). BEZ gield, wiec zamkniecie Betfair zbieramy snapshotami na zywo
+  url: https://api.oddsrelay.io/v2/historical/closing
+  klucz_env: ODDSRELAY_KEY
+  region: uk
+  archiwum_od: 2026-10-17
+  limit: tokeny za strone (quote=true zwraca cene za darmo), do 50 meczow na strone
+  dostepne_w_srodowisku: false   # api.oddsrelay.io zablokowany przez polityke sieci sesji 2026-11-05
+  uwagi: Gielda w zapytaniu = 403 exchange_history_unavailable. Uzywane jako zapasowy punkt odniesienia CLV (konsensus bez marzy).
