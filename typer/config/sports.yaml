@@ -5,6 +5,7 @@ football:
   markets: ["1X2", "OU2.5", "BTTS"]
   leagues:
     E0:
+      api_football: 39           # ID ligi w API-Football (sprawdz /leagues przy starcie)
       name: Premier League
       country: ENG
       odds_api: soccer_epl
@@ -12,6 +13,7 @@ football:
       odds_timing: prematch      # kursy Bet365 z football-data: zbierane w piatek/wtorek przed meczem
       has_shots: true
     D1:
+      api_football: 78           # ID ligi w API-Football (sprawdz /leagues przy starcie)
       name: Bundesliga
       country: GER
       odds_api: soccer_germany_bundesliga
@@ -19,6 +21,7 @@ football:
       odds_timing: prematch
       has_shots: true
     I1:
+      api_football: 135           # ID ligi w API-Football (sprawdz /leagues przy starcie)
       name: Serie A
       country: ITA
       odds_api: soccer_italy_serie_a
@@ -26,6 +29,7 @@ football:
       odds_timing: prematch
       has_shots: true
     SP1:
+      api_football: 140           # ID ligi w API-Football (sprawdz /leagues przy starcie)
       name: La Liga
       country: ESP
       odds_api: soccer_spain_la_liga
@@ -33,6 +37,7 @@ football:
       odds_timing: prematch
       has_shots: true
     F1:
+      api_football: 61           # ID ligi w API-Football (sprawdz /leagues przy starcie)
       name: Ligue 1
       country: FRA
       odds_api: soccer_france_ligue_one
@@ -40,6 +45,7 @@ football:
       odds_timing: prematch
       has_shots: true
     POL:
+      api_football: 106           # ID ligi w API-Football (sprawdz /leagues przy starcie)
       name: Ekstraklasa
       country: POL
       odds_api: soccer_poland_ekstraklasa

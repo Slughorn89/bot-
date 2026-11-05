@@ -38,6 +38,18 @@ fduk_lustro:
   dostepne_w_srodowisku: true
   braki: od 2026/27 football-data nie publikuje kursow Pinnacle; zamkniecie bierzemy z Bet365 (model.yaml -> zamkniecie)
 
+api_football:
+  opis: Sklady (~60 min przed meczem), kontuzje i zawieszenia, ID meczow (API-Football v3, api-sports.io)
+  url: https://v3.football.api-sports.io
+  klucz_env: API_FOOTBALL_KEY
+  licencja: komercyjna; plan darmowy 100 zapytan dziennie, ograniczone sezony, wszystkie endpointy (stan 2026-11)
+  limit_dzienny: 100
+  rezerwa: 10          # tyle zapytan zostawiamy nieuzytych
+  okno_min: 90         # pobieramy sklady meczow startujacych w ciagu tylu minut
+  koszt_dnia: "1 terminarz + 1 kontuzje na lige i dzien + 1 na kazdy mecz (sklady)"
+  dostepne_w_srodowisku: false   # host zablokowany w sesji budowy (2026-11-05); parsery sprawdzone na probkach z dokumentacji
+  historia_skladow: brak legalnego, darmowego zrodla "as of" (Transfermarkt w repo salimt nie ma klubu z dnia kontuzji, brak licencji) -> zbieramy od dzis
+
 the_odds_api:
   opis: Kursy na zywo wielu bukmacherow (h2h, totals); do snapshotow "w chwili typu" i "zamkniecia"
   url: https://api.the-odds-api.com/v4/sports/{sport}/odds

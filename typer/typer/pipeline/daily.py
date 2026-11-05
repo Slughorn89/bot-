@@ -156,13 +156,24 @@ def snapshot_odds(engine: sa.Engine, now: datetime | None = None) -> dict:
     return dict(snapshots=len(rows), pending=pending_total)
 
 
-def predict(engine: sa.Engine, as_of=None, role: str = "champion", lead_minutes: int | None = None
-            ) -> pd.DataFrame:
+def predict(engine: sa.Engine, as_of=None, role: str = "champion", lead_minutes: int | None = None,
+            variant: str | None = None) -> pd.DataFrame:
     """Predykcje dla terminarza. Dopisywane, nigdy nadpisywane.
     lead_minutes: na zywo typujemy tylko mecze startujace w ciagu N minut (po skladach, 60-90 min
     przed meczem). Bez tego: wszystkie mecze z dnia as_of / najblizszych 3 dni."""
     cfg = model_cfg()
     today = pd.Timestamp(as_of).date() if as_of else datetime.now(timezone.utc).date()
+    from typer.models import lineup_adjust as LA
+    if variant not in (None, "lineup"):
+        raise ValueError(f"nieznany wariant {variant!r}")
+    version = LA.VERSION if variant == "lineup" else cfg["version"]
+    if variant == "lineup":
+        role = "challenger"
+        reg = db.read_df(engine, "SELECT version FROM model_registry WHERE version = :v", v=version)
+        if reg.empty:
+            register(engine, version, "challenger", LA.load_params(),
+                     f"{cfg['version']} + korekta goli o braki w skladzie (features/lineups.py)",
+                     drift_reference_date=str(today))
     if current(engine) is None:
         register(engine, cfg["version"], "champion", params_from_config().to_dict(),
                  "pierwsze wdrozenie", drift_reference_date=str(today))
@@ -182,22 +193,24 @@ def predict(engine: sa.Engine, as_of=None, role: str = "champion", lead_minutes:
     frame = eng.run(past, predict_from="2008-07-01", fixtures=fx)
     tgt = frame[frame["fthg"].isna()]
     past_fr = frame[frame["fthg"].notna()]
+    if variant == "lineup":
+        tgt = _apply_lineups(engine, eng, tgt, LA)
     # audyt: cechy "as of" kazdego typowanego meczu i stan ocen w chwili typu
     now = datetime.now(timezone.utc)
-    feat_cols = [c for c in L.FEATURES if c in tgt.columns]
-    db.upsert(engine, db.features, [dict(event_id=r["event_id"], model_version=cfg["version"], as_of_utc=now,
-                                         values={c: float(r[c]) for c in feat_cols})
+    feat_cols = [c for c in L.FEATURES + ["lam0_h", "lam0_a", "braki_h", "braki_a"] if c in tgt.columns]
+    db.upsert(engine, db.features, [dict(event_id=r["event_id"], model_version=version, as_of_utc=now,
+                                         values={c: (None if pd.isna(r[c]) else float(r[c])) for c in feat_cols})
                                     for r in tgt.to_dict("records")], ["event_id", "model_version"], update=False)
     snap = []
     for lg in tgt["league"].unique():
         for t in eng.model.snapshot(lg):
-            snap.append(dict(model_version=cfg["version"], league=lg, team=t["team"], as_of_utc=now,
+            snap.append(dict(model_version=version, league=lg, team=t["team"], as_of_utc=now,
                              attack=t["attack"], defense=t["defense"],
                              extra=dict(n=t["n"], home_adv=eng.model.home[lg], mu=eng.model.mu[lg])))
     db.append(engine, db.ratings_history, snap)
     tgt = L.live_apply(past_fr, tgt, LAYER_SETS[cfg["layers"]])
     existing = db.read_df(engine, "SELECT event_id, market, selection FROM predictions "
-                                  "WHERE model_version = :v AND role = :r", v=cfg["version"], r=role)
+                                  "WHERE model_version = :v AND role = :r", v=version, r=role)
     have = set(map(tuple, existing.to_numpy())) if len(existing) else set()
     rows = []
     for r in tgt.itertuples(index=False):
@@ -212,7 +225,7 @@ def predict(engine: sa.Engine, as_of=None, role: str = "champion", lead_minutes:
             if (r.event_id, mkt, sel) in have:
                 continue
             rows.append(dict(event_id=r.event_id, market=mkt, selection=sel, p_model=float(p),
-                             p_baseline=float(b), model_version=cfg["version"], role=role,
+                             p_baseline=float(b), model_version=version, role=role,
                              odds_taken=None if pd.isna(o) else float(o),
                              odds_source="b365_prematch" if as_of else "fixtures",
                              predicted_utc=now, kickoff_utc=pd.Timestamp(r.kickoff_utc).to_pydatetime()))
@@ -220,6 +233,40 @@ def predict(engine: sa.Engine, as_of=None, role: str = "champion", lead_minutes:
     for r, i in zip(rows, ids):
         r["id"] = i
     return pd.DataFrame(rows)
+
+
+def _apply_lineups(engine: sa.Engine, eng, tgt: pd.DataFrame, LA) -> pd.DataFrame:
+    """Challenger: braki w skladzie -> korekta lam -> rynki z nowej macierzy (przed warstwami)."""
+    from typer.features import lineups as FL
+    from typer.models.scores.matrix import fast_markets
+    lu, ab = FL.load(engine)
+    prm = LA.load_params()
+    t = tgt.copy()
+    t["braki_h"] = [FL.missing_share(lu, ab, r.event_id, r.home, r.kickoff_utc) for r in t.itertuples()]
+    t["braki_a"] = [FL.missing_share(lu, ab, r.event_id, r.away, r.kickoff_utc) for r in t.itertuples()]
+    t["lam0_h"], t["lam0_a"] = t["lam_h"], t["lam_a"]
+    lh, la = LA.adjust(t["lam_h"], t["lam_a"], t["braki_h"], t["braki_a"], prm["b"], prm["g"])
+    t["lam_h"], t["lam_a"] = lh, la
+    mk = [fast_markets(h, a, eng.model.lp(lg, "rho")) for h, a, lg in zip(lh, la, t["league"])]
+    for i, c in enumerate(("p_h", "p_d", "p_a", "p_over", "p_btts")):
+        t[c] = [m[i] for m in mk]
+    return t
+
+
+def refit_lineup_params(engine: sa.Engine) -> dict:
+    """Dopasowanie b, g challengera na rozliczonych meczach z zapisanymi brakami."""
+    from typer.models import lineup_adjust as LA
+    f = db.read_df(engine, "SELECT f.event_id, f.\"values\" AS v, r.fthg, r.ftag FROM features f "
+                           "JOIN results r ON r.event_id = f.event_id WHERE f.model_version = :v", v=LA.VERSION)
+    if f.empty:
+        p = LA.fit(pd.DataFrame(columns=["lam_h", "lam_a", "braki_h", "braki_a", "fthg", "ftag"]))
+    else:
+        vals = pd.DataFrame([v if isinstance(v, dict) else json.loads(v) for v in f["v"]])
+        d = pd.DataFrame(dict(lam_h=vals.get("lam0_h"), lam_a=vals.get("lam0_a"), braki_h=vals.get("braki_h"),
+                              braki_a=vals.get("braki_a"), fthg=f["fthg"], ftag=f["ftag"]))
+        p = LA.fit(d)
+    LA.save_params(p)
+    return p
 
 
 def bankroll_state(engine: sa.Engine) -> tuple[float, float]:
@@ -265,4 +312,5 @@ def settle_day(engine: sa.Engine, as_of=None) -> dict:
         db.store_matches(engine, load_matches(refresh=True))
     s = settle.settled(engine, role=None)
     n_j = journal.update_journal(engine, s[s["role"] == "champion"]) if len(s) else 0
-    return dict(settled=int(s["event_id"].nunique()) if len(s) else 0, journal=n_j)
+    lp = refit_lineup_params(engine)
+    return dict(settled=int(s["event_id"].nunique()) if len(s) else 0, journal=n_j, lineup_params=lp)

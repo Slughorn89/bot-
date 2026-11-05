@@ -3,7 +3,8 @@
 
   python cli.py fetch    [--as-of RRRR-MM-DD]   historia + terminarz + kursy do bazy
   python cli.py snapshot                        kursy z The Odds API (typ / zamkniecie)
-  python cli.py predict  [--as-of ...]          predykcje (niezmienialne) + zaklady papierowe
+  python cli.py predict  [--as-of ...] [--variant lineup]  predykcje (niezmienialne) + zaklady papierowe
+  python cli.py lineups  [--window 90] [--dry-run]         sklady i kontuzje z API-Football
   python cli.py settle   [--as-of ...]          wyniki, rozliczenie, dziennik bledow
   python cli.py learn                           przeglad tygodniowy (evaluate.py od daty wdrozenia)
   python cli.py report   [--as-of ...] [--send] raport dzienny (+ webhook n8n)
@@ -42,9 +43,17 @@ def cmd_snapshot(a):
 def cmd_predict(a):
     from typer.pipeline import daily
     eng = _engine()
-    preds = daily.predict(eng, as_of=a.as_of, lead_minutes=getattr(a, "lead_minutes", None))
-    bets = daily.place_bets(eng, preds) if len(preds) else preds
+    variant = getattr(a, "variant", None)
+    preds = daily.predict(eng, as_of=a.as_of, lead_minutes=getattr(a, "lead_minutes", None), variant=variant)
+    # challenger typuje w cieniu: bez zakladow
+    bets = daily.place_bets(eng, preds) if len(preds) and not variant else preds.iloc[0:0]
     print(f"predykcje: {len(preds)} wierszy, zaklady papierowe: {len(bets)}")
+
+
+def cmd_lineups(a):
+    from typer.pipeline import lineups
+    print(json.dumps(lineups.collect(_engine(), window_min=a.window, dry_run=a.dry_run), ensure_ascii=False,
+                     default=str))
 
 
 def cmd_settle(a):
@@ -61,8 +70,13 @@ def cmd_report(a):
 
 
 def cmd_day(a):
-    for f in (cmd_fetch, cmd_predict, cmd_settle):
-        f(a)
+    cmd_fetch(a)
+    a.variant = None
+    cmd_predict(a)
+    a.variant = "lineup"   # challenger w cieniu na tych samych meczach (bez skladow = jak champion)
+    cmd_predict(a)
+    a.variant = None
+    cmd_settle(a)
     a.send = getattr(a, "send", False)
     cmd_report(a)
 
@@ -144,7 +158,12 @@ def main(argv=None):
         if name == "predict":
             p.add_argument("--lead-minutes", type=int, default=None,
                            help="typuj tylko mecze startujace w ciagu N minut (na zywo: 90)")
+            p.add_argument("--variant", choices=["lineup"], default=None,
+                           help="challenger w cieniu: korekta o braki w skladzie (bez zakladow)")
     sub.add_parser("learn")
+    p = sub.add_parser("lineups", help="sklady i kontuzje z API-Football dla meczow w ciagu N minut")
+    p.add_argument("--window", type=int, default=None)
+    p.add_argument("--dry-run", action="store_true", help="pokaz koszt zapytan, nic nie pobieraj")
     sub.add_parser("snapshot", help="snapshot kursow z The Odds API (w chwili typu i zamkniecia)")
     p = sub.add_parser("backtest")
     p.add_argument("--layers", default=config.model_params().get("layers", "online+cal"))

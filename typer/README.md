@@ -168,6 +168,27 @@ w jego odpowiedzi musi być w tych danych (inaczej komentarz jest odrzucany), a 
 LLM niczego nie decyduje: typy, stawki i werdykt liczą się bez niego. Serwisy pośredniczące często odsprzedają dostęp
 do modeli wbrew regulaminom dostawców, więc używaj klucza z niskim limitem wydatków.
 
+## 5c. Składy i kontuzje (API-Football), challenger `lineup-v1`
+
+Historii składów „as of” nie ma w żadnym darmowym, legalnym źródle, które dałoby się tu pobrać. Dane Transfermarkt
+z GitHuba ([salimt/football-datasets](https://github.com/salimt/football-datasets)) mają kontuzje, ale bez klubu z dnia
+urazu (tylko obecny klub), więc backtest „wiedziałby”, kto dziś jest w klubie. Repo nie ma też licencji. Odrzucone.
+Dlatego składy zbieramy sami od pierwszego dnia, tak jak kursy:
+
+1. `python cli.py lineups` (co 15 min w crontabie): API-Football, mecze startujące w ciągu 90 min, zapis do `lineups`
+   i `absences`. Licznik zapytań pilnuje darmowego planu (100/dzień, rezerwa 10). `--dry-run` pokazuje koszt.
+   Klucz: `API_FOOTBALL_KEY` w `.env`; host `v3.football.api-sports.io` musi być dozwolony w sieci.
+2. Cecha `features/lineups.py`: jaki udział „pewniaków” (≥ 50% startów w ostatnich 8 meczach) nie gra dziś.
+   Liczona tylko z danych opublikowanych przed startem; bez dzisiejszego składu bierze nieobecnych z `absences`.
+3. Challenger `lineup-v1` (`models/lineup_adjust.py`): log λ' = log λ − b·braki_własne + g·braki_rywala.
+   **Współczynniki nie są zakładane z góry:** startują od 0 (challenger = champion) i są dopasowywane po każdym
+   rozliczeniu (`settle`) metodą największej wiarygodności Poissona z karą ciągnącą do 0. Typuje w cieniu, bez zakładów:
+   `python cli.py predict --lead-minutes 90 --variant lineup`.
+4. Awans: `python cli.py learn` porównuje go z championem (sparowany bootstrap, ≥ 300 zdarzeń, CI90 różnicy log loss < 0).
+
+Stan na 2026-11-05: kod i testy gotowe (parsery sprawdzone na próbkach w formacie z dokumentacji, bo host API-Football
+był w tej sesji zablokowany). Pierwsze realne liczby będą po kilku tygodniach zbierania.
+
 ## 6. Uruchomienie
 
 ```bash
@@ -185,7 +206,9 @@ cp .env.example .env            # klucze tylko tutaj
 
 # cykl dzienny (na żywo, po odblokowaniu źródeł)
 .venv/bin/python cli.py fetch && .venv/bin/python cli.py snapshot
+.venv/bin/python cli.py lineups --window 90                      # sklady i kontuzje (API-Football)
 .venv/bin/python cli.py predict --lead-minutes 90
+.venv/bin/python cli.py predict --lead-minutes 90 --variant lineup  # challenger w cieniu
 .venv/bin/python cli.py settle && .venv/bin/python cli.py report --send
 .venv/bin/python cli.py learn                    # przegląd tygodniowy od daty wdrożenia championa
 
