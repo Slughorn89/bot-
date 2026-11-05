@@ -13,6 +13,7 @@
   python cli.py report   [--as-of ...] [--send] raport dzienny (+ webhook n8n)
   python cli.py backtest [--layers X] [--holdout] [--compare]
   python cli.py tune                            strojenie ocen online na walidacji
+  python cli.py goals [--half-life 480 --w-xg 0.2]   model goli: warianty, wybor per liga
   python cli.py analyze  [--league POL --market 1X2 --since ... --csv plik]  analiza (sekcja 14)
   python cli.py journal  [--classify ID KLASA --note TEKST]
   python cli.py day      --as-of RRRR-MM-DD     caly cykl dnia w trybie odtworzeniowym
@@ -227,6 +228,27 @@ def cmd_analyze(a):
           "i rozbicie (Simpson); filtruj po wersji modelu; ROI tylko z przedzialem.")
 
 
+def cmd_goals(a):
+    """Modul 2: walk forward modelu goli na walidacji + wybor wariantu per liga vs oceny online."""
+    import pandas as pd
+    from typer.pipeline.backtest import params_from_config
+    from typer.pipeline.data import load_matches, split_dates
+    from typer.pipeline.engine import Engine
+    from typer.pipeline.goal_backtest import run, select_per_league
+    from typer.pipeline.layers import metrics
+    sd = split_dates()
+    df = load_matches()
+    out = run(df, sd["walidacja_od"], sd["walidacja_do"], a.half_life, a.w_xg, use_context=not a.no_context)
+    on = Engine(params_from_config(), collect_features=False).run(df, predict_from=sd["walidacja_od"])
+    on = on[pd.to_datetime(on["date"]) <= pd.Timestamp(sd["walidacja_do"])]
+    cands = {"online": on, **{v: g for v, g in out.groupby("variant")}}
+    for k, c in cands.items():
+        m = metrics(c)
+        print(f"{k:10} n={int(m['n'])} 1X2 {m['ll_1x2']:.4f} O/U {m['ll_ou']:.4f} BTTS {m['ll_btts']:.4f} "
+              f"J {m['ll_1x2'] + 0.5 * (m['ll_ou'] + m['ll_btts']):.5f}")
+    print(select_per_league(cands, default="online").to_string(index=False))
+
+
 def cmd_tune(a):
     from typer.pipeline.data import load_matches, split_dates
     from typer.pipeline.tune import coordinate_search
@@ -289,6 +311,10 @@ def main(argv=None):
     p.add_argument("--by", default="league,market")
     p.add_argument("--metric", default="log loss, CLV, ECE")
     p.add_argument("--html", default=None)
+    p = sub.add_parser("goals", help="modul 2: model goli (DC / dwuwymiarowy Poisson / NB), wybor per liga")
+    p.add_argument("--half-life", type=float, default=480)
+    p.add_argument("--w-xg", type=float, default=0.2)
+    p.add_argument("--no-context", action="store_true")
     p = sub.add_parser("tune")
     p.add_argument("--rounds", type=int, default=4)
     p = sub.add_parser("journal")

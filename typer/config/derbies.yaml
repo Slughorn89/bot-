@@ -1,0 +1,8 @@
+# Derby (pary druzyn w nazwach kanonicznych z danych). Uzupelniaj recznie. Cecha "derby" w modelu goli
+# dziala tylko dla par z tej listy; czy pomaga, rozstrzyga walidacja (experiments.md).
+E0: [[Arsenal, Tottenham], [Liverpool, Everton], [Man City, Man United], [Chelsea, Fulham], [Crystal Palace, Brighton]]
+D1: [[Dortmund, Schalke 04], [Hamburg, St Pauli]]
+I1: [[Inter, Milan], [Roma, Lazio], [Genoa, Sampdoria], [Torino, Juventus]]
+SP1: [[Real Madrid, Ath Madrid], [Barcelona, Espanol], [Sevilla, Betis], [Ath Bilbao, Sociedad], [Valencia, Levante], [Celta, La Coruna]]
+F1: [[Lyon, St Etienne], [Nice, Monaco]]
+POL: [[Lech Poznan, Warta Poznan]]

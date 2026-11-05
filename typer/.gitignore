@@ -12,3 +12,5 @@ __pycache__/
 logs/
 .coverage
 htmlcov/
+backtest/goal_models/*.pkl
+backtest/goal_models/*.log
