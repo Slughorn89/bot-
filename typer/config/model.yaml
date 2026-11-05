@@ -31,3 +31,12 @@ online_poisson:
   init_home: 0.25
   xg_sot: 0.27
   xg_off: 0.006
+# Modul 2: model goli (typer/models/goals). Strojenie i wybor na walidacji 2018-07..2025-06
+# (backtest/goal_models/grid_final.json, experiments.md wpisy 16-19). Champion produkcyjny zostaje
+# przy ocenach online: zaden wariant nie byl istotnie lepszy w zadnej lidze.
+goal_models:
+  half_life: 240
+  w_xg: 0.2
+  ridge: 3.0
+  use_context: false      # cechy kontekstu pogorszyly J istotnie (wpis 18)
+  variant_per_league: {E0: bivariate, D1: bivariate, I1: bivariate, SP1: bivariate, F1: bivariate, POL: bivariate}

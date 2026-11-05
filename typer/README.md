@@ -227,6 +227,27 @@ python cli.py ingest tennis_mcp --param tour=m --param 'kinds=["matches","overvi
 python cli.py ingest open_meteo --param latitude=51.555 --param longitude=-0.108 --param mode=forecast
 ```
 
+### Model goli (moduł 2)
+
+`typer/models/goals/`: trzy rozkłady wyniku przy tych samych średnich goli:
+* Dixon-Coles (`rho`);
+* dwuwymiarowy Poisson (wspólna składowa `λ3 = phi · min(mh, ma)`, średnie brzegowe zachowane);
+* ujemny dwumianowy (rozmiar `r`).
+
+Siły drużyn są dopasowywane ważonym MLE co tydzień (wagi `0.5^(wiek/half_life)`, cel `(1−w)·gole + w·xG`,
+regularyzacja do prioru beniaminka). Parametr rozkładu jest profilowany na prawdziwych golach. Do tego cechy
+kontekstu „as of” (`typer/features/context.py`) i korekta składu (`lineup_adjust.py`, na razie bez danych).
+
+Wyjście (`GoalModel.predict`): macierz 0:0 do 10:10 normalizowana do 1 i z niej 1X2, O/U 0.5 do 5.5, BTTS, AH od −2,5
+do +2,5 (`markets.market_bundle`).
+
+Wynik walidacji 2018/19 do 2024/25 (`backtest/goal_models/grid_final.json`):
+* najlepszy jest dwuwymiarowy Poisson, half-life 240 dni, waga xG 0,2: J = 1,67971;
+* oceny online (champion): J = 1,67526, więc wygrywają we wszystkich 6 ligach;
+* cechy kontekstu pogorszyły wynik istotnie, więc są wyłączone.
+
+`python cli.py goals --half-life 240 --w-xg 0.2` powtarza porównanie i wybór per liga.
+
 ### Budżet zapytań (sekcja 5 v2)
 
 | Źródło | Limit (plan darmowy, wg skilla, listopad 2026) | Jak go pilnujemy |
