@@ -39,6 +39,8 @@ MAIN_MAP = {
     "close_h": ["PSCH"], "close_d": ["PSCD"], "close_a": ["PSCA"],
     "close_o25": ["PC>2.5"], "close_u25": ["PC<2.5"],
     "ah_line": ["AHh", "BbAHh"], "ah_h": ["B365AHH"], "ah_a": ["B365AHA"],
+    # tryb extended
+    "hc": ["HC"], "ac": ["AC"], "hf": ["HF"], "af": ["AF"], "hy": ["HY"], "ay": ["AY"], "referee": ["Referee"],
 }
 # nowe ligi (np. POL): tylko kursy zamkniecia
 NEW_MAP = {
@@ -71,7 +73,9 @@ def _parse_dates(df: pd.DataFrame) -> tuple[pd.Series, pd.Series, pd.Series]:
     return date, utc, known
 
 
-def parse(raw: bytes, league: str, *, kind: str = "main", allow_unplayed: bool = False) -> pd.DataFrame:
+def parse(raw: bytes, league: str, *, kind: str = "main", allow_unplayed: bool = False,
+          extended: bool = False) -> pd.DataFrame:
+    """extended=True: dodatkowo rozne, faule, zolte kartki i sedzia (schema.EXTRA_COLS)."""
     text = raw.decode("utf-8-sig", errors="replace")
     df = pd.read_csv(io.StringIO(text), on_bad_lines="skip")
     df = df.dropna(how="all")
@@ -91,7 +95,7 @@ def parse(raw: bytes, league: str, *, kind: str = "main", allow_unplayed: bool =
     date, utc, known = _parse_dates(df)
     out["date"], out["kickoff_utc"], out["time_known"] = date.dt.date, utc, known
     out["league"], out["sport"], out["source"] = league, "football", SOURCE
-    for c in schema.COLUMNS:
+    for c in schema.COLUMNS + schema.EXTRA_COLS:
         if c not in out.columns:
             out[c] = np.nan
     out = out.dropna(subset=["home", "away", "kickoff_utc"])
@@ -103,7 +107,8 @@ def parse(raw: bytes, league: str, *, kind: str = "main", allow_unplayed: bool =
     out, bad = schema.clean_odds(out)
     if any(bad.values()):
         log.warning("%s: wyzerowane bledne grupy kursow %s", league, {k: v for k, v in bad.items() if v})
-    out = out.drop_duplicates("event_id", keep="last")[schema.COLUMNS]
+    cols = schema.COLUMNS + (schema.EXTRA_COLS if extended else [])
+    out = out.drop_duplicates("event_id", keep="last")[cols]
     return schema.validate(out.reset_index(drop=True), allow_unplayed=allow_unplayed)
 
 

@@ -22,6 +22,8 @@ ODDS_GROUPS = {
 }
 ODDS_COLS = [c for cols in ODDS_GROUPS.values() for c in cols]
 STAT_COLS = ["fthg", "ftag", "hthg", "htag", "hs", "as_", "hst", "ast", "hr", "ar"]
+# kolumny dodatkowe (tryb extended adapterow): rozne, faule, zolte kartki, sedzia
+EXTRA_COLS = ["hc", "ac", "hf", "af", "hy", "ay", "referee"]
 BASE_COLS = ["event_id", "sport", "league", "season", "kickoff_utc", "time_known",
              "date", "home", "away", "source"]
 COLUMNS = BASE_COLS + STAT_COLS + ODDS_COLS + ["ah_line", "ah_h", "ah_a"]

@@ -185,6 +185,48 @@ cp .env.example .env            # klucze tylko tutaj
 Harmonogram: `scripts/crontab.txt` (07:00 pobranie, co 15 min snapshoty i typy 60 do 90 min przed meczem,
 02:00 rozliczenie i raport, poniedziałek 06:00 przegląd tygodniowy, 1. dnia miesiąca challenger).
 
+### Warstwa danych: adaptery z `available_at` (moduł 1)
+
+Każde źródło to adapter w `typer/ingest/adapters/` (rejestr: `python cli.py adapters`):
+pobranie przez `typer/ingest/core/http.py`, czyli cache w `raw/`, limit na minutę, ponawianie 2, 4, 8, 16 s
+z rozrzutem, `Retry-After` przy 429, bez ponawiania przy odmowie proxy, audyt w `raw_fetches`. Potem
+czyste parsowanie do rekordów pydantic (`typer/ingest/core/records.py`). Każdy rekord ma:
+
+* `available_at`: najwcześniejsza chwila, w której informacja była publiczna. Według niej backtest filtruje
+  dane „as of”;
+* `fetched_at`: kiedy my ją pobraliśmy. Zawsze `available_at ≤ fetched_at`.
+
+| Dane | `available_at` |
+|---|---|
+| wynik, statystyki meczu i zawodników, karne, kartki | start + 2 h 15 min (nie wcześniej niż start + 90 min) |
+| kurs w chwili typu / zamknięcia | chwila snapshotu; zamknięcie nigdy wcześniej niż 15 min przed startem |
+| kurs sprzed meczu z football-data | szacowany moment zebrania (pt/wt 12:00 UTC), oznaczony jako szacunek |
+| sędzia | na żywo: pierwsze pobranie; w historii: start − 24 h (szacunek) |
+| pogoda | prognoza: czas wydania; prognozy archiwalne N dni wcześniej: ważność − N dób + 6 h; obserwacje: po fakcie |
+| Telegram | data publikacji z serwera; edycja = nowa wersja z datą edycji |
+| tenis (MCP) | data + koniec turnieju (7 dni, Wielki Szlem 14), szacunek |
+
+| Adapter | Źródło | Stan w tej sesji |
+|---|---|---|
+| `football_data_uk` | wyniki, kursy z zamknięciami Pinnacle, rożne, faule, kartki, sędzia | host zablokowany, testy na próbkach |
+| `xgabora` | kopia football-data na GitHubie (bez sędziego i zamknięć) | **działa** (504 770 rekordów) |
+| `the_odds_api` | kursy na żywo (`{{api_kursowe}}`) | zablokowany |
+| `api_football` | statystyki drużyn i zawodników, xG (jeśli plan je daje), karne, kartki, sędzia, składy, kontuzje (`{{api_statystyki}}`) | zablokowany |
+| `open_meteo` | pogoda (licencja niekomercyjna) | zablokowany |
+| `telegram` | publiczne kanały z białej listy (Telethon) | zablokowany, lista pusta |
+| `betfair` | kursy i wolumen w czasie (strumień, pliki Historical Data) | **wyłączony** do potwierdzenia legalnego dostępu |
+| `tennis_mcp` | Match Charting Project: mecze, serwis, punkty (licencja niekomercyjna) | **działa** (7565 meczów ATP, 547 tys. punktów 2020s) |
+
+Historia sędziego (kartki, faule, karne na mecz) jest liczona zawsze „as of” w `typer/features/referees.py`,
+nigdy jako tabela „na dziś”. Test `tests/test_available_at.py` przechodzi po całym rejestrze: adapter bez
+próbek albo rekord bez `available_at` oblewa CI.
+
+```bash
+python cli.py adapters
+python cli.py ingest tennis_mcp --param tour=m --param 'kinds=["matches","overview"]'
+python cli.py ingest open_meteo --param latitude=51.555 --param longitude=-0.108 --param mode=forecast
+```
+
 ### Budżet zapytań (sekcja 5 v2)
 
 | Źródło | Limit (plan darmowy, wg skilla, listopad 2026) | Jak go pilnujemy |

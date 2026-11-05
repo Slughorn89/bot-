@@ -21,7 +21,7 @@ CLOSE_WINDOW_MIN = 10  # snapshot w ciagu 10 min przed startem traktujemy jako z
 
 
 def download(sport_key: str, *, regions: str = "eu", markets: str = "h2h,totals",
-             now: datetime | None = None, ledger=None) -> bytes:
+             now: datetime | None = None, ledger=None, meta_out: dict | None = None) -> bytes:
     """Jedno zapytanie = (liczba rynkow x liczba regionow) kredytow. Przed wywolaniem sprawdzamy budzet,
     po wywolaniu zapisujemy zuzycie z naglowkow x-requests-used / x-requests-remaining."""
     from typer.ingest.budget import Ledger, odds_api_cost
@@ -41,6 +41,8 @@ def download(sport_key: str, *, regions: str = "eu", markets: str = "h2h,totals"
     raw = fetch(url, SOURCE, f"{sport_key}_{now:%Y%m%dT%H%M}.json", params=params, max_age_hours=0.2, meta=meta)
     if not meta.get("cache"):
         ledger.record(SOURCE, cost, now, meta.get("headers"), note=f"{sport_key} {markets}")
+    if meta_out is not None:
+        meta_out.update(meta)
     return raw
 
 

@@ -4,6 +4,8 @@
   python cli.py fetch    [--as-of RRRR-MM-DD]   historia + terminarz + kursy do bazy
   python cli.py snapshot                        kursy z The Odds API (typ / zamkniecie), w budzecie
   python cli.py lineups                         sklady i kontuzje z API-Football (tylko zbieranie)
+  python cli.py adapters                        rejestr adapterow warstwy danych (licencje, wlaczone)
+  python cli.py ingest NAZWA [--param k=v]      adapter -> rekordy z available_at -> baza
   python cli.py budget                          zuzycie limitow API i szacunek kredytow
   python cli.py predict  [--as-of ...]          predykcje (niezmienialne) + zaklady papierowe
   python cli.py settle   [--as-of ...]          wyniki, rozliczenie, dziennik bledow
@@ -40,6 +42,30 @@ def cmd_fetch(a):
 def cmd_snapshot(a):
     from typer.pipeline import daily
     print(daily.snapshot_odds(_engine()))
+
+
+def cmd_adapters(a):
+    """Rejestr adapterow warstwy danych: licencja, czy wlaczony, typy rekordow."""
+    from typer.ingest.core.adapter import license_mode, load_all
+    print(f"licencja_uzycia: {license_mode()}")
+    for name, c in sorted(load_all().items()):
+        on = (config.sources().get(name) or {}).get("wlaczony", c.enabled_by_default)
+        print(f"  {name:17} {'wlaczony' if on else 'WYLACZONY':9} {'NIEKOMERCYJNA ' if c.non_commercial else ''}"
+              f"{c.license} | rekordy: {', '.join(t.__name__ for t in c.record_types)}")
+
+
+def cmd_ingest(a):
+    """Pobranie przez adapter -> walidacja (available_at) -> baza, z audytem pobran."""
+    from typer.ingest.core.adapter import load_all
+    from typer.ingest.core.store import store_audit, store_records
+    params = {}
+    for kv in a.param or []:
+        k, v = kv.split("=", 1)
+        params[k] = json.loads(v) if v[:1] in "[{0123456789-" or v in ("true", "false") else v
+    ad = load_all()[a.name]()
+    recs = ad.records(**params)
+    eng = _engine()
+    print(dict(zapisane=store_records(eng, recs), audyt=store_audit(eng, ad.client.audit)))
 
 
 def cmd_lineups(a):
@@ -242,6 +268,10 @@ def main(argv=None):
     sub.add_parser("learn")
     sub.add_parser("snapshot", help="snapshot kursow z The Odds API (w chwili typu i zamkniecia)")
     sub.add_parser("lineups", help="sklady i kontuzje z API-Football (60-75 min przed meczem)")
+    sub.add_parser("adapters", help="rejestr adapterow warstwy danych (modul 1)")
+    p = sub.add_parser("ingest", help="pobierz przez adapter i zapisz rekordy (z available_at)")
+    p.add_argument("name")
+    p.add_argument("--param", action="append", help='parametr adaptera, np. --param tour=m --param \'kinds=["matches"]\'')
     p = sub.add_parser("budget", help="zuzycie i szacunek budzetu zapytan API")
     p.add_argument("--season", default="2025-26")
     p = sub.add_parser("backtest")

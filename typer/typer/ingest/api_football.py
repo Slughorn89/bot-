@@ -20,7 +20,7 @@ REQUIRED_LINEUP = {"team", "startXI", "substitutes"}
 
 
 def download(path: str, params: dict, now: datetime | None = None, ledger=None,
-             max_age_hours: float = 0.5, stamp: str | None = None) -> bytes:
+             max_age_hours: float | None = 0.5, stamp: str | None = None, meta_out: dict | None = None) -> bytes:
     """stamp: czesc nazwy pliku cache (domyslnie minuta zapytania); terminarz dnia cache'ujemy per dzien."""
     from typer.ingest.budget import Ledger
     key = config.env("API_FOOTBALL_KEY")
@@ -40,6 +40,8 @@ def download(path: str, params: dict, now: datetime | None = None, ledger=None,
     body = json.loads(raw)
     if body.get("errors"):
         raise SourceUnavailable(f"API-Football: {body['errors']}")
+    if meta_out is not None:
+        meta_out.update(meta)
     return raw
 
 

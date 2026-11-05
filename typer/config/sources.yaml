@@ -3,6 +3,10 @@
 # Limity i cenniki wg skilla typer-sportowy v2 (zweryfikowane tam w listopadzie 2026). Z tej sesji nie dalo sie
 # ich potwierdzic, bo hosty sa zablokowane: sprawdz ponownie po odblokowaniu i popraw date weryfikacji.
 data_weryfikacji_limitow: "2026-11 (wg skilla), niepotwierdzone z tej sesji"
+# Sposob uzycia danych: prywatne | komercyjne | nieustalone. Zrodla z licencja niekomercyjna
+# (Match Charting Project CC BY-NC-SA, darmowe Open-Meteo) przy "komercyjne" same sie blokuja,
+# przy "nieustalone" dzialaja z ostrzezeniem. Ustal to przed sprzedaza typow komukolwiek.
+licencja_uzycia: nieustalone
 xgabora:
   opis: Kopia football-data.co.uk (wyniki, strzaly, kartki, kursy Bet365 i maksymalne sprzed meczu) + ClubElo
   repo: https://github.com/xgabora/Club-Football-Match-Data-2000-2025
@@ -12,6 +16,7 @@ xgabora:
   url: https://raw.githubusercontent.com/xgabora/Club-Football-Match-Data-2000-2025/{ref}/data/Matches.csv
   licencja: MIT (repozytorium); dane zrodlowe football-data.co.uk (darmowe, z podaniem zrodla) i ClubElo
   limit: brak (raw.githubusercontent.com), plik ~45 MB
+  limit_na_minute: 30
   dostepne_w_srodowisku: true
   braki: brak kursow zamkniecia (nie da sie liczyc CLV w backteście), Ekstraklasa konczy sie 2024-12-08 i nie ma strzalow ani O/U
   nie_uzywac: [C_LTH, C_LTA, C_VHD, C_VAD, C_HTB, C_PHB]  # klastry liczone ze statystyk meczu = wyciek
@@ -25,6 +30,7 @@ football_data_uk:
   historia: od 2005/06, zamkniecia Pinnacle w PSCH/PSCD/PSCA (historyczne zamkniecia bierzemy stad)
   licencja: darmowe do uzytku, z podaniem zrodla (football-data.co.uk)
   limit: brak oficjalnego; pobieraj rzadko (raz dziennie), z cache w raw/
+  limit_na_minute: 20
   dostepne_w_srodowisku: false   # host www.football-data.co.uk zablokowany przez polityke sieci sesji
   uwagi: Glowne zrodlo docelowe. Daje kursy zamkniecia, wiec odblokowuje bramke clv_dodatni.
 
@@ -37,6 +43,7 @@ the_odds_api:
     Zuzycie z naglowkow x-requests-used / x-requests-remaining (typer/ingest/budget.py)
   budzet_miesiac: 500
   rezerwa: 0.1             # 10% zapasu na powtorki i reczne zapytania
+  limit_na_minute: 30
   regiony: [eu]
   rynki_zamkniecie: [h2h, totals]   # zamkniecie ma priorytet: bez niego nie ma CLV
   rynki_typ: [h2h, totals]          # przy braku budzetu planer zostawia samo h2h, potem nic
@@ -54,6 +61,7 @@ api_football:
     platne od 19 USD/mies.
   budzet_dzien: 100
   rezerwa: 0.1
+  limit_na_minute: 10      # plan darmowy: limit na minute do weryfikacji po odblokowaniu
   ligi: {E0: 39, D1: 78, I1: 135, SP1: 140, F1: 61, POL: 106}
   plan: >-
     1 zapytanie terminarza na lige i dzien meczowy + 1 zapytanie skladow na mecz (60 min przed startem)
@@ -71,6 +79,40 @@ penaltyblog:
     Skill: penaltyblog 1.5.1 wymaga scipy<=1.15.3 (nowsze psuje dopasowanie). My uzywamy 1.13.1 + scipy 1.18.1
     i pilnujemy tego testem tests/test_vendor_dc.py (penaltyblog vs niezalezne MLE, maks. roznica p 0.002).
   dostepne_w_srodowisku: true (PyPI)
+
+open_meteo:
+  opis: Pogoda. Prognoza (na zywo), prognozy archiwalne sprzed N dni (backtest), obserwacje (tylko analiza)
+  url: https://api.open-meteo.com/v1/forecast | previous-runs-api | archive-api | geocoding-api
+  licencja: "darmowe API tylko niekomercyjnie, dane CC BY 4.0 (podaj zrodlo); komercyjnie plan platny"
+  limit: wg strony ok. 10 000 zapytan/dzien, 5 000/h, 600/min w planie darmowym (do weryfikacji)
+  limit_na_minute: 300
+  dostepne_w_srodowisku: false
+
+telegram:
+  opis: Publiczne kanaly newsowe (sklady, kontuzje) przez oficjalne API klienta MTProto (Telethon)
+  klucz_env: TELEGRAM_API_ID, TELEGRAM_API_HASH (my.telegram.org), sesja w data/telegram.session
+  licencja: Telegram API Terms of Service; tresci naleza do autorow kanalow, zawsze z linkiem t.me
+  kanaly: []               # tylko publiczne kanaly (nazwy uzytkownika), np. oficjalne kanaly klubow
+  limit_na_minute: 20      # FloodWait od Telegrama respektujemy dokladnie
+  dostepne_w_srodowisku: false
+
+betfair:
+  opis: Betfair Exchange (kursy back/lay, LTP, wolumen w czasie); stream i pliki Historical Data
+  klucz_env: BETFAIR_APP_KEY, BETFAIR_USERNAME, BETFAIR_PASSWORD
+  licencja: Betfair API Terms; wymaga konta i legalnego dostepu w kraju uzytkownika
+  wlaczony: false          # wlacz dopiero po potwierdzeniu legalnego dostepu (w Polsce prawdopodobnie brak)
+  limit_na_minute: 60
+  dostepne_w_srodowisku: false
+
+tennis_mcp:
+  opis: Tennis Abstract Match Charting Project (mecze, statystyki serwisu, punkty)
+  repo: https://github.com/JeffSackmann/tennis_MatchChartingProject
+  ref: 1813a1309b7ed7ebf1c7e884b32bf675d00e4edf   # 2026-09-18
+  url: https://raw.githubusercontent.com/JeffSackmann/tennis_MatchChartingProject/{ref}/{file}
+  licencja: CC BY-NC-SA 4.0, wylacznie niekomercyjnie, z podaniem autora (Jeff Sackmann / Tennis Abstract)
+  uwaga: tennis_atp, tennis_wta i tennis_slam_pointbypoint nie sa juz publiczne (sprawdzone 2026-11-05)
+  limit_na_minute: 30
+  dostepne_w_srodowisku: true
 
 flashscore:
   opis: Tylko reczna weryfikacja. Brak publicznego API, regulamin zabrania pobierania tresci bez zgody (Livesport).

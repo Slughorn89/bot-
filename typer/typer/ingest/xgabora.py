@@ -36,6 +36,9 @@ RENAME = {
     "Over25": "odds_o25", "Under25": "odds_u25",
     "MaxOver25": "max_o25", "MaxUnder25": "max_u25",
     "HandiSize": "ah_line", "HandiHome": "ah_h", "HandiAway": "ah_a",
+    # tryb extended (sedziego w tej kopii nie ma)
+    "HomeCorners": "hc", "AwayCorners": "ac", "HomeFouls": "hf", "AwayFouls": "af",
+    "HomeYellow": "hy", "AwayYellow": "ay",
 }
 
 
@@ -63,7 +66,8 @@ def download(ref: str | None = None, max_age_hours: float | None = None) -> byte
 REQUIRED = ["Division", "MatchDate", "HomeTeam", "AwayTeam", "FTHome", "FTAway", "OddHome", "OddDraw", "OddAway"]
 
 
-def parse(raw: bytes, leagues: dict, since: str | None = None, ref: str = "") -> pd.DataFrame:
+def parse(raw: bytes, leagues: dict, since: str | None = None, ref: str = "", extended: bool = False) -> pd.DataFrame:
+    """extended=True: dodatkowo rozne, faule i zolte kartki (schema.EXTRA_COLS)."""
     df = pd.read_csv(io.BytesIO(raw), low_memory=False)
     missing = [c for c in REQUIRED if c not in df.columns]
     if missing:  # zrodlo zmienilo format: stop, zamiast po cichu liczyc na pustych kolumnach
@@ -101,6 +105,9 @@ def parse(raw: bytes, leagues: dict, since: str | None = None, ref: str = "") ->
                        "max_a", "max_o25", "max_u25", "ah_line", "ah_h", "ah_a"]] = np.nan
         if not meta.get("has_shots", True):
             df.loc[df["league"] == lg, ["hs", "as_", "hst", "ast"]] = np.nan
+    for c in schema.EXTRA_COLS:
+        if c not in df.columns:
+            df[c] = np.nan
     df["sport"] = "football"
     df["source"] = f"{SOURCE}@{ref[:7]}" if ref else SOURCE
     df["season"] = ""
@@ -115,7 +122,8 @@ def parse(raw: bytes, leagues: dict, since: str | None = None, ref: str = "") ->
     if any(bad_odds.values()):
         log.warning("wyzerowane bledne grupy kursow: %s", {k: v for k, v in bad_odds.items() if v})
     df = df.drop_duplicates("event_id", keep="last")
-    df = df[schema.COLUMNS].sort_values(["kickoff_utc", "league", "home"], kind="stable")
+    df = df[schema.COLUMNS + (schema.EXTRA_COLS if extended else [])].sort_values(
+        ["kickoff_utc", "league", "home"], kind="stable")
     return schema.validate(df.reset_index(drop=True))
 
 
