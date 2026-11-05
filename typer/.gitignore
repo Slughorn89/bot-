@@ -15,3 +15,5 @@ htmlcov/
 backtest/goal_models/*.pkl
 backtest/goal_models/*.log
 backtest/goal_models/grid.json
+backtest/corners/*.pkl
+backtest/corners/*.log

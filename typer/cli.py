@@ -14,6 +14,7 @@
   python cli.py backtest [--layers X] [--holdout] [--compare]
   python cli.py tune                            strojenie ocen online na walidacji
   python cli.py goals [--half-life 480 --w-xg 0.2]   model goli: warianty, wybor per liga
+  python cli.py corners [--holdout]             model rozne: z efektem stanu gry i bez, roznica log loss z CI
   python cli.py analyze  [--league POL --market 1X2 --since ... --csv plik]  analiza (sekcja 14)
   python cli.py journal  [--classify ID KLASA --note TEKST]
   python cli.py day      --as-of RRRR-MM-DD     caly cykl dnia w trybie odtworzeniowym
@@ -249,6 +250,20 @@ def cmd_goals(a):
     print(select_per_league(cands, default="online").to_string(index=False))
 
 
+def cmd_corners(a):
+    """Modul 3: walk forward modelu rożnych, wersje baseline / A0 / A / B, roznica log loss z CI90 i CI95."""
+    from typer.pipeline.corner_backtest import compare, run
+    from typer.pipeline.data import load_matches, split_dates
+    sd = split_dates()
+    cc = config.model_params().get("corner_models", {})
+    start, end = (sd["holdout_od"], "2100-01-01") if a.holdout else (sd["walidacja_od"], sd["walidacja_do"])
+    res = run(load_matches(extended=True), start, end, half_life=cc.get("half_life", 365),
+              ridge=cc.get("ridge", 3.0), use_style=cc.get("use_style", False), n_sims=cc.get("n_sims", 20000))
+    print(res.groupby("variant")[[c for c in res.columns if c.startswith("ll_")]].mean().round(5).to_string())
+    for x, y in (("A", "B"), ("A0", "A"), ("baseline", "A"), ("baseline", "B")):
+        print(compare(res, x, y, by_league=(x, y) == ("A", "B")).to_string(index=False))
+
+
 def cmd_tune(a):
     from typer.pipeline.data import load_matches, split_dates
     from typer.pipeline.tune import coordinate_search
@@ -315,6 +330,8 @@ def main(argv=None):
     p.add_argument("--half-life", type=float, default=480)
     p.add_argument("--w-xg", type=float, default=0.2)
     p.add_argument("--no-context", action="store_true")
+    p = sub.add_parser("corners", help="modul 3: rozne, wersja z efektem stanu gry i bez")
+    p.add_argument("--holdout", action="store_true")
     p = sub.add_parser("tune")
     p.add_argument("--rounds", type=int, default=4)
     p = sub.add_parser("journal")

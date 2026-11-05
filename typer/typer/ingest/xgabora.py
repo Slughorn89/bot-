@@ -127,6 +127,6 @@ def parse(raw: bytes, leagues: dict, since: str | None = None, ref: str = "", ex
     return schema.validate(df.reset_index(drop=True))
 
 
-def load(since: str | None = None, ref: str | None = None) -> pd.DataFrame:
+def load(since: str | None = None, ref: str | None = None, extended: bool = False) -> pd.DataFrame:
     ref = ref or config.sources()["xgabora"]["ref"]
-    return parse(download(ref), config.leagues(), since=since, ref=ref)
+    return parse(download(ref), config.leagues(), since=since, ref=ref, extended=extended)
