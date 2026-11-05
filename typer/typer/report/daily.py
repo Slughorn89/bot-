@@ -135,6 +135,14 @@ def build(engine: sa.Engine, day=None) -> tuple[str, dict]:
                   f"p={r.p_actual:.3f}, klasa {r.final_class or r.suggested_class}"
             payload["wnioski"].append(txt)
     lines += [f"  {w}" for w in payload["wnioski"]] or ["  brak nowych wpisów w dzienniku błędów"]
+
+    # --- opcjonalny komentarz LLM (All API Hub / dowolny endpoint zgodny z OpenAI), z kontrola liczb ---
+    from typer.report import llm
+    if llm.configured():
+        c = llm.comment(payload)
+        payload["komentarz"] = c
+        lines.append("Komentarz (AI, tylko opis liczb powyżej)")
+        lines.append(f"  {c}" if c else "  pominięty (LLM niedostępny albo podał liczby spoza raportu)")
     return "\n".join(lines), payload
 
 

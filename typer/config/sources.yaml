@@ -24,6 +24,20 @@ football_data_uk:
   dostepne_w_srodowisku: false   # host www.football-data.co.uk zablokowany przez polityke sieci sesji
   uwagi: Glowne zrodlo docelowe. Daje kursy zamkniecia, wiec odblokowuje bramke clv_dodatni.
 
+fduk_lustro:
+  opis: Codzienne lustro plikow sezonowych football-data.co.uk (GitHub Actions pobiera je 1:1, workflow jawny w repo)
+  repo: https://github.com/Char2mant/futbol-veri-aynasi
+  # Przypiety commit = powtarzalny backtest. Nowe mecze: zmien na nowszy hash (i uruchom ponownie kontrole zgodnosci).
+  ref: ab222fe47c490ac9774f32f36b84b457f1118430
+  ostatni_commit: 2026-11-03 (mecze do 2026-11-02)
+  url_sezon: https://raw.githubusercontent.com/Char2mant/futbol-veri-aynasi/{ref}/data/fd/{season}/{code}.csv
+  sezony: 2019-20 do 2026-27
+  ligi: E0 E1 SP1 D1 I1 F1 N1 P1 B1 G1 SC0 T1 (brak Ekstraklasy)
+  licencja: brak licencji repozytorium; dane football-data.co.uk (darmowe, z podaniem zrodla), lustro tylko kopiuje pliki
+  zaufanie: prywatne lustro, wiec przed uzyciem typer/ingest/merge.py porownuje wyniki i kursy z xgabora na wspolnych meczach; rozjazd > 0,5% = odmowa
+  dostepne_w_srodowisku: true
+  braki: od 2026/27 football-data nie publikuje kursow Pinnacle; zamkniecie bierzemy z Bet365 (model.yaml -> zamkniecie)
+
 the_odds_api:
   opis: Kursy na zywo wielu bukmacherow (h2h, totals); do snapshotow "w chwili typu" i "zamkniecia"
   url: https://api.the-odds-api.com/v4/sports/{sport}/odds

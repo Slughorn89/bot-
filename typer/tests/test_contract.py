@@ -54,7 +54,7 @@ def test_naprawa_zamienionych_dat():
 def test_parser_football_data_uk_na_probce():
     """Probka w formacie football-data.co.uk (fikcyjne wartosci testowe)."""
     raw = (FIX / "fduk_E0_sample.csv").read_bytes()
-    df = footballdata_uk.parse(raw, "E0", kind="main")
+    df = footballdata_uk.parse(raw, "E0", kind="main", book="PS")
     assert len(df) == 3
     assert str(pd.to_datetime(df["kickoff_utc"]).dt.tz) == "UTC"
     r = df.iloc[0]
@@ -84,3 +84,15 @@ def test_kazda_druzyna_zmapowana_w_terminarzu():
     raws = ["Manchester City", "Liverpool", "Arsenal FC", "Chelsea"]
     mapping, pending = resolve_many(raws, cands)
     assert set(mapping) | {p.raw for p in pending} == set(raws)
+
+
+def test_parser_zamkniecie_bet365_domyslnie():
+    """Od 2026/27 football-data nie ma Pinnacle: domyslne zamkniecie = Bet365 (B365CH...)."""
+    raw = (FIX / "fduk_E0_sample.csv").read_bytes()
+    txt = raw.decode("utf-8-sig").splitlines()
+    head = txt[0] + ",B365CH,B365CD,B365CA,B365C>2.5,B365C<2.5"
+    rows = [r + ",1.70,3.90,5.00,1.90,1.95" for r in txt[1:]]
+    df = footballdata_uk.parse(("\n".join([head] + rows)).encode(), "E0", kind="main")
+    assert df.iloc[0]["close_h"] == 1.70 and df.iloc[0]["close_o25"] == 1.90
+    with pytest.raises(ValueError):
+        footballdata_uk.parse(raw, "E0", kind="main", book="XYZ")

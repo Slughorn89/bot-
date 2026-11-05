@@ -8,6 +8,10 @@ Dwa pliki, bo w danych z GitHuba nie ma kursow zamkniecia:
                     brak_wycieku. Gdy podlaczysz football-data.co.uk, w odds_close trafi prawdziwe
                     zamkniecie Pinnacle i bramka clv_dodatni zacznie dzialac.
 Holdout (od split.holdout_od) uruchamiasz RAZ: po uzyciu zostaje znacznik backtest/HOLDOUT_USED.
+
+Od wersji z lustrem football-data (2026-11) preds.csv ma tez odds_close = zamkniecie Bet365, wiec
+evaluate.py liczy CLV. Okres "forward" (od split.forward_od) to mecze dociagniete z lustra po koncu
+xgabora: nikt ich nie widzial przy strojeniu ani w holdoucie. Tez uruchamiany RAZ (FORWARD_USED).
 """
 from __future__ import annotations
 
@@ -87,23 +91,25 @@ def to_preds(fr: pd.DataFrame, model_version: str) -> tuple[pd.DataFrame, pd.Dat
         taken1 = [r.odds_h, r.odds_d, r.odds_a]
         bench1 = [r.bench_h, r.bench_d, r.bench_a]
         mkt1 = taken1 if np.isfinite(taken1).all() else bench1
+        close1 = [getattr(r, "close_h", np.nan), getattr(r, "close_d", np.nan), getattr(r, "close_a", np.nan)]
         for k, sel in enumerate(("1", "X", "2")):
             out = int(y["1x2"][i] == k)
             rows.append(dict(common, market="1X2", selection=sel, p_model=p1[k], outcome=out,
-                             p_baseline=b1[k], odds_taken=taken1[k]))
+                             p_baseline=b1[k], odds_taken=taken1[k], odds_close=close1[k]))
             mrows.append(dict(common, market="1X2", selection=sel, p_model=p1[k], outcome=out,
                               p_baseline=b1[k], odds_close=mkt1[k]))
         po, ov = float(r.p_over), int(y["over"][i])
-        for sel, p, b, o, oc in (("over2.5", po, r.base_over, ov, r.odds_o25),
-                                 ("under2.5", 1 - po, 1 - r.base_over, 1 - ov, r.odds_u25)):
+        for sel, p, b, o, oc, cc in (("over2.5", po, r.base_over, ov, r.odds_o25, getattr(r, "close_o25", np.nan)),
+                                     ("under2.5", 1 - po, 1 - r.base_over, 1 - ov, r.odds_u25,
+                                      getattr(r, "close_u25", np.nan))):
             rows.append(dict(common, market="OU2.5", selection=sel, p_model=p, outcome=o,
-                             p_baseline=b, odds_taken=oc))
+                             p_baseline=b, odds_taken=oc, odds_close=cc))
             mrows.append(dict(common, market="OU2.5", selection=sel, p_model=p, outcome=o,
                               p_baseline=b, odds_close=oc))
         pb, bt = float(r.p_btts), int(y["btts"][i])
         for sel, p, b, o in (("yes", pb, r.base_btts, bt), ("no", 1 - pb, 1 - r.base_btts, 1 - bt)):
             rows.append(dict(common, market="BTTS", selection=sel, p_model=p, outcome=o, p_baseline=b,
-                             odds_taken=np.nan))
+                             odds_taken=np.nan, odds_close=np.nan))
             mrows.append(dict(common, market="BTTS", selection=sel, p_model=p, outcome=o, p_baseline=b,
                               odds_close=np.nan))
     preds = pd.DataFrame(rows)
@@ -135,13 +141,24 @@ def holdout_marker() -> Path:
     return BT_DIR / "HOLDOUT_USED"
 
 
+def forward_marker() -> Path:
+    return BT_DIR / "FORWARD_USED"
+
+
 def run(layer_set: str = "online+cal", holdout: bool = False, force_holdout: bool = False,
-        model_version: str | None = None, frame: pd.DataFrame | None = None) -> dict:
+        model_version: str | None = None, frame: pd.DataFrame | None = None,
+        forward: bool = False) -> dict:
     BT_DIR.mkdir(exist_ok=True)
     sd = split_dates()
     df = load_matches()
     frame = frame if frame is not None else build_frame(df)
-    if holdout:
+    if forward:
+        if forward_marker().exists() and not force_holdout:
+            raise SystemExit(f"Okres forward juz uzyty ({forward_marker().read_text().strip()}).")
+        if "forward_od" not in sd:
+            raise SystemExit("brak split.forward_od w config/gates.yaml")
+        start, end = sd["forward_od"], None
+    elif holdout:
         if holdout_marker().exists() and not force_holdout:
             raise SystemExit(f"Holdout juz uzyty ({holdout_marker().read_text().strip()}). Strojenie na nim "
                              f"go spala: potrzebny nowy okres albo --force-holdout ze swiadomoscia skutkow.")
@@ -149,12 +166,16 @@ def run(layer_set: str = "online+cal", holdout: bool = False, force_holdout: boo
     else:
         start, end = sd["walidacja_od"], sd["walidacja_do"]
     seasons = seasons_between(frame, start, end)
+    if forward:
+        # okres zaczyna sie w trakcie sezonu: bierzemy sezony, w ktorych leza jego mecze
+        d_all = pd.to_datetime(frame["date"])
+        seasons = sorted(frame.loc[d_all >= pd.Timestamp(start), "season"].unique())
     fr = apply_layers(frame, layer_set, seasons)
     d = pd.to_datetime(fr["date"])
     fr = fr[(d >= pd.Timestamp(start)) & ((d <= pd.Timestamp(end)) if end else True)]
     mv = model_version or f"op-{layer_set}"
     preds, mkt = to_preds(fr, mv)
-    tag = "holdout" if holdout else "valid"
+    tag = "forward" if forward else ("holdout" if holdout else "valid")
     p_csv, m_csv = BT_DIR / f"preds_{tag}.csv", BT_DIR / f"preds_market_{tag}.csv"
     preds.to_csv(p_csv, index=False)
     mkt.to_csv(m_csv, index=False)
@@ -163,7 +184,10 @@ def run(layer_set: str = "online+cal", holdout: bool = False, force_holdout: boo
     code_m, rep_m = run_evaluate(m_csv, json_out=BT_DIR / f"report_market_{tag}.json")
     (BT_DIR / f"report_{tag}.txt").write_text(rep_p)
     (BT_DIR / f"report_market_{tag}.txt").write_text(rep_m)
-    if holdout:
+    if forward:
+        forward_marker().write_text(f"{datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC, model {mv}, "
+                                    f"mecze {fr['date'].min()}..{fr['date'].max()}\n")
+    elif holdout:
         holdout_marker().write_text(f"{datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC, model {mv}\n")
     return dict(tag=tag, layer_set=layer_set, code_preds=code_p, code_market=code_m,
                 metrics=L.metrics(fr), report_preds=rep_p, report_market=rep_m,

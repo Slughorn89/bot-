@@ -7,7 +7,7 @@
   python cli.py settle   [--as-of ...]          wyniki, rozliczenie, dziennik bledow
   python cli.py learn                           przeglad tygodniowy (evaluate.py od daty wdrozenia)
   python cli.py report   [--as-of ...] [--send] raport dzienny (+ webhook n8n)
-  python cli.py backtest [--layers X] [--holdout] [--compare]
+  python cli.py backtest [--layers X] [--holdout | --forward] [--compare]
   python cli.py tune                            strojenie ocen online na walidacji
   python cli.py journal  [--classify ID KLASA --note TEKST]
   python cli.py day      --as-of RRRR-MM-DD     caly cykl dnia w trybie odtworzeniowym
@@ -103,7 +103,7 @@ def cmd_backtest(a):
                              **{k: round(v, 4) if isinstance(v, float) else v for k, v in m.items()}))
             print(json.dumps(rows[-1], default=float))
         return
-    r = bt.run(a.layers, holdout=a.holdout, force_holdout=a.force_holdout)
+    r = bt.run(a.layers, holdout=a.holdout, force_holdout=a.force_holdout, forward=a.forward)
     print(r["report_preds"])
     print("=" * 80, "\nBENCHMARK RYNKU (log loss vs rynek, bramka brak_wycieku)\n")
     print(r["report_market"])
@@ -149,6 +149,7 @@ def main(argv=None):
     p = sub.add_parser("backtest")
     p.add_argument("--layers", default=config.model_params().get("layers", "online+cal"))
     p.add_argument("--holdout", action="store_true")
+    p.add_argument("--forward", action="store_true", help="nowy okres po koncu xgabora (split.forward_od), RAZ")
     p.add_argument("--force-holdout", action="store_true")
     p.add_argument("--compare", default=None, help="lista zestawow warstw po przecinku (walidacja)")
     p = sub.add_parser("tune")

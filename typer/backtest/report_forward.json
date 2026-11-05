@@ -1,0 +1,319 @@
+{
+  "schema": "typer.report/v2",
+  "okres": [
+    "2026-09-04",
+    "2026-11-02"
+  ],
+  "gotowy": true,
+  "gotowy_do_gry": false,
+  "werdykt": "GOTOWY tylko do typowania (brak dowodu przewagi nad rynkiem)",
+  "bramki": [
+    {
+      "bramka": "proba",
+      "wynik": "OK",
+      "info": "1059 zdarzen (min 300)",
+      "twarda": true
+    },
+    {
+      "bramka": "spojnosc_prawdopodobienstw",
+      "wynik": "OK",
+      "info": "0 rynkow, w ktorych p_model nie sumuje sie do 1 (+-0.02) = blad modelu",
+      "twarda": true
+    },
+    {
+      "bramka": "kalibracja",
+      "wynik": "OK",
+      "info": "ECE 0.0134 (max 0.03)",
+      "twarda": true
+    },
+    {
+      "bramka": "lepszy_od_baseline",
+      "wynik": "OK",
+      "info": "log loss model - baseline = -0.0470 na 1059 zdarzeniach (kazdy rynek z n>=100 musi byc lepszy); per rynek: 1X2 -0.1021, BTTS -0.0078, OU2.5 -0.0311",
+      "twarda": true
+    },
+    {
+      "bramka": "konkurencyjny_vs_rynek",
+      "wynik": "OK",
+      "info": "luka +0.0059 na 706 zdarzeniach z kursem zamkniecia (max 0.015); model moze byc ogolnie slabszy od zamkniecia i zarabiac na wczesnych kursach, dlatego to ostrzezenie, a decyduje CLV",
+      "twarda": false
+    },
+    {
+      "bramka": "brak_wycieku",
+      "wynik": "OK",
+      "info": "luka +0.0059; ponizej -0.03 = model 'za dobry', szukaj wycieku",
+      "twarda": true
+    },
+    {
+      "bramka": "ocena_wartosci",
+      "wynik": "UWAGA",
+      "info": "brak zakladow z kursem zamkniecia: model mozna oceniac jako predyktor, ale nie wiadomo, czy daje przewage nad bukmacherem",
+      "twarda": false
+    }
+  ],
+  "zdarzenia": 1059,
+  "ll_model": 0.7661232243930449,
+  "ece": 0.013395011431727884,
+  "zaklady": {},
+  "segmenty": [
+    {
+      "sport": "football",
+      "league": "E0",
+      "market": "BTTS",
+      "n": 70,
+      "ll_model": 0.7041880438269214,
+      "ece": 0.06211795017927546,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "SP1",
+      "market": "BTTS",
+      "n": 78,
+      "ll_model": 0.6752716009137769,
+      "ece": 0.039040296028724365,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "I1",
+      "market": "BTTS",
+      "n": 80,
+      "ll_model": 0.6742996098179245,
+      "ece": 0.0987744225378975,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "D1",
+      "market": "BTTS",
+      "n": 63,
+      "ll_model": 0.6712364748679334,
+      "ece": 0.030652541260109745,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "F1",
+      "market": "BTTS",
+      "n": 62,
+      "ll_model": 0.669911637503445,
+      "ece": 0.09271463871365807,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "E0",
+      "market": "OU2.5",
+      "n": 70,
+      "ll_model": 0.7279178554307981,
+      "luka_vs_rynek": 0.02084628878493609,
+      "luka_ci90": [
+        0.0066889581780790125,
+        0.035858411420684556
+      ],
+      "ece": 0.1482330872577064,
+      "slaby": true
+    },
+    {
+      "sport": "football",
+      "league": "I1",
+      "market": "OU2.5",
+      "n": 80,
+      "ll_model": 0.6794103299244293,
+      "luka_vs_rynek": 0.011954743600182885,
+      "luka_ci90": [
+        -0.0013030497981926872,
+        0.024037301197202585
+      ],
+      "ece": 0.04872350880064773,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "SP1",
+      "market": "1X2",
+      "n": 78,
+      "ll_model": 0.9177225673519948,
+      "luka_vs_rynek": 0.009458979944650517,
+      "luka_ci90": [
+        -0.002011620087831707,
+        0.02053829327039847
+      ],
+      "ece": 0.056851196623486845,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "F1",
+      "market": "OU2.5",
+      "n": 62,
+      "ll_model": 0.6516514316935642,
+      "luka_vs_rynek": 0.008501052657992544,
+      "luka_ci90": [
+        -0.007309687709271336,
+        0.025505239248369872
+      ],
+      "ece": 0.11421741736138954,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "D1",
+      "market": "OU2.5",
+      "n": 63,
+      "ll_model": 0.6052502603489311,
+      "luka_vs_rynek": 0.007652033356509201,
+      "luka_ci90": [
+        -0.006460989721620028,
+        0.021900695653660002
+      ],
+      "ece": 0.08040837147149062,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "F1",
+      "market": "1X2",
+      "n": 62,
+      "ll_model": 0.9284645848443701,
+      "luka_vs_rynek": 0.006590330425351592,
+      "luka_ci90": [
+        -0.009721639780751164,
+        0.02281936173132248
+      ],
+      "ece": 0.05511350625746064,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "D1",
+      "market": "1X2",
+      "n": 63,
+      "ll_model": 1.0290307606420286,
+      "luka_vs_rynek": 0.0011926278778814157,
+      "luka_ci90": [
+        -0.01682903918328199,
+        0.020520233524203586
+      ],
+      "ece": 0.07556705892541453,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "E0",
+      "market": "1X2",
+      "n": 70,
+      "ll_model": 1.0309412475214668,
+      "luka_vs_rynek": 0.001069469718533957,
+      "luka_ci90": [
+        -0.015488594505850193,
+        0.018203666583204058
+      ],
+      "ece": 0.05905749940298647,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "SP1",
+      "market": "OU2.5",
+      "n": 78,
+      "ll_model": 0.6129804140141132,
+      "luka_vs_rynek": 0.00017377232961231047,
+      "luka_ci90": [
+        -0.010301917725598705,
+        0.011371083281960306
+      ],
+      "ece": 0.12118850336820215,
+      "slaby": false
+    },
+    {
+      "sport": "football",
+      "league": "I1",
+      "market": "1X2",
+      "n": 80,
+      "ll_model": 0.9224883121349556,
+      "luka_vs_rynek": -0.006820053333400118,
+      "luka_ci90": [
+        -0.019895722293099403,
+        0.005716560244910985
+      ],
+      "ece": 0.058454659232800715,
+      "slaby": false
+    }
+  ],
+  "odchylenia": [],
+  "dryf": {},
+  "najwieksze_pomylki": [
+    {
+      "date": "2026-10-10",
+      "event_id": "D1-20261010-augsburg-bayern-munich",
+      "market": "1X2",
+      "league": "D1",
+      "ll_model": "2.425"
+    },
+    {
+      "date": "2026-09-05",
+      "event_id": "D1-20260905-schalke-04-bayern-munich",
+      "market": "1X2",
+      "league": "D1",
+      "ll_model": "2.274"
+    },
+    {
+      "date": "2026-09-04",
+      "event_id": "F1-20260904-paris-sg-monaco",
+      "market": "1X2",
+      "league": "F1",
+      "ll_model": "2.147"
+    },
+    {
+      "date": "2026-09-05",
+      "event_id": "F1-20260905-lens-lorient",
+      "market": "1X2",
+      "league": "F1",
+      "ll_model": "2.083"
+    },
+    {
+      "date": "2026-10-23",
+      "event_id": "D1-20261023-stuttgart-mgladbach",
+      "market": "1X2",
+      "league": "D1",
+      "ll_model": "2.064"
+    },
+    {
+      "date": "2026-10-10",
+      "event_id": "D1-20261010-hoffenheim-hamburg",
+      "market": "1X2",
+      "league": "D1",
+      "ll_model": "2.062"
+    },
+    {
+      "date": "2026-09-04",
+      "event_id": "SP1-20260904-betis-real-madrid",
+      "market": "1X2",
+      "league": "SP1",
+      "ll_model": "2.048"
+    },
+    {
+      "date": "2026-09-12",
+      "event_id": "E0-20260912-chelsea-hull",
+      "market": "1X2",
+      "league": "E0",
+      "ll_model": "2.026"
+    },
+    {
+      "date": "2026-10-30",
+      "event_id": "SP1-20261030-villarreal-espanol",
+      "market": "1X2",
+      "league": "SP1",
+      "ll_model": "2.001"
+    },
+    {
+      "date": "2026-09-05",
+      "event_id": "SP1-20260905-villarreal-la-coruna",
+      "market": "1X2",
+      "league": "SP1",
+      "ll_model": "1.998"
+    }
+  ]
+}

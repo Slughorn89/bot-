@@ -134,6 +134,40 @@ bo to największa brakująca informacja; (3) prawdziwe xG; (4) dopiero potem pap
 4 tygodnie / 300 zakładów i ponowne bramki. Gdy przewagi nadal nie będzie, uczciwa odpowiedź brzmi:
 typer daje dobre prawdopodobieństwa, ale nie daje powodu, żeby grać.
 
+## 5a. Aktualizacja 2026-11-05: kursy zamknięcia, CLV i nowy okres
+
+Źródło: lustro plików football-data.co.uk na GitHubie ([Char2mant/futbol-veri-aynasi](https://github.com/Char2mant/futbol-veri-aynasi),
+GitHub Actions pobiera je codziennie 1:1, przypięty commit `ab222fe`, mecze do 2026-11-02), adapter
+`typer/ingest/footballdata_uk.py` (sam przełącza się na lustro, gdy oryginał jest niedostępny) i `typer/ingest/merge.py`.
+
+**Kontrola zaufania, zanim cokolwiek wzięliśmy z lustra:** 12 557 wspólnych meczów z xgabora, wynik różny w 1 meczu,
+kurs maksymalny sprzed meczu różny w 0 meczach. Przy rozjeździe powyżej 0,5% adapter odmawia (`ContractError`).
+
+**Wykryty błąd w danych, który zmienia opis wcześniejszych wyników:** kolumna `OddHome` w xgabora to do sezonu
+2024/25 **średnia rynku** (zgodność z `AvgH` 100%), a od 2025/26 **Bet365** (zgodność z `B365H` 100%), pod tą samą nazwą.
+Walidacja z sekcji 5 liczyła więc ROI na średnich kursach, a holdout na Bet365. Teraz kurs „wzięty” to wszędzie, gdzie
+lustro go ma (od 2019/20), Bet365 sprzed meczu, a zamknięcie to Bet365 zamknięcie bez marży (`model.yaml: zamkniecie`).
+Pinnacle: football-data przestało go publikować od sezonu 2026/27, więc dla spójności nie jest domyślny.
+
+| Okres | Zdarzeń z zamknięciem | Luka log loss do zamknięcia Bet365 | Zakłady (przewaga ≥ 5%) | CLV | Werdykt |
+|---|---|---|---|---|---|
+| Walidacja, champion `online+blend+cal` | 21 409 | +0,0024 | 9 | −3,0% (za mało zakładów) | tylko do typowania |
+| Walidacja, sam model `online+cal` | 21 409 | nie liczona | 8 277 | **−4,4%** [−4,6%, −4,2%], bije zamknięcie 27% | NIEGOTOWY (ROI −10,2% [−13,2%, −7,1%]) |
+| **Forward 2026-09-04 do 2026-11-02** (353 mecze, nikt ich nie widział, uruchomiony raz) | 706 | +0,0059 | 0 | brak zakładów | tylko do typowania |
+
+Po ludzku: pierwszy raz mamy prawdziwy pomiar CLV i potwierdza on wniosek z wpisu 7 w `experiments.md`. „Przewagi”
+samego modelu to jego błędy: kupując je, kupowałbyś kursy średnio o 4,4% gorsze od ceny zamknięcia. Champion słusznie
+trzyma się rynku i prawie nigdy nie gra. Do zrobienia nadal: składy i kontuzje, prawdziwe xG, snapshoty na żywo.
+
+## 5b. Komentarz LLM w raporcie (opcjonalnie, np. przez All API Hub)
+
+`typer/report/llm.py` dopisuje do raportu dziennego krótki komentarz z dowolnego endpointu zgodnego z OpenAI.
+Z rozszerzenia [All API Hub](https://github.com/qixing-jk/all-api-hub) kopiujesz *Base URL* i klucz wybranego konta
+do `.env` (`LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`). Zasady: LLM dostaje tylko gotowe liczby z raportu, każda liczba
+w jego odpowiedzi musi być w tych danych (inaczej komentarz jest odrzucany), a błąd serwisu nie zatrzymuje raportu.
+LLM niczego nie decyduje: typy, stawki i werdykt liczą się bez niego. Serwisy pośredniczące często odsprzedają dostęp
+do modeli wbrew regulaminom dostawców, więc używaj klucza z niskim limitem wydatków.
+
 ## 6. Uruchomienie
 
 ```bash
@@ -146,6 +180,7 @@ cp .env.example .env            # klucze tylko tutaj
 .venv/bin/python cli.py backtest                 # walidacja: plik predykcji + evaluate.py + werdykt
 .venv/bin/python cli.py backtest --compare online,online+cal,online+cal+blend
 .venv/bin/python cli.py backtest --holdout       # RAZ, na końcu (zostaje znacznik backtest/HOLDOUT_USED)
+.venv/bin/python cli.py backtest --forward       # RAZ: nowy okres z lustra po końcu xgabora (FORWARD_USED)
 .venv/bin/python cli.py tune                     # strojenie ocen online na walidacji
 
 # cykl dzienny (na żywo, po odblokowaniu źródeł)
@@ -182,4 +217,6 @@ Bez webhooka raport ląduje w `live/report_<data>.json`.
 
 * Dane: [football-data.co.uk](https://www.football-data.co.uk/), [ClubElo](http://clubelo.com/), kopia
   [xgabora/Club-Football-Match-Data-2000-2025](https://github.com/xgabora/Club-Football-Match-Data-2000-2025) (MIT).
+* Lustro football-data.co.uk: [Char2mant/futbol-veri-aynasi](https://github.com/Char2mant/futbol-veri-aynasi)
+  (bez licencji repozytorium; dane football-data.co.uk, sprawdzane względem xgabora przed użyciem).
 * Dixon-Coles: [penaltyblog](https://github.com/martineastwood/penaltyblog) (MIT), Martin Eastwood.
