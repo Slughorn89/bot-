@@ -20,6 +20,10 @@ Metryka strojenia: J = log loss 1X2 + 0,5 × (log loss O/U 2.5 + log loss BTTS).
 | 8 | 2026-10-31 | Ekstraklasa (segment „słaby”, luka +0,0158 do benchmarku) potrzebuje innych temp nauki | Poprawka celowana: siatka lr_team × season_regress × rho tylko dla POL (`league_params`) | Najlepiej 1,0455 vs 1,0463 (1847 meczów), O/U i BTTS bez zmian | Odrzucone (w granicach szumu). Przyczyna to brak informacji: brak strzałów, benchmark POL to być może kurs zamknięcia |
 | 9 | 2026-10-31 | Odchylenia z raportu (BTTS „tak” zaniżone w D1 o 3,4 pp i w I1 o 2,8 pp; gospodarz zawyżony w I1 o 2,3 pp) są specyficzne dla ligi | Kalibracja per liga (min. 1500 meczów historii), globalna dla reszty | D1 BTTS: odchylenie 3,4 → 1,4 pp; łącznie J 1,6597 → 1,6596 (1X2 −0,0004, O/U +0,0007, BTTS −0,0001) | Odrzucone (brak łącznego zysku). Do backlogu: rosnąca częstość BTTS w Bundeslidze, rho per liga |
 | 10 | 2026-10-31 | Analiza wrażliwości (nie werdykt): przewaga przy braniu najlepszego kursu z ~17 bukmacherów | Champion, `odds_taken` = kurs maksymalny sprzed meczu | Próg 2%: 6646 zakładów, ROI −1,4% (CI90 −5,6% do +2,5%); próg 5%: 1665 zakładów, ROI +4,7% (CI90 −5,7% do +15,3%) | Tylko informacyjnie. ROI w granicach szumu, kurs maksymalny jest optymistyczny (nieaktualne kursy, limity kont), a bez zamknięcia nie ma CLV |
+| 11 | 2026-11-05 | Lustro football-data.co.uk na GitHubie jest wierną kopią | Porównanie z xgabora na 12 557 wspólnych meczach (2019/20 do 2026/27, top 5 lig) | Wynik różny: 1 mecz; kurs maksymalny różny: 0. Przy okazji: `OddHome` w xgabora = średnia rynku do 2024/25, Bet365 od 2025/26 | Przyjęte. Kurs „wzięty” ujednolicony do Bet365 z football-data (od 2019/20), zamknięcie Bet365 bez marży |
+| 12 | 2026-11-05 | Na walidacji z prawdziwym zamknięciem (pomiar, bez strojenia) | `backtest` z odds_close = zamknięcie Bet365; evaluate.py v2 | Champion: luka +0,0024 do zamknięcia, 9 zakładów, CLV −3,0%. Sam model (`online+cal`): 8 277 zakładów, CLV −4,4% (CI90 −4,6% do −4,2%), ROI −10,2% (CI90 −13,2% do −7,1%) | Potwierdza wpis 7: przewagi surowego modelu to jego błędy. Champion bez zmian |
+| 13 | 2026-11-05 | Nowy okres (forward) po końcu xgabora | `backtest --forward`, 353 mecze 2026-09-04 do 2026-11-02, uruchomiony raz | Luka do zamknięcia Bet365 +0,0059 (706 zdarzeń), do kursu sprzed meczu −0,0009, ECE 0,013, 0 zakładów ≥ 5% | Tylko do typowania. Premier League O/U 2.5 z flagą „słaby” (n = 70, do obserwacji, bez strojenia) |
+| 14 | 2026-11-05 | Braki w składzie poprawią przewidywanie goli | Challenger `lineup-v1`: korekta λ o udział nieobecnych pewniaków, b i g dopasowywane na żywo z karą do 0. Historia składów niedostępna (Transfermarkt bez klubu z dnia kontuzji = wyciek, odrzucone) | Brak wyniku: 0 meczów ze składami. Test odtworzeniowy 2026-10-31: 22 mecze, różnica do championa 0,0 (zgodnie z założeniem) | W cieniu od wdrożenia. Decyzja po ≥ 300 zdarzeniach (`learn`) |
 
 ## Holdout (2025-07-01 do 2026-09-03, 1851 meczów, uruchomiony raz: 2026-10-31 09:11 UTC)
 
@@ -41,7 +45,7 @@ Obserwacje do monitoringu (bez strojenia, holdout spalony):
 Kolejny uczciwy test wymaga nowego okresu (paper trading od wdrożenia).
 
 ## Backlog cech (ze ślepych plamek i raportów)
-1. Składy i kontuzje (~60 min przed meczem): największa brakująca informacja; tabela `lineups` gotowa, brak źródła.
+1. Składy i kontuzje (~60 min przed meczem): zbierane od 2026-11-05 przez API-Football, challenger `lineup-v1` w cieniu (wpis 14).
 2. Kursy zamknięcia Pinnacle (football-data.co.uk): odblokowują CLV i bramkę `clv_dodatni`.
 3. Prawdziwe xG (Understat/FBref zamiast proxy ze strzałów), strzały dla Ekstraklasy.
 4. Rho / częstość BTTS per liga (wpis 9), dryf przewagi gospodarza w Premier League (holdout).

@@ -11,7 +11,11 @@ Opcjonalne:
 Uzycie:
   python tools/evaluate.py preds.csv --by sport,league,market --json report.json
   python tools/evaluate.py preds.csv --value-threshold 0.03   # sam wybierze value bety
-Kod wyjscia: 0 = gotowy do gry (twarde bramki + CLV), 1 = tylko do typowania, 2 = NIEGOTOWY.
+Kod wyjscia: 0 = gotowy do gry (twarde bramki + CLV), 1 = tylko do typowania, 2 = NIEGOTOWY,
+3 = zly plik wejsciowy (kontrakt danych).
+Wersja 2: bramki rynkowe i baseline licza sie na podzbiorze, ktory ma dane (wczesniej jeden rynek
+bez kursu zamkniecia po cichu wylaczal bramke brak_wycieku), kontrakt danych, kontrola
+jednego zakladu na mecz, bootstrap bez zapychania pamieci.
 """
 import argparse
 import json
@@ -27,7 +31,9 @@ GATES = dict(
     max_gap_vs_market=0.015, # o ile log loss modelu moze byc gorszy od rynku zamkniecia
     leak_margin=0.03,        # model lepszy od zamkniecia o tyle = podejrzenie wycieku
     min_bets=300,            # minimalna liczba zakladow do oceny CLV i ROI
+    min_market_cov=0.5,      # min. odsetek zdarzen z kursem zamkniecia, zeby bramki rynkowe byly wazne
 )
+SCHEMA = "typer.report/v2"
 
 
 def load(path):
@@ -35,7 +41,25 @@ def load(path):
     need = {"event_id", "date", "market", "selection", "p_model", "outcome"}
     miss = need - set(df.columns)
     if miss:
-        sys.exit(f"Brak kolumn: {sorted(miss)}")
+        _fail(f"Brak kolumn: {sorted(miss)}")
+    errs = []
+    if df[list(need)].isna().any().any():
+        errs.append("puste wartosci w kolumnach wymaganych: "
+                    + str(df[list(need)].isna().sum()[lambda x: x > 0].to_dict()))
+    if not df["outcome"].dropna().isin([0, 1]).all():
+        errs.append("outcome musi byc 0 albo 1")
+    pm = pd.to_numeric(df["p_model"], errors="coerce")
+    if ((pm < 0) | (pm > 1) | pm.isna()).any():
+        errs.append("p_model poza [0, 1] albo nie jest liczba")
+    dup = df.duplicated(["event_id", "market", "selection"]).sum()
+    if dup:
+        errs.append(f"{dup} zduplikowanych wierszy (event_id, market, selection), np. ten sam mecz z dwoch zrodel")
+    for c in ("odds_taken", "odds_close"):
+        if c in df.columns and (pd.to_numeric(df[c], errors="coerce") <= 1).any():
+            errs.append(f"{c}: kursy dziesietne musza byc > 1")
+    if errs:
+        _fail("Kontrakt danych niespelniony:\n  - " + "\n  - ".join(errs))
+    df["outcome"] = df["outcome"].astype(int)
     df["date"] = pd.to_datetime(df["date"])
     for c in ("sport", "league"):
         if c not in df.columns:
@@ -44,6 +68,11 @@ def load(path):
         if c in df.columns:
             df[c] = df[c].astype(float).clip(EPS, 1 - EPS)
     return df.sort_values("date", kind="stable").reset_index(drop=True)
+
+
+def _fail(msg):
+    print(msg, file=sys.stderr)
+    sys.exit(3)
 
 
 def _ll(p, out):
@@ -101,17 +130,27 @@ def boot(fn, arrays, n=2000, seed=7):
     k = len(arrays[0])
     if k == 0:
         return (np.nan, np.nan)
-    idx = np.random.default_rng(seed).integers(0, k, (n, k))
-    vals = fn(*[a[idx] for a in arrays])
+    rng = np.random.default_rng(seed)
+    step = max(1, min(n, 20_000_000 // max(k, 1)))  # ok. 160 MB indeksow na porcje
+    vals = []
+    for start in range(0, n, step):
+        idx = rng.integers(0, k, (min(step, n - start), k))
+        vals.append(fn(*[a[idx] for a in arrays]))
+    vals = np.concatenate(vals)
     return float(np.percentile(vals, 5)), float(np.percentile(vals, 95))
 
 
 def select_bets(df, value_threshold):
+    if "odds_taken" not in df.columns:
+        return pd.DataFrame()
     if "stake" in df.columns:
         bets = df[df["stake"].fillna(0) > 0].copy()
     elif value_threshold is not None and "odds_taken" in df.columns:
         edge = df["p_model"] * df["odds_taken"] - 1
-        bets = df[edge >= value_threshold].copy()
+        bets = df.assign(edge=edge)[edge >= value_threshold]
+        # jeden zaklad na mecz (sekcja 10): zostaw selekcje z najwieksza przewaga
+        bets = bets.sort_values("edge", ascending=False, kind="stable").drop_duplicates("event_id")
+        bets = bets.sort_values("date", kind="stable").copy()
         bets["stake"] = 1.0
     else:
         return pd.DataFrame()
@@ -151,19 +190,30 @@ def betting_stats(bets):
     return out
 
 
-def cusum_drift(ev, warmup=200, k=0.1, h=22.0, clip=4.0):
+DRIFT_K, DRIFT_H = 0.2, 20.0
+
+
+def cusum_drift(ev, warmup=200, k=None, h=None, clip=4.0):
     """Jednostronny CUSUM (Page) na standaryzowanej nadwyzce log loss.
     Strumien = ll_model - ll_market (gdy jest rynek), inaczej ll_model.
-    Referencja = pierwsze `warmup` zdarzen segmentu. k=0.1, h=22 daje ok. 5000 zdarzen
-    miedzy falszywymi alarmami (przy wielu segmentach naraz nizszy prog = lawina
-    falszywych alarmow) i wykrywa pogorszenie o ~0.3 odchylenia w ~110 zdarzen.
+    Referencja = pierwsze `warmup` zdarzen segmentu. Strojenie v2 (symulacja, 30 segmentow 1X2):
+    k=0.2, h=20 daje ok. 6750 zdarzen miedzy falszywymi alarmami i wykrywa zawyzenie przewagi
+    gospodarza o 20% (iloraz szans) w 87% przypadkow, mediana opoznienia ok. 260 zdarzen.
+    Stare k=0.1, h=22 dawalo falszywy alarm co ok. 1500 zdarzen, bo rozklad nadwyzki log loss
+    jest skosny. Na wlasnych danych sprawdz czestosc falszywych alarmow i w razie potrzeby
+    zmien --drift-k / --drift-h.
     Przyciecie z do +-4 sprawia, ze pojedyncza niespodzianka nie wywola alarmu.
     WAZNE: do monitoringu uruchamiaj z --since = data wdrozenia biezacej wersji modelu.
     Stara referencja (np. z okresu, gdy model sie rozgrzewal) oslepia detektor."""
-    x = (ev["ll_model"] - ev["ll_market"]).to_numpy() if ev["ll_market"].notna().all() \
-        else ev["ll_model"].to_numpy()
+    if ev["ll_market"].notna().mean() >= 0.9:
+        ev = ev[ev["ll_market"].notna()]
+        x = (ev["ll_model"] - ev["ll_market"]).to_numpy()
+    else:
+        x = ev["ll_model"].to_numpy()
     if len(x) < warmup + 50:
         return []
+    k = DRIFT_K if k is None else k
+    h = DRIFT_H if h is None else h
     mu, sd = x[:warmup].mean(), x[:warmup].std() + 1e-9
     s, alarms = 0.0, []
     for i in range(warmup, len(x)):
@@ -180,8 +230,9 @@ def segment_report(ev, df, bets, by):
     for key, g in ev.groupby(by):
         key = key if isinstance(key, tuple) else (key,)
         r = dict(zip(by, key), n=len(g), ll_model=g["ll_model"].mean())
-        if g["ll_market"].notna().all():
-            d = (g["ll_model"] - g["ll_market"]).to_numpy()
+        gm = g[g["ll_market"].notna()]
+        if len(gm) >= 30:
+            d = (gm["ll_model"] - gm["ll_market"]).to_numpy()
             r["luka_vs_rynek"] = d.mean()
             r["luka_ci90"] = boot(lambda a: a.mean(1), [d])
         rows = df.merge(g[["event_id", "market"]], on=["event_id", "market"])
@@ -227,13 +278,24 @@ def gates(ev, df, bets, bstats, G, bad_sum=0):
         f"{bad_sum} rynkow, w ktorych p_model nie sumuje sie do 1 (+-0.02) = blad modelu")
     e = ece(df["p_model"], df["outcome"])[0]
     add("kalibracja", e <= G["max_ece"], f"ECE {e:.4f} (max {G['max_ece']})")
-    if ev["ll_base"].notna().all():
-        d = ev["ll_model"].mean() - ev["ll_base"].mean()
-        add("lepszy_od_baseline", d < 0, f"log loss model - baseline = {d:+.4f}")
-    if ev["ll_market"].notna().all():
-        gap = ev["ll_model"].mean() - ev["ll_market"].mean()
+    eb = ev[ev["ll_base"].notna()]
+    if len(eb):
+        d = eb["ll_model"].mean() - eb["ll_base"].mean()
+        worst = eb.assign(dd=eb["ll_model"] - eb["ll_base"]).groupby("market")["dd"].mean()
+        cnt = eb.groupby("market").size()
+        bad_m = [m for m, v in worst.items() if v >= 0 and cnt[m] >= 100]
+        add("lepszy_od_baseline", d < 0 and not bad_m, f"log loss model - baseline = {d:+.4f} na {len(eb)} "
+            f"zdarzeniach (kazdy rynek z n>=100 musi byc lepszy{'; slabe: ' + ','.join(bad_m) if bad_m else ''}); "
+            f"per rynek: " + ", ".join(f"{m} {v:+.4f}" for m, v in worst.items()))
+    em = ev[ev["ll_market"].notna()]
+    cov = len(em) / max(n, 1)
+    if len(em) and cov < G["min_market_cov"]:
+        add("pokrycie_rynku", False, f"tylko {cov:.0%} zdarzen ma kurs zamkniecia wszystkich selekcji "
+            f"(min {G['min_market_cov']:.0%}); bramki rynkowe niewiarygodne", hard=False)
+    if len(em) >= min(G["min_events"], max(50, n // 2)):
+        gap = em["ll_model"].mean() - em["ll_market"].mean()
         add("konkurencyjny_vs_rynek", gap <= G["max_gap_vs_market"],
-            f"luka {gap:+.4f} (max {G['max_gap_vs_market']}); model moze byc ogolnie slabszy od "
+            f"luka {gap:+.4f} na {len(em)} zdarzeniach z kursem zamkniecia (max {G['max_gap_vs_market']}); model moze byc ogolnie slabszy od "
             f"zamkniecia i zarabiac na wczesnych kursach, dlatego to ostrzezenie, a decyduje CLV",
             hard=False)
         add("brak_wycieku", gap > -G["leak_margin"],
@@ -241,6 +303,10 @@ def gates(ev, df, bets, bstats, G, bad_sum=0):
     if not bstats or "clv_sr" not in bstats:
         add("ocena_wartosci", False, "brak zakladow z kursem zamkniecia: model mozna oceniac jako "
             "predyktor, ale nie wiadomo, czy daje przewage nad bukmacherem", hard=False)
+    if not bets.empty:
+        multi = int((bets.groupby("event_id").size() > 1).sum())
+        add("jeden_zaklad_na_mecz", multi == 0, f"{multi} meczow z wiecej niz jednym zakladem "
+            f"(zaklady w jednym meczu sa skorelowane, CI zanizone)", hard=False)
     if bstats and bstats["n_bets"] >= G["min_bets"]:
         if "clv_sr" in bstats:
             add("clv_dodatni", bstats["clv_ci90"][0] > 0,
@@ -265,6 +331,8 @@ def main():
     ap.add_argument("--drift-by", default="sport,league,market")
     ap.add_argument("--value-threshold", type=float, default=None)
     ap.add_argument("--json", default=None)
+    ap.add_argument("--drift-k", type=float, default=DRIFT_K)
+    ap.add_argument("--drift-h", type=float, default=DRIFT_H)
     ap.add_argument("--since", default=None, help="RRRR-MM-DD, np. poczatek holdoutu")
     ap.add_argument("--until", default=None)
     for k, v in GATES.items():
@@ -290,7 +358,7 @@ def main():
     alarms = {}
     for key, g in (ev.groupby(dby) if dby else [(("all",), ev)]):
         key = key if isinstance(key, tuple) else (key,)
-        hits = cusum_drift(g.reset_index(drop=True))
+        hits = cusum_drift(g.reset_index(drop=True), k=a.drift_k, h=a.drift_h)
         if hits:
             alarms["/".join(map(str, key))] = hits
     gs = gates(ev, df, bets, bstats, G, bad_sum)
@@ -314,8 +382,10 @@ def main():
         P(f"[{g['wynik']}] {g['bramka']}: {g['info']}")
     P("\n## Metryki ogolne")
     P(f"zdarzenia {len(ev)} | log loss model {ev['ll_model'].mean():.4f}"
-      + (f" | baseline {ev['ll_base'].mean():.4f}" if ev['ll_base'].notna().all() else "")
-      + (f" | rynek zamk. {ev['ll_market'].mean():.4f}" if ev['ll_market'].notna().all() else "")
+      + (f" | baseline {ev['ll_base'].mean():.4f}" if ev['ll_base'].notna().any() else "")
+      + (f" | rynek zamk. {ev['ll_market'].mean():.4f} (model na tym podzbiorze "
+         f"{ev.loc[ev['ll_market'].notna(), 'll_model'].mean():.4f}, n={int(ev['ll_market'].notna().sum())})"
+         if ev['ll_market'].notna().any() else "")
       + f" | Brier {ev['brier'].mean():.4f} | ECE {e:.4f}")
     if bstats:
         P(f"zaklady {bstats['n_bets']} | ROI {bstats['roi']:+.2%} CI90 {fmt_ci(bstats['roi_ci90'], True)}"
@@ -341,7 +411,8 @@ def main():
     P(misses.to_string(index=False))
 
     if a.json:
-        rep = dict(gotowy=ready, gotowy_do_gry=money, werdykt=verdict, bramki=gs, zdarzenia=len(ev),
+        rep = dict(schema=SCHEMA, okres=[str(ev["date"].min().date()), str(ev["date"].max().date())],
+                   gotowy=ready, gotowy_do_gry=money, werdykt=verdict, bramki=gs, zdarzenia=len(ev),
                    ll_model=ev["ll_model"].mean(), ece=e, zaklady=bstats,
                    segmenty=segs, odchylenia=bias, dryf=alarms,
                    najwieksze_pomylki=misses.astype(str).to_dict("records"))

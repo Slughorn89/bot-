@@ -6,6 +6,7 @@ value_threshold: 0.05       # minimalna przewaga p*kurs-1
 kelly_fraction: 0.25
 tax_rate: 0.0               # w Polsce u legalnego bukmachera: 0.12
 bet_markets: ["1X2", "OU2.5"]
+zamkniecie: B365          # bukmacher kursu zamkniecia do CLV: B365 (spojny ze "wzietym"), PS (Pinnacle, tylko do 2025/26), Avg
 online_poisson:
   lr_team: 0.014336
   lr_home: 0.0026667

@@ -4,9 +4,13 @@ Przewaga nad kopia z GitHuba: kursy zamkniecia Pinnacle (PSCH/PSCD/PSCA, PC>2.5/
 wiec w backteście da sie liczyc CLV wzgledem zamkniecia bez marzy, oraz fixtures.csv
 z terminarzem i kursami na najblizsze mecze.
 
-UWAGA: w sesji, w ktorej powstal ten kod, host www.football-data.co.uk byl zablokowany przez
-polityke sieci, wiec parser jest sprawdzony tylko testem kontraktu na probce w formacie
-football-data (tests/fixtures/), nie na zywych plikach.
+Gdy host www.football-data.co.uk jest niedostepny, pliki sezonowe pobieramy z lustra na GitHubie
+(sources.yaml: fduk_lustro, przypiety commit). Lustro sprawdzamy na wspolnym okresie z xgabora
+(typer/ingest/merge.py), zanim cokolwiek z niego wezmiemy.
+
+Kurs zamkniecia: bukmacher z model.yaml -> zamkniecie (domyslnie B365). Powod: od sezonu 2026/27
+football-data.co.uk nie publikuje juz kursow Pinnacle (brak kolumn PSCH/PSCD/PSCA), a kurs "wziety"
+to Bet365 sprzed meczu, wiec CLV wzgledem zamkniecia Bet365 jest spojny we wszystkich sezonach.
 """
 from __future__ import annotations
 
@@ -18,7 +22,7 @@ import pandas as pd
 
 from typer import config
 from typer.ingest import schema
-from typer.ingest.base import fetch
+from typer.ingest.base import SourceUnavailable, fetch
 from typer.ingest.seasons import assign_seasons
 
 log = logging.getLogger("typer.ingest.fduk")
@@ -35,11 +39,26 @@ MAIN_MAP = {
     "odds_o25": ["B365>2.5"], "odds_u25": ["B365<2.5"],
     "max_h": ["MaxH", "BbMxH"], "max_d": ["MaxD", "BbMxD"], "max_a": ["MaxA", "BbMxA"],
     "max_o25": ["Max>2.5", "BbMx>2.5"], "max_u25": ["Max<2.5", "BbMx<2.5"],
-    # zamkniecie: Pinnacle
-    "close_h": ["PSCH"], "close_d": ["PSCD"], "close_a": ["PSCA"],
-    "close_o25": ["PC>2.5"], "close_u25": ["PC<2.5"],
     "ah_line": ["AHh", "BbAHh"], "ah_h": ["B365AHH"], "ah_a": ["B365AHA"],
 }
+# kursy zamkniecia per bukmacher (football-data: litera C po kodzie bukmachera)
+CLOSE_BOOKS = {
+    "PS": {"close_h": ["PSCH"], "close_d": ["PSCD"], "close_a": ["PSCA"],
+           "close_o25": ["PC>2.5"], "close_u25": ["PC<2.5"]},
+    "B365": {"close_h": ["B365CH"], "close_d": ["B365CD"], "close_a": ["B365CA"],
+             "close_o25": ["B365C>2.5"], "close_u25": ["B365C<2.5"]},
+    "Avg": {"close_h": ["AvgCH"], "close_d": ["AvgCD"], "close_a": ["AvgCA"],
+            "close_o25": ["AvgC>2.5"], "close_u25": ["AvgC<2.5"]},
+}
+
+
+def close_book() -> str:
+    b = config.model_params().get("zamkniecie", "B365")
+    if b not in CLOSE_BOOKS:
+        raise ValueError(f"model.yaml zamkniecie={b!r}, dozwolone: {sorted(CLOSE_BOOKS)}")
+    return b
+
+
 # nowe ligi (np. POL): tylko kursy zamkniecia
 NEW_MAP = {
     "home": ["Home"], "away": ["Away"], "fthg": ["HG"], "ftag": ["AG"],
@@ -71,7 +90,8 @@ def _parse_dates(df: pd.DataFrame) -> tuple[pd.Series, pd.Series, pd.Series]:
     return date, utc, known
 
 
-def parse(raw: bytes, league: str, *, kind: str = "main", allow_unplayed: bool = False) -> pd.DataFrame:
+def parse(raw: bytes, league: str, *, kind: str = "main", allow_unplayed: bool = False,
+          book: str | None = None) -> pd.DataFrame:
     text = raw.decode("utf-8-sig", errors="replace")
     df = pd.read_csv(io.StringIO(text), on_bad_lines="skip")
     df = df.dropna(how="all")
@@ -79,7 +99,10 @@ def parse(raw: bytes, league: str, *, kind: str = "main", allow_unplayed: bool =
         return schema.empty_frame()
     if kind == "new" and "League" in df.columns and league == "POL":
         df = df[df["League"].astype(str).str.contains("Ekstraklasa", case=False, na=False)]
-    mp = MAIN_MAP if kind == "main" else NEW_MAP
+    book = book or close_book()
+    if book not in CLOSE_BOOKS:
+        raise ValueError(f"nieznany bukmacher zamkniecia {book!r}, dozwolone: {sorted(CLOSE_BOOKS)}")
+    mp = dict(MAIN_MAP, **CLOSE_BOOKS[book]) if kind == "main" else NEW_MAP
     out = pd.DataFrame(index=df.index)
     for col, cands in mp.items():
         out[col] = _pick(df, cands)
@@ -102,9 +125,24 @@ def parse(raw: bytes, league: str, *, kind: str = "main", allow_unplayed: bool =
     return schema.validate(out.reset_index(drop=True), allow_unplayed=allow_unplayed)
 
 
-def download_season(code: str, season: str) -> bytes:
-    url = config.sources()["football_data_uk"]["url_sezon"].format(season=season_code(season), code=code)
-    return fetch(url, SOURCE, f"{season_code(season)}_{code}.csv", max_age_hours=24)
+def download_season(code: str, season: str, *, mirror: bool | None = None) -> bytes:
+    """Plik sezonu. Najpierw oryginal, przy niedostepnosci lustro z GitHuba (przypiety commit)."""
+    srcs = config.sources()
+    sc, fname = season_code(season), f"{season_code(season)}_{code}.csv"
+    lustro = srcs.get("fduk_lustro", {})
+    if mirror is None:
+        mirror = not srcs["football_data_uk"].get("dostepne_w_srodowisku", False)
+    if not mirror:
+        try:
+            url = srcs["football_data_uk"]["url_sezon"].format(season=sc, code=code)
+            return fetch(url, SOURCE, fname, max_age_hours=24)
+        except SourceUnavailable as e:
+            if not lustro:
+                raise
+            log.warning("football-data.co.uk niedostepne (%s), biore lustro %s", e, lustro.get("repo"))
+    url = lustro["url_sezon"].format(ref=lustro["ref"], season=sc, code=code)
+    # przypiety commit sie nie zmienia: cache bezterminowy
+    return fetch(url, "fduk_lustro", f"{lustro['ref'][:12]}_{fname}", max_age_hours=None)
 
 
 def load(seasons: list[str], leagues: dict | None = None) -> pd.DataFrame:

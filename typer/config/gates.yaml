@@ -13,3 +13,4 @@ split:
   walidacja_od: "2018-07-01"   # tu stroimy i porownujemy warianty
   walidacja_do: "2025-06-30"
   holdout_od: "2025-07-01"     # ostatni pelny sezon + poczatek 2026/27, dotykany RAZ
+  forward_od: "2026-09-04"     # mecze z lustra football-data po koncu xgabora (2026-09-03): nowy, nietkniety okres, RAZ

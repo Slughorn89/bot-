@@ -91,6 +91,20 @@ lineups = Table(
     Column("source", String(40)),
 )
 
+# kontuzje / zawieszenia / niepewni przed meczem (API-Football /injuries); sklady sa w `lineups`
+absences = Table(
+    "absences", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("event_id", String(160), nullable=False, index=True),
+    Column("team", String(80), nullable=False),
+    Column("player", String(120), nullable=False),
+    Column("kind", String(40)),        # np. "Missing Fixture", "Questionable"
+    Column("reason", String(120)),
+    Column("published_utc", DateTime(timezone=True)),
+    Column("source", String(40)),
+    UniqueConstraint("event_id", "team", "player", "source", name="uq_absence"),
+)
+
 ratings_history = Table(
     "ratings_history", metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),

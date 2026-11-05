@@ -1,0 +1,65 @@
+# Raport typera  2026-09-04 .. 2026-11-02
+
+WERDYKT: GOTOWY tylko do typowania (brak dowodu przewagi nad rynkiem)
+
+## Bramki
+[OK] proba: 1059 zdarzen (min 300)
+[OK] spojnosc_prawdopodobienstw: 0 rynkow, w ktorych p_model nie sumuje sie do 1 (+-0.02) = blad modelu
+[OK] kalibracja: ECE 0.0134 (max 0.03)
+[OK] lepszy_od_baseline: log loss model - baseline = -0.0470 na 1059 zdarzeniach (kazdy rynek z n>=100 musi byc lepszy); per rynek: 1X2 -0.1021, BTTS -0.0078, OU2.5 -0.0311
+[OK] konkurencyjny_vs_rynek: luka +0.0059 na 706 zdarzeniach z kursem zamkniecia (max 0.015); model moze byc ogolnie slabszy od zamkniecia i zarabiac na wczesnych kursach, dlatego to ostrzezenie, a decyduje CLV
+[OK] brak_wycieku: luka +0.0059; ponizej -0.03 = model 'za dobry', szukaj wycieku
+[UWAGA] ocena_wartosci: brak zakladow z kursem zamkniecia: model mozna oceniac jako predyktor, ale nie wiadomo, czy daje przewage nad bukmacherem
+
+## Metryki ogolne
+zdarzenia 1059 | log loss model 0.7661 | baseline 0.8131 | rynek zamk. 0.8037 (model na tym podzbiorze 0.8096, n=706) | Brier 0.5074 | ECE 0.0134
+
+## Kalibracja (koszyki prawdopodobienstwa)
+    bin   n  p_sr  czestosc  roznica
+0.0-0.1  42 0.072     0.024   -0.048
+0.1-0.2 166 0.157     0.163    0.005
+0.2-0.3 419 0.256     0.255   -0.000
+0.3-0.4 327 0.350     0.336   -0.014
+0.4-0.5 634 0.452     0.438   -0.014
+0.5-0.6 593 0.547     0.570    0.023
+0.6-0.7 207 0.643     0.638   -0.005
+0.7-0.8  60 0.743     0.750    0.007
+0.8-0.9  20 0.840     0.900    0.060
+0.9-1.0   3 0.918     1.000    0.082
+
+## Segmenty (sport, league, market), najgorsze na gorze
+   sport league market  n  ll_model    ece  slaby  luka_vs_rynek          luka_ci90
+football     E0   BTTS 70    0.7042 0.0621  False            NaN                   
+football    SP1   BTTS 78    0.6753 0.0390  False            NaN                   
+football     I1   BTTS 80    0.6743 0.0988  False            NaN                   
+football     D1   BTTS 63    0.6712 0.0307  False            NaN                   
+football     F1   BTTS 62    0.6699 0.0927  False            NaN                   
+football     E0  OU2.5 70    0.7279 0.1482   True         0.0208 [+0.0067, +0.0359]
+football     I1  OU2.5 80    0.6794 0.0487  False         0.0120 [-0.0013, +0.0240]
+football    SP1    1X2 78    0.9177 0.0569  False         0.0095 [-0.0020, +0.0205]
+football     F1  OU2.5 62    0.6517 0.1142  False         0.0085 [-0.0073, +0.0255]
+football     D1  OU2.5 63    0.6053 0.0804  False         0.0077 [-0.0065, +0.0219]
+football     F1    1X2 62    0.9285 0.0551  False         0.0066 [-0.0097, +0.0228]
+football     D1    1X2 63    1.0290 0.0756  False         0.0012 [-0.0168, +0.0205]
+football     E0    1X2 70    1.0309 0.0591  False         0.0011 [-0.0155, +0.0182]
+football    SP1  OU2.5 78    0.6130 0.1212  False         0.0002 [-0.0103, +0.0114]
+football     I1    1X2 80    0.9225 0.0585  False        -0.0068 [-0.0199, +0.0057]
+
+## Systematyczne odchylenia per selekcja (|odchylenie| > 2.5 SE)
+brak
+
+## Dryf (CUSUM na nadwyzce log loss)
+alarmy: brak
+
+## 10 najwiekszych pomylek (do dziennika bledow)
+      date                             event_id market league  ll_model
+2026-10-10   D1-20261010-augsburg-bayern-munich    1X2     D1     2.425
+2026-09-05 D1-20260905-schalke-04-bayern-munich    1X2     D1     2.274
+2026-09-04          F1-20260904-paris-sg-monaco    1X2     F1     2.147
+2026-09-05             F1-20260905-lens-lorient    1X2     F1     2.083
+2026-10-23      D1-20261023-stuttgart-mgladbach    1X2     D1     2.064
+2026-10-10       D1-20261010-hoffenheim-hamburg    1X2     D1     2.062
+2026-09-04       SP1-20260904-betis-real-madrid    1X2    SP1     2.048
+2026-09-12             E0-20260912-chelsea-hull    1X2     E0     2.026
+2026-10-30      SP1-20261030-villarreal-espanol    1X2    SP1     2.001
+2026-09-05    SP1-20260905-villarreal-la-coruna    1X2    SP1     1.998

@@ -5,48 +5,51 @@ WERDYKT: GOTOWY tylko do typowania (brak dowodu przewagi nad rynkiem)
 ## Bramki
 [OK] proba: 43137 zdarzen (min 300)
 [OK] spojnosc_prawdopodobienstw: 0 rynkow, w ktorych p_model nie sumuje sie do 1 (+-0.02) = blad modelu
-[OK] kalibracja: ECE 0.0059 (max 0.03)
-[OK] lepszy_od_baseline: log loss model - baseline = -0.0373
-[UWAGA] ocena_wartosci: brak zakladow z kursem zamkniecia: model mozna oceniac jako predyktor, ale nie wiadomo, czy daje przewage nad bukmacherem
-[UWAGA] proba_zakladow: 10 zakladow (min 300)
+[OK] kalibracja: ECE 0.0066 (max 0.03)
+[OK] lepszy_od_baseline: log loss model - baseline = -0.0372 na 43137 zdarzeniach (kazdy rynek z n>=100 musi byc lepszy); per rynek: 1X2 -0.0936, BTTS -0.0026, OU2.5 -0.0153
+[UWAGA] pokrycie_rynku: tylko 50% zdarzen ma kurs zamkniecia wszystkich selekcji (min 50%); bramki rynkowe niewiarygodne
+[OK] konkurencyjny_vs_rynek: luka +0.0024 na 21409 zdarzeniach z kursem zamkniecia (max 0.015); model moze byc ogolnie slabszy od zamkniecia i zarabiac na wczesnych kursach, dlatego to ostrzezenie, a decyduje CLV
+[OK] brak_wycieku: luka +0.0024; ponizej -0.03 = model 'za dobry', szukaj wycieku
+[OK] jeden_zaklad_na_mecz: 0 meczow z wiecej niz jednym zakladem (zaklady w jednym meczu sa skorelowane, CI zanizone)
+[UWAGA] proba_zakladow: 9 zakladow (min 300)
 
 ## Metryki ogolne
-zdarzenia 43137 | log loss model 0.7798 | baseline 0.8170 | Brier 0.5189 | ECE 0.0059
-zaklady 10 | ROI +50.00% CI90 [-100.00%, +350.00%]
+zdarzenia 43137 | log loss model 0.7799 | baseline 0.8170 | rynek zamk. 0.8186 (model na tym podzbiorze 0.8210, n=21409) | Brier 0.5189 | ECE 0.0066
+zaklady 9 | ROI +44.44% CI90 [-100.00%, +333.33%] | CLV -3.03% | bije zamkniecie 56%
 
 ## Kalibracja (koszyki prawdopodobienstwa)
     bin     n  p_sr  czestosc  roznica
-0.0-0.1  1580 0.073     0.082    0.009
-0.1-0.2  6447 0.157     0.154   -0.003
-0.2-0.3 16100 0.257     0.261    0.004
-0.3-0.4 12283 0.350     0.343   -0.006
-0.4-0.5 28439 0.458     0.451   -0.006
-0.5-0.6 26976 0.541     0.548    0.006
-0.6-0.7  6356 0.638     0.646    0.008
-0.7-0.8  1841 0.741     0.734   -0.007
-0.8-0.9   576 0.839     0.806   -0.033
-0.9-1.0    55 0.914     0.945    0.032
+0.0-0.1  1550 0.074     0.084    0.010
+0.1-0.2  6518 0.156     0.153   -0.003
+0.2-0.3 16272 0.257     0.263    0.006
+0.3-0.4 11882 0.350     0.344   -0.006
+0.4-0.5 28535 0.458     0.451   -0.007
+0.5-0.6 27136 0.541     0.548    0.006
+0.6-0.7  6225 0.638     0.647    0.008
+0.7-0.8  1914 0.740     0.728   -0.012
+0.8-0.9   579 0.839     0.807   -0.032
+0.9-1.0    42 0.913     0.976    0.064
 
 ## Segmenty (sport, league, market), najgorsze na gorze
-   sport league market    n  ll_model    ece  slaby  n_bets  roi
-football    POL    1X2 1847    1.0470 0.0133  False     NaN  NaN
-football     F1    1X2 2410    0.9918 0.0065  False     2.0  6.5
-football     D1    1X2 2142    0.9775 0.0148  False     3.0 -1.0
-football    SP1    1X2 2660    0.9772 0.0081  False     NaN  NaN
-football     I1    1X2 2660    0.9588 0.0078  False     2.0 -1.0
-football     E0    1X2 2660    0.9500 0.0103  False     3.0 -1.0
-football    POL   BTTS 1847    0.6922 0.0213  False     NaN  NaN
-football     F1   BTTS 2410    0.6908 0.0092  False     NaN  NaN
-football    SP1   BTTS 2660    0.6880 0.0035  False     NaN  NaN
-football     E0   BTTS 2660    0.6872 0.0058  False     NaN  NaN
-football    POL  OU2.5 1847    0.6866 0.0106  False     NaN  NaN
-football     I1   BTTS 2660    0.6859 0.0227  False     NaN  NaN
-football     I1  OU2.5 2660    0.6786 0.0226  False     NaN  NaN
-football     F1  OU2.5 2410    0.6752 0.0097  False     NaN  NaN
-football     E0  OU2.5 2660    0.6740 0.0098  False     NaN  NaN
-football     D1   BTTS 2142    0.6728 0.0311  False     NaN  NaN
-football    SP1  OU2.5 2660    0.6716 0.0083  False     NaN  NaN
-football     D1  OU2.5 2142    0.6513 0.0190  False     NaN  NaN
+   sport league market    n  ll_model    ece  slaby  luka_vs_rynek          luka_ci90  n_bets     roi     clv
+football    POL    1X2 1847    1.0469 0.0131  False            NaN                        NaN     NaN     NaN
+football    POL   BTTS 1847    0.6922 0.0213  False            NaN                        NaN     NaN     NaN
+football     F1   BTTS 2410    0.6908 0.0092  False            NaN                        NaN     NaN     NaN
+football    SP1   BTTS 2660    0.6880 0.0035  False            NaN                        NaN     NaN     NaN
+football     E0   BTTS 2660    0.6872 0.0058  False            NaN                        NaN     NaN     NaN
+football    POL  OU2.5 1847    0.6866 0.0104  False            NaN                        NaN     NaN     NaN
+football     I1   BTTS 2660    0.6859 0.0227  False            NaN                        NaN     NaN     NaN
+football     D1   BTTS 2142    0.6728 0.0311  False            NaN                        NaN     NaN     NaN
+football     E0    1X2 2660    0.9509 0.0099   True         0.0053 [+0.0025, +0.0082]     3.0 -1.0000 -0.1375
+football     F1  OU2.5 2410    0.6750 0.0083   True         0.0041 [+0.0017, +0.0065]     NaN     NaN     NaN
+football     D1  OU2.5 2142    0.6510 0.0214   True         0.0032 [+0.0007, +0.0058]     NaN     NaN     NaN
+football     F1    1X2 2410    0.9927 0.0094  False         0.0028 [-0.0004, +0.0061]     2.0 -1.0000  0.0604
+football     I1    1X2 2660    0.9596 0.0079  False         0.0024 [-0.0003, +0.0054]     1.0 -1.0000 -0.0601
+football    SP1  OU2.5 2660    0.6714 0.0089  False         0.0021 [-0.0002, +0.0046]     NaN     NaN     NaN
+football     I1  OU2.5 2660    0.6785 0.0234  False         0.0020 [-0.0003, +0.0042]     NaN     NaN     NaN
+football     D1    1X2 2142    0.9774 0.0157  False         0.0016 [-0.0017, +0.0046]     3.0  3.3333  0.0265
+football    SP1    1X2 2660    0.9778 0.0086  False         0.0012 [-0.0015, +0.0039]     NaN     NaN     NaN
+football     E0  OU2.5 2660    0.6739 0.0108  False        -0.0001 [-0.0022, +0.0020]     NaN     NaN     NaN
 
 ## Systematyczne odchylenia per selekcja (|odchylenie| > 2.5 SE)
    sport league market selection    n  p_sr  czestosc  odchylenie_pp
@@ -58,24 +61,19 @@ football     I1    1X2         1 2660 0.436     0.413            2.3
 football     I1    1X2         X 2660 0.245     0.266           -2.1
 
 ## Dryf (CUSUM na nadwyzce log loss)
-football/D1/BTTS: 2 alarm(y), pierwszy 2022-09-30, ostatni 2023-03-04
-football/D1/OU2.5: 2 alarm(y), pierwszy 2022-04-09, ostatni 2022-09-18
-football/E0/1X2: 7 alarm(y), pierwszy 2019-11-30, ostatni 2024-12-22
-football/E0/BTTS: 2 alarm(y), pierwszy 2022-10-30, ostatni 2025-03-09
-football/E0/OU2.5: 2 alarm(y), pierwszy 2021-02-14, ostatni 2025-05-25
-football/I1/1X2: 4 alarm(y), pierwszy 2020-02-01, ostatni 2024-08-17
+football/E0/1X2: 1 alarm(y), pierwszy 2020-12-17
+football/I1/1X2: 2 alarm(y), pierwszy 2022-02-27, ostatni 2024-09-24
 football/I1/OU2.5: 1 alarm(y), pierwszy 2020-11-22
-football/POL/BTTS: 1 alarm(y), pierwszy 2020-02-15
 
 ## 10 najwiekszych pomylek (do dziennika bledow)
       date                                event_id market league  ll_model
-2024-01-21 D1-20240121-bayern-munich-werder-bremen    1X2     D1     3.380
-2019-10-05    D1-20191005-bayern-munich-hoffenheim    1X2     D1     3.375
-2019-10-06             E0-20191006-man-city-wolves    1X2     E0     3.286
+2019-10-05    D1-20191005-bayern-munich-hoffenheim    1X2     D1     3.506
+2019-10-06             E0-20191006-man-city-wolves    1X2     E0     3.267
 2018-12-22     E0-20181222-man-city-crystal-palace    1X2     E0     3.241
+2024-01-21 D1-20240121-bayern-munich-werder-bremen    1X2     D1     3.222
+2024-12-15          SP1-20241215-barcelona-leganes    1X2    SP1     3.165
+2025-03-08        D1-20250308-bayern-munich-bochum    1X2     D1     3.160
+2019-09-25              F1-20190925-paris-sg-reims    1X2     F1     3.160
 2018-10-20        SP1-20181020-real-madrid-levante    1X2    SP1     3.154
-2025-03-08        D1-20250308-bayern-munich-bochum    1X2     D1     3.129
-2024-12-15          SP1-20241215-barcelona-leganes    1X2    SP1     3.126
-2022-11-12          E0-20221112-man-city-brentford    1X2     E0     3.119
-2021-10-30     E0-20211030-man-city-crystal-palace    1X2     E0     3.093
-2020-07-16          SP1-20200716-barcelona-osasuna    1X2    SP1     3.060
+2021-10-30     E0-20211030-man-city-crystal-palace    1X2     E0     3.121
+2021-04-29          SP1-20210429-barcelona-granada    1X2    SP1     3.045

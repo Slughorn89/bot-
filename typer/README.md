@@ -134,6 +134,61 @@ bo to największa brakująca informacja; (3) prawdziwe xG; (4) dopiero potem pap
 4 tygodnie / 300 zakładów i ponowne bramki. Gdy przewagi nadal nie będzie, uczciwa odpowiedź brzmi:
 typer daje dobre prawdopodobieństwa, ale nie daje powodu, żeby grać.
 
+## 5a. Aktualizacja 2026-11-05: kursy zamknięcia, CLV i nowy okres
+
+Źródło: lustro plików football-data.co.uk na GitHubie ([Char2mant/futbol-veri-aynasi](https://github.com/Char2mant/futbol-veri-aynasi),
+GitHub Actions pobiera je codziennie 1:1, przypięty commit `ab222fe`, mecze do 2026-11-02), adapter
+`typer/ingest/footballdata_uk.py` (sam przełącza się na lustro, gdy oryginał jest niedostępny) i `typer/ingest/merge.py`.
+
+**Kontrola zaufania, zanim cokolwiek wzięliśmy z lustra:** 12 557 wspólnych meczów z xgabora, wynik różny w 1 meczu,
+kurs maksymalny sprzed meczu różny w 0 meczach. Przy rozjeździe powyżej 0,5% adapter odmawia (`ContractError`).
+
+**Wykryty błąd w danych, który zmienia opis wcześniejszych wyników:** kolumna `OddHome` w xgabora to do sezonu
+2024/25 **średnia rynku** (zgodność z `AvgH` 100%), a od 2025/26 **Bet365** (zgodność z `B365H` 100%), pod tą samą nazwą.
+Walidacja z sekcji 5 liczyła więc ROI na średnich kursach, a holdout na Bet365. Teraz kurs „wzięty” to wszędzie, gdzie
+lustro go ma (od 2019/20), Bet365 sprzed meczu, a zamknięcie to Bet365 zamknięcie bez marży (`model.yaml: zamkniecie`).
+Pinnacle: football-data przestało go publikować od sezonu 2026/27, więc dla spójności nie jest domyślny.
+
+| Okres | Zdarzeń z zamknięciem | Luka log loss do zamknięcia Bet365 | Zakłady (przewaga ≥ 5%) | CLV | Werdykt |
+|---|---|---|---|---|---|
+| Walidacja, champion `online+blend+cal` | 21 409 | +0,0024 | 9 | −3,0% (za mało zakładów) | tylko do typowania |
+| Walidacja, sam model `online+cal` | 21 409 | nie liczona | 8 277 | **−4,4%** [−4,6%, −4,2%], bije zamknięcie 27% | NIEGOTOWY (ROI −10,2% [−13,2%, −7,1%]) |
+| **Forward 2026-09-04 do 2026-11-02** (353 mecze, nikt ich nie widział, uruchomiony raz) | 706 | +0,0059 | 0 | brak zakładów | tylko do typowania |
+
+Po ludzku: pierwszy raz mamy prawdziwy pomiar CLV i potwierdza on wniosek z wpisu 7 w `experiments.md`. „Przewagi”
+samego modelu to jego błędy: kupując je, kupowałbyś kursy średnio o 4,4% gorsze od ceny zamknięcia. Champion słusznie
+trzyma się rynku i prawie nigdy nie gra. Do zrobienia nadal: składy i kontuzje, prawdziwe xG, snapshoty na żywo.
+
+## 5b. Komentarz LLM w raporcie (opcjonalnie, np. przez All API Hub)
+
+`typer/report/llm.py` dopisuje do raportu dziennego krótki komentarz z dowolnego endpointu zgodnego z OpenAI.
+Z rozszerzenia [All API Hub](https://github.com/qixing-jk/all-api-hub) kopiujesz *Base URL* i klucz wybranego konta
+do `.env` (`LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`). Zasady: LLM dostaje tylko gotowe liczby z raportu, każda liczba
+w jego odpowiedzi musi być w tych danych (inaczej komentarz jest odrzucany), a błąd serwisu nie zatrzymuje raportu.
+LLM niczego nie decyduje: typy, stawki i werdykt liczą się bez niego. Serwisy pośredniczące często odsprzedają dostęp
+do modeli wbrew regulaminom dostawców, więc używaj klucza z niskim limitem wydatków.
+
+## 5c. Składy i kontuzje (API-Football), challenger `lineup-v1`
+
+Historii składów „as of” nie ma w żadnym darmowym, legalnym źródle, które dałoby się tu pobrać. Dane Transfermarkt
+z GitHuba ([salimt/football-datasets](https://github.com/salimt/football-datasets)) mają kontuzje, ale bez klubu z dnia
+urazu (tylko obecny klub), więc backtest „wiedziałby”, kto dziś jest w klubie. Repo nie ma też licencji. Odrzucone.
+Dlatego składy zbieramy sami od pierwszego dnia, tak jak kursy:
+
+1. `python cli.py lineups` (co 15 min w crontabie): API-Football, mecze startujące w ciągu 90 min, zapis do `lineups`
+   i `absences`. Licznik zapytań pilnuje darmowego planu (100/dzień, rezerwa 10). `--dry-run` pokazuje koszt.
+   Klucz: `API_FOOTBALL_KEY` w `.env`; host `v3.football.api-sports.io` musi być dozwolony w sieci.
+2. Cecha `features/lineups.py`: jaki udział „pewniaków” (≥ 50% startów w ostatnich 8 meczach) nie gra dziś.
+   Liczona tylko z danych opublikowanych przed startem; bez dzisiejszego składu bierze nieobecnych z `absences`.
+3. Challenger `lineup-v1` (`models/lineup_adjust.py`): log λ' = log λ − b·braki_własne + g·braki_rywala.
+   **Współczynniki nie są zakładane z góry:** startują od 0 (challenger = champion) i są dopasowywane po każdym
+   rozliczeniu (`settle`) metodą największej wiarygodności Poissona z karą ciągnącą do 0. Typuje w cieniu, bez zakładów:
+   `python cli.py predict --lead-minutes 90 --variant lineup`.
+4. Awans: `python cli.py learn` porównuje go z championem (sparowany bootstrap, ≥ 300 zdarzeń, CI90 różnicy log loss < 0).
+
+Stan na 2026-11-05: kod i testy gotowe (parsery sprawdzone na próbkach w formacie z dokumentacji, bo host API-Football
+był w tej sesji zablokowany). Pierwsze realne liczby będą po kilku tygodniach zbierania.
+
 ## 6. Uruchomienie
 
 ```bash
@@ -146,11 +201,14 @@ cp .env.example .env            # klucze tylko tutaj
 .venv/bin/python cli.py backtest                 # walidacja: plik predykcji + evaluate.py + werdykt
 .venv/bin/python cli.py backtest --compare online,online+cal,online+cal+blend
 .venv/bin/python cli.py backtest --holdout       # RAZ, na końcu (zostaje znacznik backtest/HOLDOUT_USED)
+.venv/bin/python cli.py backtest --forward       # RAZ: nowy okres z lustra po końcu xgabora (FORWARD_USED)
 .venv/bin/python cli.py tune                     # strojenie ocen online na walidacji
 
 # cykl dzienny (na żywo, po odblokowaniu źródeł)
 .venv/bin/python cli.py fetch && .venv/bin/python cli.py snapshot
+.venv/bin/python cli.py lineups --window 90                      # sklady i kontuzje (API-Football)
 .venv/bin/python cli.py predict --lead-minutes 90
+.venv/bin/python cli.py predict --lead-minutes 90 --variant lineup  # challenger w cieniu
 .venv/bin/python cli.py settle && .venv/bin/python cli.py report --send
 .venv/bin/python cli.py learn                    # przegląd tygodniowy od daty wdrożenia championa
 
@@ -158,7 +216,17 @@ cp .env.example .env            # klucze tylko tutaj
 .venv/bin/python cli.py day --as-of 2026-08-30
 ```
 
-Harmonogram: `scripts/crontab.txt` (07:00 pobranie, co 15 min snapshoty i typy 60 do 90 min przed meczem,
+**Windows** (skrypty w `scripts/windows/`, napisane bez możliwości uruchomienia na Windows w sesji budowy, więc pierwszy raz odpal ręcznie i zajrzyj do `logs\cron.log`):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File typer\scripts\windows\setup.ps1        # .venv, zależności, .env, migracje, testy
+typer\.venv\Scripts\python.exe typer\cli.py lineups --dry-run                           # (z katalogu typer) koszt zapytań API-Football
+powershell -ExecutionPolicy Bypass -File typer\scripts\windows\run.ps1 -Zadanie co15      # jeden cykl ręcznie
+powershell -ExecutionPolicy Bypass -File typer\scripts\windows\harmonogram.ps1            # zadania jak crontab (Harmonogram zadań, folder Typer)
+powershell -ExecutionPolicy Bypass -File typer\scripts\windows\harmonogram.ps1 -Usun      # usunięcie zadań
+```
+
+Harmonogram (Linux): `scripts/crontab.txt` (07:00 pobranie, co 15 min snapshoty i typy 60 do 90 min przed meczem,
 02:00 rozliczenie i raport, poniedziałek 06:00 przegląd tygodniowy, 1. dnia miesiąca challenger).
 
 ### Nauka dzień po dniu
@@ -182,4 +250,6 @@ Bez webhooka raport ląduje w `live/report_<data>.json`.
 
 * Dane: [football-data.co.uk](https://www.football-data.co.uk/), [ClubElo](http://clubelo.com/), kopia
   [xgabora/Club-Football-Match-Data-2000-2025](https://github.com/xgabora/Club-Football-Match-Data-2000-2025) (MIT).
+* Lustro football-data.co.uk: [Char2mant/futbol-veri-aynasi](https://github.com/Char2mant/futbol-veri-aynasi)
+  (bez licencji repozytorium; dane football-data.co.uk, sprawdzane względem xgabora przed użyciem).
 * Dixon-Coles: [penaltyblog](https://github.com/martineastwood/penaltyblog) (MIT), Martin Eastwood.
