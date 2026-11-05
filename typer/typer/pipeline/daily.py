@@ -105,26 +105,45 @@ def _fixtures_from_db(engine: sa.Engine, day) -> pd.DataFrame:
 
 
 def snapshot_odds(engine: sa.Engine, now: datetime | None = None) -> dict:
-    """Snapshot kursow z The Odds API dla lig z konfiguracji. Nazwy druzyn mapowane na kanoniczne;
-    niepewne trafiaja do entity_map ze statusem 'pending' i ich mecze sa pomijane (nie zgadujemy)."""
+    """Snapshoty kursow z The Odds API w budzecie (typer/ingest/budget.py): 'taken' raz na lige i dzien
+    meczowy przed pierwszym typem, 'close' dla kazdej godziny startu w oknie 10 min przed meczem.
+    Nazwy druzyn mapowane na kanoniczne; niepewne trafiaja do entity_map ('pending') i ich mecze sa
+    pomijane (nie zgadujemy)."""
     from typer.entities.mapping import resolve_many
     from typer.ingest import odds_api
+    from typer.ingest.budget import Ledger, plan_odds_snapshots
     now = now or datetime.now(timezone.utc)
     ev = db.read_df(engine, "SELECT event_id, league, home, away, kickoff_utc FROM events "
                             "WHERE status = 'scheduled'")
     if ev.empty:
-        return dict(snapshots=0, pending=0)
+        return dict(snapshots=0, pending=0, zapytania=0)
     ev["kickoff_utc"] = pd.to_datetime(ev["kickoff_utc"], utc=True)
+    have = db.read_df(engine, "SELECT o.event_id, o.kind, o.snapshot_utc, e.league, e.kickoff_utc FROM odds_snapshots o "
+                              "JOIN events e ON e.event_id = o.event_id WHERE o.source = 'the_odds_api'")
+    done = set()
+    if len(have):
+        have["kickoff_utc"] = pd.to_datetime(have["kickoff_utc"], utc=True)
+        have["snapshot_utc"] = pd.to_datetime(have["snapshot_utc"], utc=True)
+        for r in have.itertuples(index=False):
+            done.add((r.league, "close", str(r.kickoff_utc)) if r.kind == "close"
+                     else (r.league, "taken", str(r.snapshot_utc.date())))
+    ledger = Ledger()
+    plans = plan_odds_snapshots(ev, now, done, ledger)
     manual = db.read_df(engine, "SELECT league, raw_name, canonical FROM entity_map "
                                 "WHERE source = 'the_odds_api' AND status = 'manual'")
-    rows, pending_total = [], 0
-    for lg, meta in config.leagues().items():
+    leagues = config.leagues()
+    rows, pending_total, calls = [], 0, 0
+    for plan in plans:
+        meta = leagues.get(plan.league, {})
         if not meta.get("odds_api"):
             continue
+        lg = plan.league
         try:
-            snap = odds_api.parse(odds_api.download(meta["odds_api"], now=now), lg, now)
+            snap = odds_api.parse(odds_api.download(meta["odds_api"], markets=",".join(plan.markets), now=now,
+                                                    ledger=ledger), lg, now)
+            calls += 1
         except SourceUnavailable as e:
-            alert(f"The Odds API ({lg}) niedostepne: {e}")
+            alert(f"The Odds API ({lg}, {plan.kind}) niedostepne: {e}")
             continue
         if snap.empty:
             continue
@@ -149,11 +168,73 @@ def snapshot_odds(engine: sa.Engine, now: datetime | None = None) -> dict:
             rows.append(dict(event_id=r.event_id, source="the_odds_api", bookmaker=r.bookmaker,
                              market=r.market, selection=r.selection, price=r.price, kind=r.kind,
                              snapshot_utc=pd.Timestamp(r.snapshot_utc).to_pydatetime()))
-    db.upsert(engine, db.odds_snapshots, rows,
-              ["event_id", "source", "bookmaker", "market", "selection", "snapshot_utc"], update=False)
+    key = ("event_id", "source", "bookmaker", "market", "selection", "snapshot_utc")
+    rows = list({tuple(r[k] for k in key): r for r in rows}.values())  # to samo zapytanie dwa razy = jeden wiersz
+    db.upsert(engine, db.odds_snapshots, rows, list(key), update=False)
     if pending_total:
         alert(f"{pending_total} nazw druzyn czeka na reczne mapowanie (entity_map, status pending)")
-    return dict(snapshots=len(rows), pending=pending_total)
+    return dict(snapshots=len(rows), pending=pending_total, zapytania=calls,
+                kredyty_w_miesiacu=ledger.used("the_odds_api", now))
+
+
+def collect_lineups(engine: sa.Engine, now: datetime | None = None, lead_minutes: int = 75) -> dict:
+    """Sklady i kontuzje z API-Football dla meczow startujacych w ciagu lead_minutes (sklady sa ok. 60 min
+    przed meczem). Tylko zbieranie: model ich jeszcze nie uzywa (brak historii do walidacji)."""
+    from typer.entities.mapping import resolve_many
+    from typer.ingest import api_football as af
+    now = now or datetime.now(timezone.utc)
+    src = config.sources().get("api_football", {})
+    ids = src.get("ligi", {})
+    ev = db.read_df(engine, "SELECT event_id, league, season, home, away, kickoff_utc FROM events "
+                            "WHERE status = 'scheduled'")
+    if ev.empty:
+        return dict(mecze=0, wiersze=0)
+    ev["kickoff_utc"] = pd.to_datetime(ev["kickoff_utc"], utc=True)
+    now_ts = pd.Timestamp(now)
+    soon = ev[(ev["kickoff_utc"] > now_ts) & (ev["kickoff_utc"] <= now_ts + pd.Timedelta(minutes=lead_minutes))]
+    have = db.read_df(engine, "SELECT DISTINCT event_id FROM lineups WHERE source = 'api_football' AND status = 'start'")
+    soon = soon[~soon["event_id"].isin(set(have["event_id"]) if len(have) else set())]
+    rows, n_matched = [], 0
+    for (lg, day), g in soon.groupby(["league", soon["kickoff_utc"].dt.date]):
+        if lg not in ids:
+            continue
+        season = int(str(g["season"].iloc[0])[:4])
+        try:
+            fx = af.parse_fixtures(af.download("/fixtures", dict(league=ids[lg], season=season, date=str(day)),
+                                               now=now, max_age_hours=6, stamp=str(day)))
+            inj = af.parse_injuries(af.download("/injuries", dict(league=ids[lg], season=season, date=str(day)),
+                                                now=now, max_age_hours=6, stamp=str(day)))
+        except SourceUnavailable as e:
+            alert(f"API-Football ({lg} {day}) niedostepne: {e}")
+            continue
+        if fx.empty:
+            continue
+        cands = sorted(set(ev.loc[ev["league"] == lg, "home"]) | set(ev.loc[ev["league"] == lg, "away"]))
+        mapping, pending = resolve_many(list(fx["home_raw"]) + list(fx["away_raw"]), cands)
+        db.upsert(engine, db.entity_map, [dict(source="api_football", league=lg, raw_name=k, canonical=v, score=1.0,
+                                               status="auto") for k, v in mapping.items()] +
+                  [dict(source="api_football", league=lg, raw_name=m.raw, canonical=m.canonical, score=m.score,
+                        status="pending") for m in pending], ["source", "league", "raw_name"], update=False)
+        fx["home"], fx["away"] = fx["home_raw"].map(mapping), fx["away_raw"].map(mapping)
+        j = g.merge(fx.dropna(subset=["home", "away"]), on=["home", "away"], suffixes=("", "_af"))
+        j = j[(j["kickoff_utc"] - j["kickoff_utc_af"]).abs() <= pd.Timedelta(hours=3)]
+        for r in j.itertuples(index=False):
+            try:
+                lu = af.parse_lineups(af.download("/fixtures/lineups", dict(fixture=int(r.fixture_id)), now=now))
+            except (SourceUnavailable, ValueError) as e:
+                alert(f"API-Football sklady {r.event_id}: {e}")
+                continue
+            n_matched += 1
+            part = pd.concat([lu, inj[inj["fixture_id"] == r.fixture_id].drop(columns="fixture_id")]) if len(inj) else lu
+            for x in part.itertuples(index=False):
+                team = mapping.get(x.team_raw)
+                if team is None:
+                    continue
+                rows.append(dict(event_id=r.event_id, team=team, player=x.player, is_starter=bool(x.is_starter),
+                                 position=x.position, status=x.status, reason=x.reason,
+                                 published_utc=now, source="api_football"))
+    db.upsert(engine, db.lineups, rows, ["event_id", "team", "player", "status", "source"], update=False)
+    return dict(mecze=n_matched, wiersze=len(rows))
 
 
 def variants() -> list[dict]:

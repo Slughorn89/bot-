@@ -21,15 +21,27 @@ CLOSE_WINDOW_MIN = 10  # snapshot w ciagu 10 min przed startem traktujemy jako z
 
 
 def download(sport_key: str, *, regions: str = "eu", markets: str = "h2h,totals",
-             now: datetime | None = None) -> bytes:
+             now: datetime | None = None, ledger=None) -> bytes:
+    """Jedno zapytanie = (liczba rynkow x liczba regionow) kredytow. Przed wywolaniem sprawdzamy budzet,
+    po wywolaniu zapisujemy zuzycie z naglowkow x-requests-used / x-requests-remaining."""
+    from typer.ingest.budget import Ledger, odds_api_cost
     key = config.env("ODDS_API_KEY")
     if not key:
         raise SourceUnavailable("brak ODDS_API_KEY w .env")
     now = now or datetime.now(timezone.utc)
+    ledger = ledger or Ledger()
+    cost = odds_api_cost(markets.split(","), regions.split(","))
+    if not ledger.can_spend(SOURCE, cost, now):
+        raise SourceUnavailable(f"budzet The Odds API wyczerpany ({ledger.used(SOURCE, now)} kredytow w tym "
+                                f"miesiacu, koszt zapytania {cost})")
     url = config.sources()["the_odds_api"]["url"].format(sport=sport_key)
     params = dict(apiKey=key, regions=regions, markets=markets, oddsFormat="decimal", dateFormat="iso")
+    meta: dict = {}
     # kazdy snapshot to osobny plik w raw/: to jest nasza historia kursow
-    return fetch(url, SOURCE, f"{sport_key}_{now:%Y%m%dT%H%M}.json", params=params, max_age_hours=0.2)
+    raw = fetch(url, SOURCE, f"{sport_key}_{now:%Y%m%dT%H%M}.json", params=params, max_age_hours=0.2, meta=meta)
+    if not meta.get("cache"):
+        ledger.record(SOURCE, cost, now, meta.get("headers"), note=f"{sport_key} {markets}")
+    return raw
 
 
 def parse(raw: bytes, league: str, snapshot_utc: datetime) -> pd.DataFrame:

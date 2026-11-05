@@ -1,5 +1,8 @@
 # Zrodla danych: licencja, limity, klucze (klucze tylko w .env, nigdy tutaj).
-# Stan "dostepne_w_srodowisku" sprawdzony 2026-10-31 w sesji chmurowej (proxy z lista dozwolonych hostow).
+# Stan "dostepne_w_srodowisku" sprawdzony 2026-11-05 w sesji chmurowej (proxy z lista dozwolonych hostow).
+# Limity i cenniki wg skilla typer-sportowy v2 (zweryfikowane tam w listopadzie 2026). Z tej sesji nie dalo sie
+# ich potwierdzic, bo hosty sa zablokowane: sprawdz ponownie po odblokowaniu i popraw date weryfikacji.
+data_weryfikacji_limitow: "2026-11 (wg skilla), niepotwierdzone z tej sesji"
 xgabora:
   opis: Kopia football-data.co.uk (wyniki, strzaly, kartki, kursy Bet365 i maksymalne sprzed meczu) + ClubElo
   repo: https://github.com/xgabora/Club-Football-Match-Data-2000-2025
@@ -19,6 +22,7 @@ football_data_uk:
   url_nowe_ligi: https://www.football-data.co.uk/new/{code}.csv
   url_terminarz: https://www.football-data.co.uk/fixtures.csv
   url_terminarz_nowe: https://www.football-data.co.uk/new_league_fixtures.csv
+  historia: od 2005/06, zamkniecia Pinnacle w PSCH/PSCD/PSCA (historyczne zamkniecia bierzemy stad)
   licencja: darmowe do uzytku, z podaniem zrodla (football-data.co.uk)
   limit: brak oficjalnego; pobieraj rzadko (raz dziennie), z cache w raw/
   dostepne_w_srodowisku: false   # host www.football-data.co.uk zablokowany przez polityke sieci sesji
@@ -28,16 +32,44 @@ the_odds_api:
   opis: Kursy na zywo wielu bukmacherow (h2h, totals); do snapshotow "w chwili typu" i "zamkniecia"
   url: https://api.the-odds-api.com/v4/sports/{sport}/odds
   klucz_env: ODDS_API_KEY
-  licencja: komercyjna, plan darmowy z miesiecznym limitem zapytan (sprawdz aktualny na stronie)
-  limit: zuzycie widac w naglowkach x-requests-remaining / x-requests-used
+  licencja: komercyjna; ok. 40 bukmacherow
+  limit: darmowy plan 500 kredytow miesiecznie; zapytanie kosztuje rynki x regiony, historyczne 10x wiecej.
+    Zuzycie z naglowkow x-requests-used / x-requests-remaining (typer/ingest/budget.py)
+  budzet_miesiac: 500
+  rezerwa: 0.1             # 10% zapasu na powtorki i reczne zapytania
+  regiony: [eu]
+  rynki_zamkniecie: [h2h, totals]   # zamkniecie ma priorytet: bez niego nie ma CLV
+  rynki_typ: [h2h, totals]          # przy braku budzetu planer zostawia samo h2h, potem nic
+  szacunek: >-
+    Plan "typ raz na lige i dzien meczowy + zamkniecie na kazda godzine startu" dla 5 lig top na danych
+    2025/26: srednio 380, maks. 498 kredytow/miesiac. Z Ekstraklasa w szczycie przekracza limit:
+    planer degraduje "typ" (najpierw bez totals). Gdy dziala fixtures.csv, Odds API trzeba tylko do zamkniec.
+  dostepne_w_srodowisku: false
+
+api_football:
+  opis: Sklady (startXI, lawka) i kontuzje/zawieszenia; najwieksza brakujaca informacja (slepa plamka nr 1)
+  url: https://v3.football.api-sports.io
+  klucz_env: API_FOOTBALL_KEY     # naglowek x-apisports-key
+  licencja: komercyjna (API-Sports); plan darmowy 100 zapytan dziennie, ograniczone sezony, reset o polnocy UTC,
+    platne od 19 USD/mies.
+  budzet_dzien: 100
+  rezerwa: 0.1
+  ligi: {E0: 39, D1: 78, I1: 135, SP1: 140, F1: 61, POL: 106}
+  plan: >-
+    1 zapytanie terminarza na lige i dzien meczowy + 1 zapytanie skladow na mecz (60 min przed startem)
+    + 1 zapytanie kontuzji na lige i dzien. Weekend top 5 lig + Ekstraklasa: ok. 6 + 6 + do 50 = ponizej 100.
+  uwaga: Sklady na razie tylko zbieramy (tabela lineups). Ceche dodamy, gdy bedzie historia do walidacji.
   dostepne_w_srodowisku: false
 
 penaltyblog:
   opis: Dixon-Coles z wagami czasowymi, Poisson; challenger dla ocen online
-  pakiet: penaltyblog==1.13.1
+  pakiet: penaltyblog==1.13.1 (z scipy==1.18.1)
   repo: https://github.com/martineastwood/penaltyblog
   commit_sprawdzony: 6870f0e762e9cba35fa722dc14a8daeaf8bc6134
   licencja: MIT
+  zgodnosc_scipy: >-
+    Skill: penaltyblog 1.5.1 wymaga scipy<=1.15.3 (nowsze psuje dopasowanie). My uzywamy 1.13.1 + scipy 1.18.1
+    i pilnujemy tego testem tests/test_vendor_dc.py (penaltyblog vs niezalezne MLE, maks. roznica p 0.002).
   dostepne_w_srodowisku: true (PyPI)
 
 flashscore:

@@ -87,8 +87,11 @@ lineups = Table(
     Column("player", String(120), nullable=False),
     Column("is_starter", Boolean),
     Column("position", String(10)),
+    Column("status", String(20)),      # start | lawka | nieobecny | watpliwy | zawieszenie
+    Column("reason", String(160)),     # np. powod kontuzji
     Column("published_utc", DateTime(timezone=True)),
     Column("source", String(40)),
+    UniqueConstraint("event_id", "team", "player", "status", "source", name="uq_lineup"),
 )
 
 ratings_history = Table(

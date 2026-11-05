@@ -22,12 +22,17 @@ class SourceUnavailable(RuntimeError):
 def fetch(url: str, source: str, filename: str, *, max_age_hours: float | None = 24,
           retries: int = 4, timeout: float = 60, params: dict | None = None,
           headers: dict | None = None, session: requests.Session | None = None,
-          raw_dir: Path | None = None) -> bytes:
-    """Zwraca bajty z cache (jesli swiezy) albo pobiera. max_age_hours=None = cache bezterminowy."""
+          raw_dir: Path | None = None, meta: dict | None = None) -> bytes:
+    """Zwraca bajty z cache (jesli swiezy) albo pobiera. max_age_hours=None = cache bezterminowy.
+    meta (opcjonalnie): dostaje 'cache' (True/False) i 'headers' odpowiedzi (np. zuzycie limitu API)."""
     path = (raw_dir or RAW_DIR) / source / filename
+    if meta is not None:
+        meta.update(cache=False, headers={})
     if path.exists() and (max_age_hours is None or
                           (time.time() - path.stat().st_mtime) < max_age_hours * 3600):
         log.info("cache: %s", path)
+        if meta is not None:
+            meta["cache"] = True
         return path.read_bytes()
     sess = session or requests.Session()
     delay, last_err = 2.0, None
@@ -42,6 +47,8 @@ def fetch(url: str, source: str, filename: str, *, max_age_hours: float | None =
             tmp = path.with_suffix(path.suffix + ".part")
             tmp.write_bytes(r.content)
             tmp.replace(path)  # zapis atomowy: brak polowicznych plikow w cache
+            if meta is not None:
+                meta["headers"] = dict(r.headers)
             log.info("pobrano %s (%d B)", url, len(r.content))
             return r.content
         except SourceUnavailable:

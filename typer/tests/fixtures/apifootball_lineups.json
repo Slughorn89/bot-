@@ -1,0 +1,8 @@
+{"errors": [], "response": [
+ {"team": {"id": 1, "name": "HOME_PLACEHOLDER"}, "formation": "4-3-3",
+  "startXI": [{"player": {"id": 11, "name": "Testowy Bramkarz", "number": 1, "pos": "G"}},
+              {"player": {"id": 12, "name": "Testowy Obronca", "number": 4, "pos": "D"}}],
+  "substitutes": [{"player": {"id": 13, "name": "Testowy Rezerwowy", "number": 18, "pos": "M"}}]},
+ {"team": {"id": 2, "name": "AWAY_PLACEHOLDER"}, "formation": "4-4-2",
+  "startXI": [{"player": {"id": 21, "name": "Testowy Napastnik", "number": 9, "pos": "F"}}],
+  "substitutes": []}]}

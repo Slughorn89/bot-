@@ -40,5 +40,6 @@ def test_snapshot_do_bazy_z_mapowaniem(monkeypatch, tmp_engine, synth, tmp_path)
     monkeypatch.setattr(oa, "download", lambda *a, **k: raw)
     out = daily.snapshot_odds(tmp_engine, now=datetime(2018, 9, 8, 14, 55, tzinfo=timezone.utc))
     assert out["snapshots"] == 8
+    assert out["zapytania"] == 2  # planer: zamkniecie meczu 15:00 + typ raz na dzien
     co = db.read_df(tmp_engine, "SELECT * FROM odds_snapshots WHERE kind = 'close' AND source = 'the_odds_api'")
     assert set(co["event_id"]) == {r["event_id"]}
