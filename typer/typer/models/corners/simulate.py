@@ -15,7 +15,8 @@ from scipy.special import gammaln
 from typer.models.corners.fit import GH_U, GH_W, CornerStrengths
 from typer.models.corners.state import multipliers, simulate_states
 
-MAX_CORNERS = 30          # ostatnia komorka zbiera ogon (P(>= 30) jest pomijalnie male)
+MAX_CORNERS = 50          # ostatnia komorka zbiera ogon; w danych maks. 26 rożnych druzyny, przy 30 skrajne
+                          # parametry (r = 3, sigma = 0.5) zanizaly srednia o 1.7%, przy 50 o < 0.5%
 N_SIMS = 20000
 
 

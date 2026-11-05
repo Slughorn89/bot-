@@ -28,8 +28,8 @@ from typer.models.corners.state import match_fractions
 from typer.models.goals.fit import time_weights
 
 GH_NODES = 15
-R_BOUNDS = (np.log(1.0), np.log(2000.0))
-SIGMA_BOUNDS = (0.0, 0.8)
+R_BOUNDS = (np.log(3.0), np.log(2000.0))   # zakres pokryty testem zachowania srednich (dopasowania: r ok. 45)
+SIGMA_BOUNDS = (0.0, 0.5)                  # dopasowania: sigma ok. 0.17
 _X, _W = np.polynomial.hermite.hermgauss(GH_NODES)
 GH_U = np.sqrt(2.0) * _X                 # wezly dla N(0, 1)
 GH_W = _W / np.sqrt(np.pi)

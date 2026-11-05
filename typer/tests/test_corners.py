@@ -137,6 +137,12 @@ def test_rozklad_zachowuje_srednie_i_rynki_sa_spojne(mh, ma, r, sigma):
     assert all(a <= c + 1e-12 for a, c in zip(hs, hs[1:]))                      # wiekszy plus = latwiej
 
 
+def test_srednie_zachowane_w_rogu_zakresu_parametrow():
+    """Regresja z CI: przy siatce 0..30 i r = 3, sigma = 0.5 srednia goscia wychodzila 6.91 zamiast 7.0."""
+    b = mk.corner_markets(joint_pmf(2.0, 7.0, 3.0, 0.5))
+    assert abs(b["mean_away"] - 7.0) < 0.01 * 7.0 and abs(b["mean_home"] - 2.0) < 0.01 * 2.0
+
+
 def test_frailty_daje_ujemna_korelacje_i_wezsza_sume():
     P0, P1 = joint_pmf(5.3, 4.4, 40.0, 0.0), joint_pmf(5.3, 4.4, 40.0, 0.25)
     i, j = np.indices(P0.shape)
@@ -151,7 +157,7 @@ def test_log_loss_meczu():
     L = match_losses(P, 6, 3)
     assert abs(L["ll_joint"] + np.log(P[6, 3])) < 1e-12
     assert abs(L["ll_total"] + np.log(mk.total_pmf(P)[9])) < 1e-12
-    assert abs(L["ll_ou95"] + np.log(1 - P[np.add.outer(np.arange(31), np.arange(31)) > 9.5].sum())) < 1e-9
+    assert abs(L["ll_ou95"] + np.log(1 - P[np.add.outer(np.arange(P.shape[0]), np.arange(P.shape[0])) > 9.5].sum())) < 1e-9
 
 
 # ---------------- odzyskiwanie parametrow na danych syntetycznych ----------------
@@ -252,7 +258,7 @@ def test_api_modelu_rożnych():
     cut = pd.Timestamp(df["date"].max()) + pd.Timedelta(days=1)
     cm = CornerModel(state=True, n_sims=20000).fit(df, cut)
     out = cm.predict("T00", "T01", score_matrix=matrix("bivariate", 1.5, 1.1, 0.1))
-    assert out["joint"].shape == (31, 31) and abs(out["joint"].sum() - 1) < 1e-9
+    assert out["joint"].shape == (51, 51) and abs(out["joint"].sum() - 1) < 1e-9
     assert set(out["markets"]) >= {"total", "home", "away", "handicap", "most_corners"}
     with pytest.raises(ValueError):
         CornerModel(state=True).fit(df, cut).predict("T00", "T01")          # B bez macierzy wynikow

@@ -3,7 +3,7 @@
     gm = GoalModel("bivariate", half_life=240, w_xg=0.2).fit(mecze_ligi, cutoff)       # modul 2
     cm = CornerModel(state=True).fit(mecze_ligi, cutoff)
     out = cm.predict("Arsenal", "Chelsea", score_matrix=gm.predict("Arsenal", "Chelsea")["matrix"])
-    out["joint"]    # 31x31, P(rozne gospodarza = i, rozne goscia = j)
+    out["joint"]    # 51x51, P(rozne gospodarza = i, rozne goscia = j)
     out["markets"]  # O/U lacznie 6.5..13.5, per druzyna 2.5..7.5, handicap -5..+5, kto wiecej rożnych
 
 Parametry i wybor wersji (ze stanem gry czy bez): config/model.yaml, sekcja corner_models.
