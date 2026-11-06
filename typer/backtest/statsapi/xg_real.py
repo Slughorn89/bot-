@@ -27,8 +27,11 @@ def real_xg() -> pd.DataFrame:
     for yr in ("2021", "2122", "2223", "2324", "2425"):
         rec = pd.DataFrame(pickle.load(open(config.DATA_DIR / f"thestatsapi_E0_{yr}.pkl", "rb")))
         st = rec[rec["_type"] == "TeamMatchStats"]
-        w = st.pivot_table(index=["home", "away", "kickoff_utc"], columns="side", values="xg").reset_index()
-        w.columns = ["src_home", "src_away", "kickoff_utc", "xg_a", "xg_h"]       # kolumny side: away, home
+        k = ["home", "away", "kickoff_utc"]
+        h = st[st["side"] == "home"][k + ["xg"]].rename(columns={"xg": "xg_h"})
+        a = st[st["side"] == "away"][k + ["xg"]].rename(columns={"xg": "xg_a"})
+        w = h.merge(a, on=k).rename(columns={"home": "src_home", "away": "src_away"})
+        print(yr, "meczow", len(w), "z xG", int(w["xg_h"].notna().sum()), flush=True)
         parts.append(w)
     return pd.concat(parts, ignore_index=True)
 
