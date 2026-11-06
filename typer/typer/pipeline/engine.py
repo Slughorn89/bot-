@@ -49,7 +49,8 @@ class Engine:
         gh, ga = int(r.fthg), int(r.ftag)
         red = bool((_num(r.hr) or 0) + (_num(r.ar) or 0) > 0)
         self.model.update(lg, r.home, r.away, gh, ga, _num(r.hs), _num(r.as_), _num(r.hst),
-                          _num(r.ast), red=red)
+                          _num(r.ast), red=red, xg_h=_num(getattr(r, "xg_h", None)),
+                          xg_a=_num(getattr(r, "xg_a", None)))
         self.base.update(lg, gh, ga)
         self.elo.update(lg, r.home, r.away, gh, ga)
         if self.collect:

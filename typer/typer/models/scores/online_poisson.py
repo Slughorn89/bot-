@@ -110,9 +110,13 @@ class OnlinePoisson:
         return self.p.xg_sot * sot + self.p.xg_off * max(shots - sot, 0.0)
 
     def update(self, lg: str, home: str, away: str, gh: float, ga: float,
-               hs=None, as_=None, hst=None, ast=None, red: bool = False) -> None:
+               hs=None, as_=None, hst=None, ast=None, red: bool = False, xg_h=None, xg_a=None) -> None:
+        """xg_h, xg_a: prawdziwe xG (np. TheStatsAPI); gdy brak, przyblizenie ze strzalow."""
         lh, la = self.rates(lg, home, away)
-        xh, xa = self.xg_proxy(hs, hst), self.xg_proxy(as_, ast)
+        if xg_h is not None and xg_a is not None and xg_h == xg_h and xg_a == xg_a:
+            xh, xa = float(xg_h), float(xg_a)
+        else:
+            xh, xa = self.xg_proxy(hs, hst), self.xg_proxy(as_, ast)
         w = self.lp(lg, "w_xg") if (xh is not None and xa is not None) else 0.0
         yh = (1 - w) * gh + w * (xh or 0.0)
         ya = (1 - w) * ga + w * (xa or 0.0)
