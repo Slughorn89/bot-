@@ -72,6 +72,27 @@ oddsrelay:
   gieldy_zamkniecie: [betfair_exchange]
   dostepne_w_srodowisku: true    # host odpowiada; bez klucza 401
 
+thestatsapi:
+  opis: >-
+    Pilka: wyniki, xG, statystyki druzyn i zawodnikow, przebieg meczu z minutami (gole, rozne, kartki),
+    sklady, kontuzje i zawieszenia, kursy przedmeczowe (Bet365, Paddy Power, BetMGM UK, Pinnacle, Betfair Exchange;
+    otwarcie i ostatnia cena) z liniami na rozne i kartki. Starsze mecze glownie tylko Bet365.
+  url: https://api.thestatsapi.com/api
+  klucz_env: THESTATSAPI_KEY
+  licencja: >-
+    komercyjna (thestatsapi.com/terms, sprawdzone 2026-11-06): uzycie we wlasnej aplikacji; bez odsprzedazy,
+    sublicencji i publikacji hurtowej; cache tylko w zakresie potrzebnym do dzialania (raw/ poza repo)
+  limit: 30 zapytan/min, 50 000 na cykl miesieczny (naglowki X-RateLimit-*, X-Monthly-Quota-*)
+  budzet_miesiac: 50000
+  rezerwa: 0.1
+  limit_na_minute: 28
+  ligi:      # competition_id (GET /coverage/leagues, 2026-11-06)
+    E0: comp_3039
+    D1: comp_4643
+    F1: comp_0256
+  dostepne_w_srodowisku: true
+  zweryfikowano: 2026-11-06
+
 api_football:
   opis: Sklady (startXI, lawka) i kontuzje/zawieszenia; najwieksza brakujaca informacja (slepa plamka nr 1)
   url: https://v3.football.api-sports.io

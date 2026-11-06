@@ -25,3 +25,4 @@ reports/calibration/**/*.png
 backtest/report_*.json
 backtest/report_*.txt
 backtest/tune_best.json
+backtest/statsapi/*.log

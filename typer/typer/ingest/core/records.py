@@ -140,7 +140,8 @@ class MatchEvent(EventRef):
     post_match: ClassVar[bool] = True
     minute: int = Field(ge=0)
     extra_minute: int | None = Field(default=None, ge=0)
-    type: Literal["goal", "own_goal", "penalty_scored", "penalty_missed", "yellow", "second_yellow", "red"]
+    # corner: team = druzyna WYKONUJACA rozny (TheStatsAPI podaje te, ktora go oddala; adapter odwraca)
+    type: Literal["goal", "own_goal", "penalty_scored", "penalty_missed", "yellow", "second_yellow", "red", "corner"]
     team: str
     player: str | None = None
 

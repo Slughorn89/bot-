@@ -68,6 +68,8 @@ class Ledger:
         h = {k.lower(): v for k, v in (headers or {}).items()}
         if "x-requests-used" in h:  # The Odds API: naglowek = prawda
             d["used"] = int(float(h["x-requests-used"]))
+        elif "x-monthly-quota-remaining" in h and int(float(h.get("x-monthly-quota-limit", -1))) > 0:  # TheStatsAPI
+            d["used"] = int(float(h["x-monthly-quota-limit"])) - int(float(h["x-monthly-quota-remaining"]))
         elif "x-tokens-remaining" in h:  # OddsRelay: tokeny pozostale w okresie
             lim, _ = _limit(source)
             d["used"] = max(int(d.get("used", 0)) + int(cost), lim - int(float(h["x-tokens-remaining"])))

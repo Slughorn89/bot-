@@ -1,0 +1,240 @@
+{
+ "match_id": "mt_test001",
+ "match": {
+  "id": "mt_test001",
+  "competition_id": "comp_3039",
+  "status": "finished",
+  "utc_date": "2026-10-17T14:00:00.000Z",
+  "home_team": {
+   "id": "tm_h",
+   "name": "Arsenal"
+  },
+  "away_team": {
+   "id": "tm_a",
+   "name": "Chelsea"
+  },
+  "score": {
+   "home": 2,
+   "away": 1,
+   "regulation": {
+    "home": 2,
+    "away": 1
+   },
+   "half_time_home": 1,
+   "half_time_away": 0
+  }
+ },
+ "timeline": {
+  "match_id": "mt_test001",
+  "coverage": "full",
+  "events": [
+   {
+    "sequence": 1,
+    "minute": 8,
+    "extra_time": 0,
+    "period": "first_half",
+    "type": "corner_kick",
+    "team": {
+     "id": "tm_a"
+    }
+   },
+   {
+    "sequence": 2,
+    "minute": 20,
+    "extra_time": 0,
+    "period": "first_half",
+    "type": "goal",
+    "team": {
+     "id": "tm_h"
+    },
+    "player": {
+     "name": "Gracz H"
+    }
+   },
+   {
+    "sequence": 3,
+    "minute": 33,
+    "extra_time": 0,
+    "period": "first_half",
+    "type": "corner_kick",
+    "team": {
+     "id": "tm_h"
+    }
+   },
+   {
+    "sequence": 4,
+    "minute": 55,
+    "extra_time": 0,
+    "period": "second_half",
+    "type": "yellow_card",
+    "team": {
+     "id": "tm_a"
+    },
+    "player": {
+     "name": "Gracz A"
+    }
+   },
+   {
+    "sequence": 5,
+    "minute": 61,
+    "extra_time": 0,
+    "period": "second_half",
+    "type": "corner_kick",
+    "team": {
+     "id": "tm_a"
+    }
+   },
+   {
+    "sequence": 6,
+    "minute": 70,
+    "extra_time": 0,
+    "period": "second_half",
+    "type": "goal",
+    "team": {
+     "id": "tm_a"
+    }
+   },
+   {
+    "sequence": 7,
+    "minute": 90,
+    "extra_time": 3,
+    "period": "second_half",
+    "type": "goal",
+    "team": {
+     "id": "tm_h"
+    }
+   },
+   {
+    "sequence": 8,
+    "minute": 75,
+    "extra_time": 0,
+    "period": "second_half",
+    "type": "foul",
+    "team": {
+     "id": "tm_h"
+    }
+   }
+  ]
+ },
+ "stats": {
+  "match_id": "mt_test001",
+  "overview": {
+   "ball_possession": {
+    "all": {
+     "home": 58,
+     "away": 42
+    }
+   },
+   "expected_goals": {
+    "all": {
+     "home": 1.9,
+     "away": 0.8
+    }
+   },
+   "total_shots": {
+    "all": {
+     "home": 15,
+     "away": 7
+    }
+   },
+   "shots_on_target": {
+    "all": {
+     "home": 6,
+     "away": 3
+    }
+   },
+   "corner_kicks": {
+    "all": {
+     "home": 2,
+     "away": 1
+    }
+   },
+   "fouls": {
+    "all": {
+     "home": 9,
+     "away": 12
+    }
+   }
+  }
+ },
+ "odds": {
+  "match_id": "mt_test001",
+  "bookmakers": [
+   {
+    "bookmaker": "Pinnacle",
+    "markets": {
+     "match_odds": {
+      "home": {
+       "opening": "2.10",
+       "last_seen": "2.00"
+      },
+      "draw": {
+       "opening": "3.40",
+       "last_seen": "3.50"
+      },
+      "away": {
+       "opening": "3.60",
+       "last_seen": "3.90"
+      }
+     },
+     "total_goals": {
+      "2.5": {
+       "over": {
+        "opening": "1.90",
+        "last_seen": "1.85"
+       },
+       "under": {
+        "opening": "1.95",
+        "last_seen": "2.00"
+       }
+      }
+     },
+     "match_corners": {
+      "10.5": {
+       "over": {
+        "opening": null,
+        "last_seen": "1.95"
+       },
+       "under": {
+        "opening": null,
+        "last_seen": "1.85"
+       }
+      }
+     }
+    }
+   }
+  ]
+ },
+ "lineups": {
+  "match_id": "mt_test001",
+  "confirmed": true,
+  "home": {
+   "name": "Arsenal",
+   "starting_xi": [
+    {
+     "id": "pl_1",
+     "name": "Bramkarz H",
+     "position": "G"
+    }
+   ],
+   "substitutes": [
+    {
+     "id": "pl_2",
+     "name": "Rezerwowy H",
+     "position": "F"
+    }
+   ]
+  },
+  "away": {
+   "name": "Chelsea",
+   "starting_xi": [
+    {
+     "id": "pl_3",
+     "name": "Bramkarz A",
+     "position": "G"
+    }
+   ],
+   "substitutes": []
+  }
+ }
+}
