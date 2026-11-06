@@ -22,6 +22,7 @@ from typer.learn import journal, settle
 from typer.learn.champion import current, register
 from typer.pipeline import layers as L
 from typer.pipeline.backtest import LAYER_SETS, params_from_config
+from typer.features import real_xg
 from typer.pipeline.data import load_matches
 from typer.pipeline.engine import Engine
 from typer.store import db
@@ -245,7 +246,8 @@ def variants() -> list[dict]:
                 params=None, changes="champion")]
     for c in m.get("challengers", []) or []:
         out.append(dict(version=c["version"], layers=c.get("layers", out[0]["layers"]), role="challenger",
-                        params=c.get("online_poisson"), changes=c.get("changes", "")))
+                        params=c.get("online_poisson"), changes=c.get("changes", ""),
+                        real_xg=bool(c.get("real_xg", False))))
     return out
 
 
@@ -288,10 +290,11 @@ def predict(engine: sa.Engine, as_of=None, role: str | None = None, lead_minutes
     frames: dict = {}
     out = []
     for v in vs:
-        pkey = str(v.get("params"))
+        pkey = str(v.get("params")) + str(v.get("real_xg", False))
         if pkey not in frames:  # jeden przebieg ocen online na zestaw parametrow
             eng = Engine(_params_for(v), cutoff_mode="day", collect_features=True)
-            frame = eng.run(past, predict_from="2008-07-01", fixtures=fx)
+            hist_v = real_xg.attach(past)[0] if v.get("real_xg") else past   # xG tylko meczow rozegranych
+            frame = eng.run(hist_v, predict_from="2008-07-01", fixtures=fx)
             frames[pkey] = (eng, frame)
         eng, frame = frames[pkey]
         tgt = frame[frame["fthg"].isna()]

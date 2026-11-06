@@ -7,7 +7,6 @@ Okno walidacji: 2023-07-01..2025-06-30 (sezon 2022/23 to rozgrzewka xG; wczesnie
 Holdout (--holdout): mecze od 2025-07-01, tylko jesli pobrane. Brak xG w meczu = przyblizenie ze strzalow.
 Uzycie: python backtest/statsapi/xg_real.py [--holdout] [LIGA ...]"""
 import json
-import pickle
 import sys
 from dataclasses import replace
 
@@ -15,8 +14,7 @@ sys.path.insert(0, ".")
 
 import pandas as pd  # noqa: E402
 
-from typer import config  # noqa: E402
-from typer.entities.mapping import resolve_many  # noqa: E402
+from typer.features.real_xg import attach as attach_real_xg, load_cached  # noqa: E402
 from typer.metrics.scores import paired_diff_ci  # noqa: E402
 from typer.pipeline.backtest import params_from_config  # noqa: E402
 from typer.pipeline.data import load_matches  # noqa: E402
@@ -29,32 +27,12 @@ WEIGHTS = (0.2, 0.4, 0.6)
 CANDIDATE = "xg_prawdziwe_w0.4"
 
 
-def real_xg(lg: str) -> pd.DataFrame:
-    parts = []
-    for f in sorted(config.DATA_DIR.glob(f"thestatsapi_{lg}_*.pkl")):
-        rec = pd.DataFrame(pickle.load(open(f, "rb")))
-        st = rec[rec["_type"] == "TeamMatchStats"]
-        if st.empty:
-            continue
-        k = ["home", "away", "kickoff_utc"]
-        h = st[st["side"] == "home"][k + ["xg"]].rename(columns={"xg": "xg_h"})
-        a = st[st["side"] == "away"][k + ["xg"]].rename(columns={"xg": "xg_a"})
-        parts.append(h.merge(a, on=k).rename(columns={"home": "src_home", "away": "src_away"}))
-    return pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
-
-
 def attach(df: pd.DataFrame, lg: str):
     g = df[df["league"] == lg]
-    xg = real_xg(lg)
+    xg = load_cached(lg)
     if xg.empty:
         return None, []
-    teams = sorted(set(g["home"]) | set(g["away"]))
-    mp, pending = resolve_many(sorted(set(xg["src_home"]) | set(xg["src_away"])), teams)
-    xg["home"], xg["away"] = xg["src_home"].map(mp), xg["src_away"].map(mp)
-    xg["date"] = pd.to_datetime(xg["kickoff_utc"]).dt.date
-    xg = xg.dropna(subset=["home", "away"])[["home", "away", "date", "xg_h", "xg_a"]]
-    xg = xg.drop_duplicates(["home", "away", "date"])
-    return g.merge(xg, on=["home", "away", "date"], how="left"), [m.raw for m in pending]
+    return attach_real_xg(g, {lg: xg})
 
 
 def evaluate(d: pd.DataFrame, window) -> dict:
