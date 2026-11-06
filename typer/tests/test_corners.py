@@ -284,3 +284,10 @@ def test_paired_ci_i_porownanie():
                         for k in range(50) for v in ("A", "B")])
     t = compare(res, "A", "B", metrics=["ll_joint"])
     assert abs(t.loc[0, "roznica"] - 0.01) < 1e-12 and t.loc[0, "n"] == 50
+
+
+def test_ustalone_gamma_zostaje_ustalone():
+    df, _, _ = _synth_league(n_rounds=4, seed=7)
+    cut = pd.Timestamp(df["date"].max()) + pd.Timedelta(days=1)
+    s, _ = fit_corners(df, cut, half_life=1e6, fixed_gamma=(0.23, -0.35))
+    assert s.state and abs(s.g_trail - 0.23) < 1e-12 and abs(s.g_lead + 0.35) < 1e-12

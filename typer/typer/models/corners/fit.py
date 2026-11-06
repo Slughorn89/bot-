@@ -131,8 +131,11 @@ def make_objective(hi, ai, n, w, yh, ya, Xh, Xa, lead, trail, ridge, ridge_beta,
 def fit_corners(train: pd.DataFrame, cutoff, half_life: float = 365.0, ridge: float = 3.0,
                 ridge_beta: float = 10.0, ridge_gamma: float = 1.0, state: bool = False, frailty: bool = True,
                 cov_h: np.ndarray | None = None, cov_a: np.ndarray | None = None,
-                warm: CornerStrengths | None = None) -> tuple[CornerStrengths, dict]:
-    """train: rozegrane mecze JEDNEJ ligi sprzed odciecia, z kolumnami hc, ac (i hthg, htag dla stanu)."""
+                warm: CornerStrengths | None = None, fixed_gamma: tuple[float, float] | None = None
+                ) -> tuple[CornerStrengths, dict]:
+    """train: rozegrane mecze JEDNEJ ligi sprzed odciecia, z kolumnami hc, ac (i hthg, htag dla stanu).
+    fixed_gamma = (g_trail, g_lead): efekt stanu gry ustalony z zewnatrz (np. oszacowany wewnatrz meczu z minut
+    zdarzen, backtest/statsapi/state_effect.py), a nie z wynikow do przerwy i koncowych."""
     train = train[train["hc"].notna() & train["ac"].notna()]
     teams = sorted(set(train["home"]) | set(train["away"]))
     ix = {t: i for i, t in enumerate(teams)}
@@ -148,6 +151,11 @@ def fit_corners(train: pd.DataFrame, cutoff, half_life: float = 365.0, ridge: fl
                                       train["fthg"].to_numpy(float), train["ftag"].to_numpy(float))
     else:
         lead = trail = np.zeros(len(train))
+    if fixed_gamma is not None:
+        state, ridge_gamma = True, 0.0
+        if not np.any(lead + trail):
+            lead, trail = match_fractions(train["hthg"].to_numpy(float), train["htag"].to_numpy(float),
+                                          train["fthg"].to_numpy(float), train["ftag"].to_numpy(float))
     f = make_objective(hi, ai, n, w, yh, ya, Xh, Xa, lead, trail, ridge, ridge_beta, ridge_gamma, state)
     th0 = np.zeros(2 + 2 * n + k + (2 if state else 0))
     th0[0], th0[1] = np.log(max(np.average(ya, weights=w), 0.5)), 0.15
@@ -160,7 +168,11 @@ def fit_corners(train: pd.DataFrame, cutoff, half_life: float = 365.0, ridge: fl
             th0[2 + 2 * n:2 + 2 * n + k] = warm.beta
         if state and warm.state:
             th0[-2], th0[-1] = warm.g_trail, warm.g_lead
-    res = minimize(f, th0, jac=True, method="L-BFGS-B", options=dict(maxiter=500))
+    bounds = None
+    if fixed_gamma is not None:
+        th0[-2], th0[-1] = fixed_gamma
+        bounds = [(None, None)] * (len(th0) - 2) + [(fixed_gamma[0],) * 2, (fixed_gamma[1],) * 2]
+    res = minimize(f, th0, jac=True, method="L-BFGS-B", bounds=bounds, options=dict(maxiter=500))
     th = res.x
     c, h = th[0], th[1]
     atk, obr, beta = th[2:2 + n], th[2 + n:2 + 2 * n], th[2 + 2 * n:2 + 2 * n + k]

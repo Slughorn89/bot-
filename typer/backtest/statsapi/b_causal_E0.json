@@ -1,0 +1,278 @@
+{
+ "gamma": {
+  "g_trail": 0.23046502187960216,
+  "g_lead": -0.2953447461078117
+ },
+ "n": 2280,
+ "srednie": {
+  "A": {
+   "ll_joint": 4.6982,
+   "ll_total": 2.63801,
+   "ll_ou95": 0.68559,
+   "ll_home45": 0.61577,
+   "ll_away45": 0.63627,
+   "ll_hcp15": 0.60712,
+   "ll_most": 0.81581
+  },
+  "B": {
+   "ll_joint": 4.7018,
+   "ll_total": 2.64006,
+   "ll_ou95": 0.68733,
+   "ll_home45": 0.61705,
+   "ll_away45": 0.6374,
+   "ll_hcp15": 0.60817,
+   "ll_most": 0.81674
+  },
+  "B_przyczynowe": {
+   "ll_joint": 4.70433,
+   "ll_total": 2.64235,
+   "ll_ou95": 0.68891,
+   "ll_home45": 0.61804,
+   "ll_away45": 0.63844,
+   "ll_hcp15": 0.60994,
+   "ll_most": 0.81747
+  }
+ },
+ "B_przyczynowe_minus_A": [
+  {
+   "porownanie": "B_przyczynowe-A",
+   "liga": "razem",
+   "rynek": "ll_joint",
+   "n": 2280,
+   "ll_a": 4.6982,
+   "ll_b": 4.70433,
+   "roznica": 0.00613,
+   "ci90": [
+    0.00295,
+    0.00936
+   ],
+   "ci95": [
+    0.00226,
+    0.00993
+   ]
+  },
+  {
+   "porownanie": "B_przyczynowe-A",
+   "liga": "razem",
+   "rynek": "ll_total",
+   "n": 2280,
+   "ll_a": 2.63801,
+   "ll_b": 2.64235,
+   "roznica": 0.00434,
+   "ci90": [
+    0.0029,
+    0.00572
+   ],
+   "ci95": [
+    0.00264,
+    0.006
+   ]
+  },
+  {
+   "porownanie": "B_przyczynowe-A",
+   "liga": "razem",
+   "rynek": "ll_ou95",
+   "n": 2280,
+   "ll_a": 0.68559,
+   "ll_b": 0.68891,
+   "roznica": 0.00332,
+   "ci90": [
+    0.00231,
+    0.00427
+   ],
+   "ci95": [
+    0.00214,
+    0.00446
+   ]
+  },
+  {
+   "porownanie": "B_przyczynowe-A",
+   "liga": "razem",
+   "rynek": "ll_home45",
+   "n": 2280,
+   "ll_a": 0.61577,
+   "ll_b": 0.61804,
+   "roznica": 0.00228,
+   "ci90": [
+    0.0012,
+    0.00337
+   ],
+   "ci95": [
+    0.00098,
+    0.00356
+   ]
+  },
+  {
+   "porownanie": "B_przyczynowe-A",
+   "liga": "razem",
+   "rynek": "ll_away45",
+   "n": 2280,
+   "ll_a": 0.63627,
+   "ll_b": 0.63844,
+   "roznica": 0.00216,
+   "ci90": [
+    0.00111,
+    0.00325
+   ],
+   "ci95": [
+    0.0009,
+    0.00341
+   ]
+  },
+  {
+   "porownanie": "B_przyczynowe-A",
+   "liga": "razem",
+   "rynek": "ll_hcp15",
+   "n": 2280,
+   "ll_a": 0.60712,
+   "ll_b": 0.60994,
+   "roznica": 0.00282,
+   "ci90": [
+    0.0016,
+    0.00404
+   ],
+   "ci95": [
+    0.00137,
+    0.00428
+   ]
+  },
+  {
+   "porownanie": "B_przyczynowe-A",
+   "liga": "razem",
+   "rynek": "ll_most",
+   "n": 2280,
+   "ll_a": 0.81581,
+   "ll_b": 0.81747,
+   "roznica": 0.00166,
+   "ci90": [
+    0.00026,
+    0.00305
+   ],
+   "ci95": [
+    3e-05,
+    0.0033
+   ]
+  }
+ ],
+ "B_minus_A": [
+  {
+   "porownanie": "B-A",
+   "liga": "razem",
+   "rynek": "ll_joint",
+   "n": 2280,
+   "ll_a": 4.6982,
+   "ll_b": 4.7018,
+   "roznica": 0.0036,
+   "ci90": [
+    0.00247,
+    0.00474
+   ],
+   "ci95": [
+    0.00225,
+    0.00496
+   ]
+  },
+  {
+   "porownanie": "B-A",
+   "liga": "razem",
+   "rynek": "ll_total",
+   "n": 2280,
+   "ll_a": 2.63801,
+   "ll_b": 2.64006,
+   "roznica": 0.00204,
+   "ci90": [
+    0.00128,
+    0.0028
+   ],
+   "ci95": [
+    0.00111,
+    0.00296
+   ]
+  },
+  {
+   "porownanie": "B-A",
+   "liga": "razem",
+   "rynek": "ll_ou95",
+   "n": 2280,
+   "ll_a": 0.68559,
+   "ll_b": 0.68733,
+   "roznica": 0.00174,
+   "ci90": [
+    0.00116,
+    0.00231
+   ],
+   "ci95": [
+    0.00105,
+    0.00243
+   ]
+  },
+  {
+   "porownanie": "B-A",
+   "liga": "razem",
+   "rynek": "ll_home45",
+   "n": 2280,
+   "ll_a": 0.61577,
+   "ll_b": 0.61705,
+   "roznica": 0.00128,
+   "ci90": [
+    0.00069,
+    0.00186
+   ],
+   "ci95": [
+    0.00059,
+    0.00198
+   ]
+  },
+  {
+   "porownanie": "B-A",
+   "liga": "razem",
+   "rynek": "ll_away45",
+   "n": 2280,
+   "ll_a": 0.63627,
+   "ll_b": 0.6374,
+   "roznica": 0.00113,
+   "ci90": [
+    0.00056,
+    0.00172
+   ],
+   "ci95": [
+    0.00044,
+    0.00182
+   ]
+  },
+  {
+   "porownanie": "B-A",
+   "liga": "razem",
+   "rynek": "ll_hcp15",
+   "n": 2280,
+   "ll_a": 0.60712,
+   "ll_b": 0.60817,
+   "roznica": 0.00105,
+   "ci90": [
+    0.00043,
+    0.00169
+   ],
+   "ci95": [
+    0.0003,
+    0.00181
+   ]
+  },
+  {
+   "porownanie": "B-A",
+   "liga": "razem",
+   "rynek": "ll_most",
+   "n": 2280,
+   "ll_a": 0.81581,
+   "ll_b": 0.81674,
+   "roznica": 0.00093,
+   "ci90": [
+    0.00029,
+    0.00159
+   ],
+   "ci95": [
+    0.00016,
+    0.0017
+   ]
+  }
+ ]
+}

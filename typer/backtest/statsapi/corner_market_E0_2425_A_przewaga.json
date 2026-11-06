@@ -1,0 +1,25 @@
+{
+ "wariant": "A_przewaga",
+ "liga": "E0",
+ "sezon": "2425",
+ "mecze_z_kursem": 379,
+ "dopasowane": 379,
+ "ocenione": 379,
+ "niedopasowane_nazwy": [],
+ "linie": {
+  "10.5": 261,
+  "11.5": 65,
+  "9.5": 49,
+  "12.5": 4
+ },
+ "metoda_marzy": "power",
+ "ll_model": 0.6917428749164367,
+ "ll_rynek": 0.6874006636847343,
+ "roznica_model_minus_rynek": 0.004342211231702458,
+ "ci95": [
+  -0.006310440926889034,
+  0.015801891752523653
+ ],
+ "ece_model": 0.06917123466200113,
+ "ece_rynek": 0.0530011177660204
+}

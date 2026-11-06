@@ -278,8 +278,10 @@ Wyniki (`backtest/corners/`, experiments.md wpisy 20 do 23, holdout raz):
 | A − średnia ligi, rozkład łączny | −0,0843 | −0,0688 |
 | A − średnia ligi, O/U 9,5 łącznie | −0,0021 (nieistotne) | +0,0010 (nieistotne) |
 
-* Efekt stanu gry szacowany z wyniku do przerwy i końcowego nie jest przyczynowy. W predykcji przesuwa średnie w złą
-  stronę. Do poprawnego oszacowania potrzebne są minuty goli i rożnych.
+* Efekt stanu gry istnieje (w obrębie meczu: prowadzący ×0,70, przegrywający ×1,26, wpis 29), ale w prognozie przed
+  meczem szkodzi także z przyczynowym γ (wpis 30), więc jest wyłączony.
+* Przewaga z kursu 1X2 sprzed meczu jako cecha (`supremacy: true`, wpis 31): rozkład łączny −0,0154 na walidacji
+  i −0,0185 na holdoucie. Przy typowaniu: `corner_backtest.market_supremacy` z kursów w chwili typu.
 * Model bije średnią ligi na rynkach per drużyna, handicapie i „kto więcej”, ale nie na sumie rożnych.
 * Kursów na rożne brak, więc nie ma benchmarku rynkowego.
 
@@ -309,6 +311,18 @@ Wyniki (walidacja 2018/19 do 2024/25, `backtest/calibration/m6.json`, experiment
 * **CLV typów modelu: −6,7%** (losowy zakład Bet365: −5,4%), holdout −6,2%. Model nie ma przewagi nad zamknięciem.
 
 `python cli.py calibrate` powtarza całość (ok. 2 minuty).
+
+### TheStatsAPI (statystyki, przebieg meczu, składy, kursy)
+
+`typer/ingest/thestatsapi.py` i adapter `thestatsapi`:
+* wyniki i statystyki drużyn (xG, strzały, rożne, posiadanie);
+* przebieg meczu z minutami (gole, kartki, rożne; rożny przypisany drużynie, która go wykonuje);
+* składy i kursy przedmeczowe z liniami na rożne: `last_seen` jako zamknięcie, `opening` tylko jako benchmark;
+* limity: 30 zapytań na minutę i 50 000 na miesiąc, pilnowane z nagłówków;
+* licencja: dane tylko do własnej aplikacji, surowe odpowiedzi zostają lokalnie w `raw/`.
+
+Pobranie sezonu: `python backtest/statsapi/fetch_season.py E0 24/25`. Eksperymenty: `state_effect.py` (efekt stanu
+gry w obrębie meczu) i `corner_market.py` (model rożnych kontra zamknięcie Bet365), experiments.md wpisy 29 do 31.
 
 ### OddsRelay (kursy UK i giełdy)
 

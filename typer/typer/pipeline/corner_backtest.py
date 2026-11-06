@@ -85,6 +85,21 @@ def run_league(df: pd.DataFrame, start, end, half_life: float = 365.0, ridge: fl
     played = df["fthg"].notna() & df["ftag"].notna()
     has_c = played & df["hc"].notna() & df["ac"].notna()
     sh, sa = style_features(df, cutoff_mode) if use_style else (np.zeros((len(df), 0)),) * 2
+    sup = market_supremacy(df)                     # dla wariantow z supremacy=True (kurs sprzed meczu, bez wycieku)
+
+    def cov(v, ix):
+        st = use_style and v.get("style", True)
+        h = sh[ix] if st else np.zeros((len(sh[ix]) if np.ndim(sh[ix]) == 2 else 0, 0))
+        a = sa[ix] if st else np.zeros_like(h)
+        if v.get("supremacy"):
+            sx = sup[ix]
+            h = np.column_stack([h, sx]) if np.ndim(h) == 2 else np.r_[h, sx]
+            a = np.column_stack([a, -sx]) if np.ndim(a) == 2 else np.r_[a, -sx]
+        if np.ndim(h) == 2 and h.shape[1] == 0:
+            return None, None
+        if np.ndim(h) == 1 and len(h) == 0:
+            return None, None
+        return h, a
     cut = pd.Series([pd.Timestamp(prediction_cutoff(x, cutoff_mode)) for x in d], index=df.index)
     tgt = df.index[(d >= pd.Timestamp(start)) & (d <= pd.Timestamp(end)) & has_c]
     rows, warm_g, warm = [], None, {}
@@ -104,26 +119,33 @@ def run_league(df: pd.DataFrame, start, end, half_life: float = 365.0, ridge: fl
                 fits[name] = replace(a, g_trail=b.g_trail, g_lead=b.g_lead, r=b.r, sigma=b.sigma, p1=b.p1,
                                      state=True, normalize_state=True)
                 continue
-            st = use_style and v.get("style", True)
             m = trc.to_numpy()
+            ch_, ca_ = cov(v, m)
             S, _ = fit_corners(df[trc], c, half_life, v.get("ridge", ridge), state=v["state"],
-                               frailty=v["frailty"], cov_h=sh[m] if st else None, cov_a=sa[m] if st else None,
-                               warm=warm.get(name))
+                               frailty=v["frailty"], cov_h=ch_, cov_a=ca_,
+                               warm=warm.get(name), fixed_gamma=v.get("fixed_gamma"))
             warm[name] = fits[name] = S
         for i in idx:
             r = df.loc[i]
             mh, ma = G.rates(r["home"], r["away"])
             gm = matrix(g_var, mh, ma, g_extra)
             for name, S in fits.items():
-                st = use_style and variants[name].get("style", True)
-                out = corner_distribution(S, r["home"], r["away"], gm, sh[i] if st else None,
-                                          sa[i] if st else None, n_sims=n_sims, seed=int(i))
+                xh_, xa_ = cov(variants[name], i)
+                out = corner_distribution(S, r["home"], r["away"], gm, xh_, xa_, n_sims=n_sims, seed=int(i))
                 rows.append(dict(event_id=r["event_id"], league=lg, season=r["season"], date=r["date"],
                                  variant=name, hc=r["hc"], ac=r["ac"], mu_h=out["mu_h"], mu_a=out["mu_a"],
                                  g_trail=S.g_trail, g_lead=S.g_lead, r=S.r, sigma=S.sigma,
                                  home=r["home"], away=r["away"], **over_probs(out["joint"]),
                                  **match_losses(out["joint"], r["hc"], r["ac"])))
     return pd.DataFrame(rows)
+
+
+def market_supremacy(df: pd.DataFrame) -> np.ndarray:
+    """log(p_gospodarz / p_gosc) z kursu 1X2 W CHWILI TYPU (Bet365 sprzed meczu, marza metoda Shina); brak = 0."""
+    from typer.betting.devig import devig_rows
+    P = devig_rows(df[["odds_h", "odds_d", "odds_a"]].to_numpy(float), "shin")
+    s = np.log(P[:, 0] / P[:, 2])
+    return np.nan_to_num(s, nan=0.0)
 
 
 def over_probs(P: np.ndarray, lines=(6.5, 7.5, 8.5, 9.5, 10.5, 11.5, 12.5, 13.5)) -> dict:

@@ -1,0 +1,24 @@
+{
+ "liga": "E0",
+ "sezon": "2425",
+ "mecze_z_kursem": 379,
+ "dopasowane": 379,
+ "ocenione": 379,
+ "niedopasowane_nazwy": [],
+ "linie": {
+  "10.5": 261,
+  "11.5": 65,
+  "9.5": 49,
+  "12.5": 4
+ },
+ "metoda_marzy": "power",
+ "ll_model": 0.6944689402854731,
+ "ll_rynek": 0.6874006636847343,
+ "roznica_model_minus_rynek": 0.007068276600738864,
+ "ci95": [
+  -0.007178430084101172,
+  0.02162035234888422
+ ],
+ "ece_model": 0.07746337694390157,
+ "ece_rynek": 0.0530011177660204
+}
