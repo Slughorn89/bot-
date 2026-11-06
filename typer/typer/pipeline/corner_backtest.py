@@ -121,8 +121,16 @@ def run_league(df: pd.DataFrame, start, end, half_life: float = 365.0, ridge: fl
                 rows.append(dict(event_id=r["event_id"], league=lg, season=r["season"], date=r["date"],
                                  variant=name, hc=r["hc"], ac=r["ac"], mu_h=out["mu_h"], mu_a=out["mu_a"],
                                  g_trail=S.g_trail, g_lead=S.g_lead, r=S.r, sigma=S.sigma,
+                                 home=r["home"], away=r["away"], **over_probs(out["joint"]),
                                  **match_losses(out["joint"], r["hc"], r["ac"])))
     return pd.DataFrame(rows)
+
+
+def over_probs(P: np.ndarray, lines=(6.5, 7.5, 8.5, 9.5, 10.5, 11.5, 12.5, 13.5)) -> dict:
+    """P(suma rożnych > linia) dla porownan z rynkiem (linie bukmachera roznia sie miedzy meczami)."""
+    tot = total_pmf(P)
+    k = np.arange(len(tot))
+    return {f"p_over_{ln:g}": float(tot[k > ln].sum()) for ln in lines}
 
 
 def _job(args):
