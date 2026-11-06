@@ -21,6 +21,13 @@ challengers:
       MODUL 6 2026-11-05: marza Shina/potegowa w blendzie, kalibracja per rynek i liga wybrana po ECE
       (calibration_m6). Walidacja: J -0.00072 (CI95 -0.00145..+0.00001) vs champion, ECE 1X2 0.0091 vs 0.0099;
       holdout (drugie spojrzenie): +0.00016 (CI95 -0.00136..+0.00176). Tylko test w cieniu.
+  - version: op-v1-xg
+    layers: online+blend+cal
+    real_xg: true               # xG z kopii TheStatsAPI (features/real_xg.py); brak = przyblizenie ze strzalow
+    online_poisson: {w_xg: 0.4}
+    changes: >-
+      2026-11-06 (wpisy 32-33): prawdziwe xG zamiast przyblizenia ze strzalow, w_xg 0.4. Poza E0 (czysty
+      test wagi, 3146 meczow): J -0.0028 (CI95 -0.0044..-0.0012); holdout E0 -0.0032 (n.s., 400 meczow).
 online_poisson:
   lr_team: 0.014336
   lr_home: 0.0026667

@@ -324,6 +324,12 @@ Wyniki (walidacja 2018/19 do 2024/25, `backtest/calibration/m6.json`, experiment
 Pobranie sezonu: `python backtest/statsapi/fetch_season.py E0 24/25`. Eksperymenty: `state_effect.py` (efekt stanu
 gry w obrębie meczu) i `corner_market.py` (model rożnych kontra zamknięcie Bet365), experiments.md wpisy 29 do 31.
 
+Prawdziwe xG: `typer/features/real_xg.py` dołącza xG z lokalnej kopii do meczów (po nazwach drużyn i dacie).
+xG meczu wchodzi tylko do aktualizacji ocen po meczu, więc nie ma wycieku. Challenger `op-v1-xg` (w_xg 0,4)
+typuje z nim w cieniu: na 5 ligach, na których wagi nie dobierano, J −0,0028 (CI95 −0,0044 do −0,0012),
+wpisy 32 i 33. Test: `python backtest/statsapi/xg_real.py [--holdout] [LIGA ...]`. Ograniczenie: xG nowych meczów
+trzeba dociągać (backlog 13), bez tego silnik wraca do przybliżenia ze strzałów.
+
 ### OddsRelay (kursy UK i giełdy)
 
 `typer/ingest/oddsrelay.py` i adapter `oddsrelay`:

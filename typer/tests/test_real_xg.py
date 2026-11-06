@@ -26,3 +26,9 @@ def test_attach_without_cache_gives_nan():
     df = pd.DataFrame(dict(league=["XX"], home=["A"], away=["B"], date=[dt.date(2024, 1, 1)]))
     out, _ = attach(df, {"XX": pd.DataFrame(columns=["src_home", "src_away", "kickoff_utc", "xg_h", "xg_a"])})
     assert out["xg_h"].isna().all()
+
+
+def test_polish_l_with_stroke_is_not_dropped():
+    from typer.entities.mapping import resolve
+    assert resolve("ŁKS Łódź", ["LKS Lodz", "Widzew Lodz"]).canonical == "LKS Lodz"
+    assert resolve("Jagiellonia Białystok", ["Jagiellonia", "Legia"]).canonical == "Jagiellonia"

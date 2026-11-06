@@ -52,14 +52,23 @@ ALIASES = {
     "saint etienne": "St Etienne", "as saint-etienne": "St Etienne",
     "legia warszawa": "Legia", "legia warsaw": "Legia", "lech poznan": "Lech Poznan",
     "rakow czestochowa": "Rakow", "jagiellonia bialystok": "Jagiellonia",
+    "mks korona kielce": "Korona Kielce", "miedz legnica": "Legnica", "puszcza niepolomice": "Puszcza",
+    "zaglebie lubin": "Zaglebie", "lks lodz": "LKS Lodz", "coventry city": "Coventry", "hull city": "Hull",
+    "rodez af": "Rodez", "usl dunkerque": "Dunkerque",
 }
+
+
+def _ascii(name: str) -> str:
+    """Do ASCII; litery bez rozkladu NFKD (np. polskie l z kreska) zamieniane recznie, nie gubione."""
+    name = name.translate(str.maketrans({"ł": "l", "Ł": "L", "ø": "o", "Ø": "O", "ß": "ss", "đ": "d"}))
+    return unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
 
 STOP = {"fc", "cf", "afc", "sc", "ac", "as", "ssc", "us", "rc", "cd", "ud", "sd", "club", "de",
         "calcio", "1.", "ks", "the"}
 
 
 def normalize(name: str) -> str:
-    s = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().lower()
+    s = _ascii(name).lower()
     s = re.sub(r"[^a-z0-9' ]+", " ", s)
     return " ".join(t for t in s.split() if t not in STOP)
 
@@ -78,7 +87,7 @@ def resolve(raw: str, candidates: list[str], manual: dict[str, str] | None = Non
         return Match(raw, manual[raw], 1.0, "manual")
     if raw in candidates:
         return Match(raw, raw, 1.0, "auto")
-    key = unicodedata.normalize("NFKD", raw).encode("ascii", "ignore").decode().lower().strip()
+    key = _ascii(raw).lower().strip()
     if key in ALIASES and ALIASES[key] in candidates:
         return Match(raw, ALIASES[key], 1.0, "alias")
     n = normalize(raw)

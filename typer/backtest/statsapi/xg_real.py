@@ -25,6 +25,7 @@ VAL = ("2023-07-01", "2025-06-30")
 HOLD = ("2025-07-01", "2099-12-31")
 WEIGHTS = (0.2, 0.4, 0.6)
 CANDIDATE = "xg_prawdziwe_w0.4"
+DIFFS: dict = {}            # liga -> wariant -> roznice J per mecz (do lacznego CI)
 
 
 def attach(df: pd.DataFrame, lg: str):
@@ -48,6 +49,7 @@ def evaluate(d: pd.DataFrame, window) -> dict:
     ref = J["champion_proxy"]
     if not len(ref):
         return {}
+    DIFFS[d["league"].iloc[0]] = {k: (v.loc[ref.index] - ref).to_numpy() for k, v in J.items() if k != "champion_proxy"}
     return dict(n=int(len(ref)), J={k: float(v.mean()) for k, v in J.items()},
                 roznica_vs_champion={k: paired_diff_ci((v.loc[ref.index] - ref).to_numpy())
                                      for k, v in J.items() if k != "champion_proxy"})
@@ -73,11 +75,10 @@ if __name__ == "__main__":
         c = r.get("roznica_vs_champion", {}).get(CANDIDATE)
         print(lg, "n", r.get("n"), "pokrycie", round(r["pokrycie_xg_w_oknie"], 3),
               "kandydat", c and round(c["mean"], 5), c and tuple(round(x, 5) for x in c["ci95"]), flush=True)
-    # razem: sklejone roznice per mecz nie sa dostepne po agregacji, wiec srednia wazona n (bez CI)
-    ok = {k: v for k, v in res["ligi"].items() if v.get("n")}
-    if ok:
-        res["razem_wazone_n"] = {w: sum(v["n"] * v["roznica_vs_champion"][w]["mean"] for v in ok.values())
-                                 / sum(v["n"] for v in ok.values()) for w in next(iter(ok.values()))["roznica_vs_champion"]}
+    import numpy as np
+    for name, lgs in (("razem", list(DIFFS)), ("poza_E0_test_wagi", [x for x in DIFFS if x != "E0"])):
+        if lgs:
+            res[name] = {w: paired_diff_ci(np.concatenate([DIFFS[x][w] for x in lgs])) for w in DIFFS[lgs[0]]}
     tag = "holdout" if hold else "walidacja"
     json.dump(res, open(f"backtest/statsapi/xg_real_{tag}.json", "w"), indent=1, default=float)
-    print(json.dumps(res.get("razem_wazone_n"), indent=1))
+    print(json.dumps({k: res.get(k) for k in ("razem", "poza_E0_test_wagi")}, indent=1, default=float))
