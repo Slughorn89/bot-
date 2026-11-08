@@ -478,3 +478,39 @@ def settle_day(engine: sa.Engine, as_of=None) -> dict:
     n_j = journal.update_journal(engine, s[s["role"] == "champion"]) if len(s) else 0
     n_clv = settle.record_clv(engine)
     return dict(settled=int(s["event_id"].nunique()) if len(s) else 0, journal=n_j, clv=n_clv)
+
+
+def history(weeks: int = 3, today=None, matches: pd.DataFrame | None = None) -> dict:
+    """Symulacja wstecz (cli.py history): jak champion typowalby zakonczone mecze z ostatnich `weeks` tygodni.
+    Model online widzi tylko mecze sprzed dnia typu, warstwy (kalibracja) ucza sie na meczach sprzed okna.
+    Kursy: przedmeczowe z football-data.co.uk (te same co w backtescie), nie z chwili 90 min przed meczem.
+    Nic nie trafia do bazy."""
+    today = pd.Timestamp(today).date() if today else datetime.now(timezone.utc).date()
+    start = today - timedelta(days=7 * weeks)
+    hist = matches if matches is not None else load_matches()
+    hist = hist[hist["date"] < today]
+    v = variants()[0]
+    eng = Engine(_params_for(v), cutoff_mode="day", collect_features=True)
+    frame = eng.run(hist, predict_from="2008-07-01")
+    d = pd.to_datetime(frame["date"]).dt.date
+    past, tgt = frame[d < start], frame[(d >= start) & frame["fthg"].notna()]
+    if tgt.empty:
+        return dict(od=str(start), do=str(today), typy=[], mecze=0)
+    tgt = L.live_apply(past, tgt, LAYER_SETS[v["layers"]])
+    cfg = model_cfg()
+    tips = []
+    for day, g in tgt.groupby(pd.to_datetime(tgt["date"]).dt.date):
+        cands = []
+        for r in g.itertuples(index=False):
+            p1 = np.array([r.p_h, r.p_d, r.p_a]) / (r.p_h + r.p_d + r.p_a)
+            for mkt, sel, p, o in (("1X2", "1", p1[0], r.odds_h), ("1X2", "X", p1[1], r.odds_d),
+                                   ("1X2", "2", p1[2], r.odds_a), ("OU2.5", "over2.5", r.p_over, r.odds_o25),
+                                   ("OU2.5", "under2.5", 1 - r.p_over, r.odds_u25)):
+                if mkt in cfg["bet_markets"] and pd.notna(o):
+                    cands.append(dict(event_id=r.event_id, market=mkt, selection=sel, p=float(p), odds=float(o),
+                                      data=str(day), league=r.league, home=r.home, away=r.away,
+                                      fthg=int(r.fthg), ftag=int(r.ftag)))
+        for c in select_and_stake(cands, Limits(), cfg["kelly_fraction"], cfg["value_threshold"], cfg["tax_rate"]):
+            c["trafiony"] = settle.outcome(c["market"], c["selection"], c["fthg"], c["ftag"])
+            tips.append(c)
+    return dict(od=str(start), do=str(today - timedelta(days=1)), typy=tips, mecze=int(tgt["event_id"].nunique()))

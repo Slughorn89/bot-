@@ -245,6 +245,38 @@ def render_preview(preds, chosen: list[dict], tz: str, limit: int = 25) -> list[
     return out
 
 
+def render_history(h: dict) -> list[str]:
+    """Symulacja wstecz (cli.py history): bilans i lista typow z wynikami."""
+    tips = h.get("typy", [])
+    head = [f"TYPY WSTECZ {h['od']} .. {h['do']} (symulacja)",
+            "Model widział tylko mecze sprzed dnia typu. Kursy przedmeczowe z football-data.co.uk, "
+            "nie z chwili typu, więc wynik jest przybliżony.", ""]
+    if not tips:
+        return ["\n".join(head + [f"Rozegrane mecze: {h.get('mecze', 0)}, brak typów z przewagą powyżej progu."])]
+    n, hit = len(tips), sum(1 for t in tips if t["trafiony"] == 1)
+    flat = sum((t["odds"] - 1) if t["trafiony"] == 1 else -1 for t in tips)
+    kelly = sum(t["stake_frac"] * ((t["odds"] - 1) if t["trafiony"] == 1 else -1) for t in tips) * 100
+    head += [f"Rozegrane mecze: {h.get('mecze', 0)}, typy: {n}, trafione: {hit} ({hit / n:.0%})",
+             f"Stała stawka 10 zł na typ: {flat * 10:+.2f} zł (ROI {flat / n:+.1%})",
+             f"Stawki typera (Kelly): {kelly:+.2f} j (1 j = 1% bankrolla)",
+             "Kilka tygodni to za mało, żeby ocenić typera: o przewadze mówi dopiero CLV na setkach typów.", ""]
+    lines = []
+    for t in tips:
+        mark = "✅" if t["trafiony"] == 1 else "❌"
+        lines.append(f"{t['data'][8:10]}.{t['data'][5:7]} {t['league']} {t['home']} - {t['away']} "
+                     f"{t['fthg']}:{t['ftag']}\n  {mark} {t['market']} {t['selection']} kurs {fmt.odds(t['odds'])} "
+                     f"| p {fmt.p(t['p'])} | przewaga {fmt.pct(t['edge'])}")
+    m = "\n".join(head + lines)
+    out = []
+    while len(m) > TG_LIMIT:
+        cut = m.rfind("\n", 0, TG_LIMIT)
+        cut = cut if cut > 0 else TG_LIMIT
+        out.append(m[:cut])
+        m = m[cut:].lstrip("\n")
+    out.append(m)
+    return out
+
+
 # ----------------------------------------------------------------- HTML
 CSS = """
 body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#101828;background:#fff;
