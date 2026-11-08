@@ -69,7 +69,7 @@ oddsrelay:
   limit_na_minute: 20
   region: uk
   bukmacherzy_typ: [bet365]
-  gieldy_zamkniecie: [betfair_exchange]
+  gieldy_zamkniecie: [betfair_exchange]   # tylko w snapshocie raw; archiwum zamkniec gield nie ma (403)
   dostepne_w_srodowisku: true    # host odpowiada; bez klucza 401
 
 api_football:

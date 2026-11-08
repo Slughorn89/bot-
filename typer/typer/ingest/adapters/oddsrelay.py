@@ -3,6 +3,8 @@
 available_at:
   * snapshot /v2/odds/raw: chwila snapshotu (kurs jest publiczny i aktualny wtedy, kiedy go widzimy);
     mecz trwajacy pomijamy; do 10 min przed startem kind = "close", wczesniej "taken",
+  * gielda w snapshocie raw (Betfair) do 10 min przed startem = zamkniecie gieldy do CLV; archiwum
+    OddsRelay ma tylko bukmacherow (403 exchange_history_unavailable dla gield),
   * zamkniecie /v2/historical/closing: close_at (ostatnia cena przed startem). Cena z close_at po starcie
     to cena w trakcie meczu, a nie zamkniecie: odrzucana (licznik self.skipped).
 Gielda (betfair_exchange, matchbook, smarkets): kurs zamkniecia = srodek miedzy "za" i "przeciw"
@@ -46,6 +48,22 @@ def _selection(market: str, o: dict, home: str, away: str):
         line = float(o["point"])
         return f"OU{line:g}", f"{o['name'].lower()}{line:g}", line
     return None
+
+
+def _level(v, side: str):
+    """Cena z liczby albo z listy poziomow [{price, ...}]: back = najwyzsza, lay = najnizsza."""
+    if isinstance(v, (int, float)):
+        return float(v)
+    prices = [float(x["price"]) for x in v or [] if isinstance(x, dict) and x.get("price")]
+    return (max(prices) if side == "back" else min(prices)) if prices else None
+
+
+def live_exchange_price(o: dict) -> float | None:
+    """Srodek back/lay z wyniku gieldy w feedzie na zywo (pola back_price/lay_price albo listy back/lay).
+    Ksztalt wziety z dokumentacji feedow matched; bez lay nie zgadujemy (None)."""
+    back = o.get("back_price") if o.get("back_price") is not None else _level(o.get("back"), "back")
+    lay = o.get("lay_price") if o.get("lay_price") is not None else _level(o.get("lay"), "lay")
+    return exchange_mid(back, lay)
 
 
 def exchange_mid(back, lay) -> float | None:
@@ -108,7 +126,8 @@ class OddsRelay(Adapter):
                                 continue
                             price, avail, kind = rec
                         else:
-                            price, avail = o.get("price"), snap
+                            price = live_exchange_price(o) if bk["key"] in EXCHANGES else o.get("price")
+                            avail = snap
                             kind = "close" if ko - snap <= CLOSE_WINDOW else "taken"
                         if not price or price <= 1:
                             continue
