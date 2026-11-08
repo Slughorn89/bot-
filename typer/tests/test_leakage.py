@@ -1,4 +1,5 @@
 """Podroz w czasie i potasowane etykiety (sekcja 12): ochrona przed wyciekiem danych."""
+import os
 import numpy as np
 import pandas as pd
 
@@ -96,8 +97,9 @@ def _evaluate_market(frame, tmp_path):
     mkt.to_csv(csv, index=False)
     root = Path(__file__).resolve().parent.parent
     p = subprocess.run([sys.executable, str(root / "tools" / "evaluate.py"), str(csv), "--json", str(js)],
-                       capture_output=True, text=True)
-    rep = json.loads(js.read_text())
+                       capture_output=True, text=True, encoding="utf-8",
+                       env={**os.environ, "PYTHONUTF8": "1"})
+    rep = json.loads(js.read_text(encoding="utf-8"))
     return p.returncode, {g["bramka"]: g["wynik"] for g in rep["bramki"]}
 
 

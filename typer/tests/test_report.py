@@ -12,12 +12,12 @@ FIX = Path(__file__).parent / "fixtures"
 
 @pytest.fixture
 def payload():
-    return json.loads((FIX / "report_payload.json").read_text())
+    return json.loads((FIX / "report_payload.json").read_text(encoding="utf-8"))
 
 
 def test_snapshot_cli(payload):
     """Raport z zamrozonego JSON-a daje identyczny tekst. Zmiana szablonu = swiadoma aktualizacja pliku."""
-    assert render.render_cli(payload) + "\n" == (FIX / "report_cli.txt").read_text()
+    assert render.render_cli(payload) + "\n" == (FIX / "report_cli.txt").read_text(encoding="utf-8")
 
 
 def test_cli_szerokosc_i_bez_ansi(payload):

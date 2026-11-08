@@ -15,7 +15,7 @@ sd = split_dates()
 df = load_matches(extended=True)
 if len(sys.argv) > 2:
     hls, ridges = [float(x) for x in sys.argv[1].split(",")], [float(x) for x in sys.argv[2].split(",")]
-    out = json.load(open("backtest/corners/grid.json"))
+    out = json.load(open("backtest/corners/grid.json", encoding="utf-8"))
 else:
     hls, ridges, out = [180, 365, 730], [3.0, 10.0, 30.0], []
 for hl, ridge, style in itertools.product(hls, ridges, [False, True]):
@@ -28,4 +28,4 @@ for hl, ridge, style in itertools.product(hls, ridges, [False, True]):
                sek=round(time.time() - t))
     print(row, flush=True)
     out.append(row)
-    json.dump(out, open("backtest/corners/grid.json", "w"), indent=1)
+    json.dump(out, open("backtest/corners/grid.json", "w", encoding="utf-8"), indent=1)

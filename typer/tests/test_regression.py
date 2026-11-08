@@ -21,7 +21,7 @@ def test_metryki_walidacji_nie_gorsze():
     from typer.pipeline.data import load_matches
     from typer.pipeline.engine import Engine
     from typer.pipeline.layers import metrics
-    ref = json.loads(REF.read_text())
+    ref = json.loads(REF.read_text(encoding="utf-8"))
     if config.sources()["xgabora"]["ref"] != ref["data_ref"]:
         pytest.skip("inny commit danych niz w referencji: przelicz referencje i opisz w experiments.md")
     start, end = ref["okres"].split("..")

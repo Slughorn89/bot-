@@ -1,4 +1,5 @@
 """End to end na malym zbiorze testowym: pobranie, predykcja, zaklady, rozliczenie, raport, evaluate.py."""
+import os
 import json
 import subprocess
 import sys
@@ -54,9 +55,10 @@ def test_pelny_cykl(patched, tmp_engine, synth, tmp_path):
     df = settle.export_preds(tmp_engine, csv)
     assert len(df) == total_preds // len(daily.variants())  # eksport championa
     p = subprocess.run([sys.executable, str(ROOT / "tools" / "evaluate.py"), str(csv),
-                        "--json", str(tmp_path / "r.json")], capture_output=True, text=True)
+                        "--json", str(tmp_path / "r.json")], capture_output=True, text=True, encoding="utf-8",
+                       env={**os.environ, "PYTHONUTF8": "1"})
     assert p.returncode in (0, 1, 2), p.stderr
-    rep_json = json.loads((tmp_path / "r.json").read_text())
+    rep_json = json.loads((tmp_path / "r.json").read_text(encoding="utf-8"))
     assert rep_json["zdarzenia"] > 0
     # za mala proba: bramka "proba" musi to zglosic, a nie przepuscic
     assert any(g["bramka"] == "proba" and g["wynik"] == "BLAD" for g in rep_json["bramki"])
@@ -72,8 +74,9 @@ def test_evaluate_odroznia_model_od_szumu(synth, tmp_path):
     csv = tmp_path / "p.csv"
     preds.to_csv(csv, index=False)
     p = subprocess.run([sys.executable, str(ROOT / "tools" / "evaluate.py"), str(csv), "--json",
-                        str(tmp_path / "r.json")], capture_output=True, text=True)
-    rep_json = json.loads((tmp_path / "r.json").read_text())
+                        str(tmp_path / "r.json")], capture_output=True, text=True, encoding="utf-8",
+                       env={**os.environ, "PYTHONUTF8": "1"})
+    rep_json = json.loads((tmp_path / "r.json").read_text(encoding="utf-8"))
     gates = {g["bramka"]: g["wynik"] for g in rep_json["bramki"]}
     assert gates["lepszy_od_baseline"] == "OK"
     assert gates["spojnosc_prawdopodobienstw"] == "OK"

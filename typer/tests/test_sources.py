@@ -96,7 +96,7 @@ def test_sklady_trafiaja_do_bazy_z_mapowaniem(monkeypatch, tmp_engine, synth, tm
     fx[["fthg", "ftag"]] = float("nan")
     db.store_matches(tmp_engine, fx)
     r = fx.iloc[0]
-    sub = lambda name: (FIX / name).read_text().replace("HOME_PLACEHOLDER", r["home"].upper()).replace(
+    sub = lambda name: (FIX / name).read_text(encoding="utf-8").replace("HOME_PLACEHOLDER", r["home"].upper()).replace(
         "AWAY_PLACEHOLDER", r["away"]).encode()
     files = {"/fixtures": "apifootball_fixtures.json", "/injuries": "apifootball_injuries.json",
              "/fixtures/lineups": "apifootball_lineups.json"}

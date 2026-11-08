@@ -42,7 +42,7 @@ def evaluate_window(engine: sa.Engine, since, role: str = "champion") -> tuple[d
         code, txt = run_evaluate(csv, json_out=js, by="sport,league,market")
         if code == 3 or not js.exists():
             return dict(werdykt="ZLY PLIK (kontrakt danych)", blad=txt.strip()[-300:]), {}, df
-        rep = json.loads(js.read_text())
+        rep = json.loads(js.read_text(encoding="utf-8"))
         summ = dict(n=rep.get("zdarzenia"), ll=rep.get("ll_model"), ece=rep.get("ece"), werdykt=rep.get("werdykt"),
                     zaklady=rep.get("zaklady") or {}, okres=rep.get("okres"))
         if "odds_close" in df.columns and df["odds_close"].notna().any():
@@ -117,7 +117,7 @@ def build_payload(engine: sa.Engine, day=None) -> dict:
     inne = []
     alerts_file = LIVE_DIR / "alerts.json"
     if alerts_file.exists():
-        for a in json.loads(alerts_file.read_text())[-5:]:
+        for a in json.loads(alerts_file.read_text(encoding="utf-8"))[-5:]:
             inne.append(dict(typ="źródło danych", segment="", od=a["ts"], info=a["msg"]))
     p["alarmy"] = render.alarmy(rep_ref.get("dryf", {}) if rep_ref else {}, inne)
     j = db.read_df(engine, "SELECT * FROM error_journal ORDER BY id DESC LIMIT 20")
@@ -179,9 +179,9 @@ def send(text: str, payload: dict) -> str:
     page = render.render_html_daily(payload)
     body = dict(payload, tekst=text, telegram=tg, html=page)
     stem = LIVE_DIR / f"report_{payload['data']}"
-    stem.with_suffix(".json").write_text(json.dumps(body, ensure_ascii=False, indent=1, default=str))
-    stem.with_suffix(".txt").write_text(text)
-    stem.with_suffix(".html").write_text(page)
+    stem.with_suffix(".json").write_text(json.dumps(body, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
+    stem.with_suffix(".txt").write_text(text, encoding="utf-8")
+    stem.with_suffix(".html").write_text(page, encoding="utf-8")
     url = config.env("N8N_WEBHOOK_URL")
     if not url:
         return f"zapisano {stem}.json/.txt/.html (brak N8N_WEBHOOK_URL)"
