@@ -7,7 +7,7 @@ import requests
 
 from tests.samples import payloads
 from typer.ingest.core import adapter as A
-from typer.ingest.core.http import HttpClient, SourceUnavailable
+from typer.ingest.core.http import HttpClient, QuotaExhausted, SourceUnavailable
 from typer.ingest.core.ratelimit import TokenBucket
 from typer.ingest.core.records import MatchEvent, RefereeAssignment, TeamMatchStats
 from typer.ingest.schema import ContractError
@@ -84,6 +84,38 @@ def test_bledy_trwale_bez_ponawiania(tmp_path):
     with pytest.raises(SourceUnavailable, match="404"):
         c.get("http://x", "c.bin")
     assert sleeps == [] and c.session.calls == 1
+
+
+class JsonResp(FakeResp):
+    def json(self):
+        return json.loads(self.content)
+
+
+def test_402_brak_tokenow_bez_ponawiania_i_bez_cache(tmp_path):
+    body = b'{"error": {"code": "insufficient_tokens"}}'
+    hdr = {"X-Tokens-Remaining": "0", "X-Tokens-Reset": "2026-12-01T00:00:00Z"}
+    c, sleeps = _client(tmp_path, [JsonResp(402, body, hdr)])
+    with pytest.raises(QuotaExhausted, match="insufficient_tokens.*zostalo 0"):
+        c.get("http://x", "q.bin", max_age_hours=None)  # cache bezterminowy jak w archiwum zamkniec
+    assert sleeps == [] and c.session.calls == 1
+    assert not (tmp_path / "test" / "q.bin").exists()  # blad nie trafil do cache
+    # po resecie tokenow kolejne wywolanie naprawde pyta zrodlo i dostaje dane
+    c2, _ = _client(tmp_path, [FakeResp(200, b"kursy")])
+    assert c2.get("http://x", "q.bin", max_age_hours=None).content == b"kursy"
+
+
+@pytest.mark.parametrize("status", [400, 402, 405, 422])
+def test_inne_4xx_trwale_i_bez_cache(tmp_path, status):
+    c, sleeps = _client(tmp_path, [FakeResp(status, b"blad")])
+    with pytest.raises(SourceUnavailable, match=str(status)):
+        c.get("http://x", f"s{status}.bin")
+    assert sleeps == [] and c.session.calls == 1
+    assert not (tmp_path / "test" / f"s{status}.bin").exists()
+
+
+def test_408_ponawiany(tmp_path):
+    c, sleeps = _client(tmp_path, [FakeResp(408), FakeResp(200, b"ok")])
+    assert c.get("http://x", "t.bin").content == b"ok" and len(sleeps) == 1
 
 
 def test_odmowa_proxy_bez_ponawiania_i_stary_cache(tmp_path):
