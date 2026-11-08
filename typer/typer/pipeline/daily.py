@@ -319,18 +319,19 @@ def betfair_close(engine: sa.Engine, now: datetime | None = None, window_min: in
                 betfair=sum(r["bookmaker"] == "betfair_exchange" for r in rows), pending=pending_total)
 
 
-def predict(engine: sa.Engine, as_of=None, role: str | None = None, lead_minutes: int | None = None
-            ) -> pd.DataFrame:
+def predict(engine: sa.Engine, as_of=None, role: str | None = None, lead_minutes: int | None = None,
+            dry: bool = False) -> pd.DataFrame:
     """Predykcje dla terminarza: champion i challengerzy. Dopisywane, nigdy nadpisywane.
     lead_minutes: na zywo typujemy tylko mecze startujace w ciagu N minut (po skladach, 60-90 min
     przed meczem). Bez tego: wszystkie mecze z dnia as_of / najblizszych 3 dni.
-    role: ogranicz do jednej roli (champion albo challenger); domyslnie obie."""
+    role: ogranicz do jednej roli (champion albo challenger); domyslnie obie.
+    dry: podglad (cli.py preview): nic nie zapisuje do bazy, wiec nie blokuje wlasciwego typu przed meczem."""
     today = pd.Timestamp(as_of).date() if as_of else datetime.now(timezone.utc).date()
     vs = [v for v in variants() if role is None or v["role"] == role]
     registry = db.read_df(engine, "SELECT version FROM model_registry")
     known = set(registry["version"]) if len(registry) else set()
     for v in vs:
-        if v["version"] not in known:
+        if v["version"] not in known and not dry:
             register(engine, v["version"], v["role"], _params_for(v).to_dict(),
                      "pierwsze wdrozenie" if v["role"] == "champion" else v["changes"],
                      drift_reference_date=str(today))
@@ -358,9 +359,10 @@ def predict(engine: sa.Engine, as_of=None, role: str | None = None, lead_minutes
         eng, frame = frames[pkey]
         tgt = frame[frame["fthg"].isna()]
         past_fr = frame[frame["fthg"].notna()]
-        _audit(engine, eng, tgt, v["version"], now)
+        if not dry:
+            _audit(engine, eng, tgt, v["version"], now)
         tgt = L.live_apply(past_fr, tgt, LAYER_SETS[v["layers"]])
-        out.append(_write_predictions(engine, tgt, v["version"], v["role"], now, as_of))
+        out.append(_write_predictions(engine, tgt, v["version"], v["role"], now, as_of, dry=dry))
     return pd.concat(out, ignore_index=True) if out else pd.DataFrame()
 
 
@@ -379,9 +381,10 @@ def _audit(engine, eng, tgt, version, now) -> None:
     db.append(engine, db.ratings_history, snap)
 
 
-def _write_predictions(engine, tgt, version, role, now, as_of) -> pd.DataFrame:
-    existing = db.read_df(engine, "SELECT event_id, market, selection FROM predictions "
-                                  "WHERE model_version = :v AND role = :r", v=version, r=role)
+def _write_predictions(engine, tgt, version, role, now, as_of, dry: bool = False) -> pd.DataFrame:
+    existing = pd.DataFrame() if dry else db.read_df(
+        engine, "SELECT event_id, market, selection FROM predictions WHERE model_version = :v AND role = :r",
+        v=version, r=role)
     have = set(map(tuple, existing.to_numpy())) if len(existing) else set()
     rows = []
     for r in tgt.itertuples(index=False):
@@ -399,7 +402,10 @@ def _write_predictions(engine, tgt, version, role, now, as_of) -> pd.DataFrame:
                              p_baseline=float(b), model_version=version, role=role,
                              odds_taken=None if pd.isna(o) else float(o),
                              odds_source="b365_prematch" if as_of else "fixtures",
-                             predicted_utc=now, kickoff_utc=pd.Timestamp(r.kickoff_utc).to_pydatetime()))
+                             predicted_utc=now, kickoff_utc=pd.Timestamp(r.kickoff_utc).to_pydatetime(),
+                             league=r.league, home=r.home, away=r.away))
+    if dry:
+        return pd.DataFrame(rows)
     ids = db.append(engine, db.predictions, rows)
     for r, i in zip(rows, ids):
         r["id"] = i
@@ -439,6 +445,25 @@ def place_bets(engine: sa.Engine, preds: pd.DataFrame) -> pd.DataFrame:
                  paper=True) for x in chosen]
     db.append(engine, db.bets, rows)
     return pd.DataFrame(rows)
+
+
+def preview(engine: sa.Engine) -> tuple[pd.DataFrame, list[dict]]:
+    """Wstepne typy na najblizsze 3 dni BEZ zapisu: (predykcje championa, kandydaci z przewaga).
+    Nie ma tu jeszcze skladow ani kursu z chwili typu, wiec to tylko podglad."""
+    preds = predict(engine, role="champion", dry=True)
+    if preds.empty:
+        return preds, []
+    cfg = model_cfg()
+    c = preds[preds["odds_taken"].notna() & preds["market"].isin(cfg["bet_markets"])]
+    bank, peak = bankroll_state(engine)
+    chosen = []
+    for _, day in c.groupby(pd.to_datetime(c["kickoff_utc"], utc=True).dt.date):  # limit dzienny per dzien meczu
+        cands = [dict(event_id=r.event_id, market=r.market, selection=r.selection, p=r.p_model,
+                      odds=r.odds_taken, league=r.league, home=r.home, away=r.away, kickoff_utc=r.kickoff_utc)
+                 for r in day.itertuples(index=False)]
+        chosen += select_and_stake(cands, Limits(), cfg["kelly_fraction"], cfg["value_threshold"],
+                                   cfg["tax_rate"], bankroll=bank, peak=peak)
+    return preds, sorted(chosen, key=lambda x: pd.Timestamp(x["kickoff_utc"]))
 
 
 def settle_day(engine: sa.Engine, as_of=None) -> dict:

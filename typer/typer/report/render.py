@@ -207,6 +207,44 @@ def nowy_typ(t: dict) -> str:
             "Zakład papierowy: sprawdź kurs u siebie przed graniem.")
 
 
+def render_preview(preds, chosen: list[dict], tz: str, limit: int = 25) -> list[str]:
+    """Podglad (cli.py preview): kandydaci z przewaga i rozklad 1X2 kazdego meczu. Wyraznie wstepne."""
+    import pandas as pd
+    def godz(k):
+        return pd.Timestamp(k).tz_convert(tz).strftime("%d.%m %H:%M") if pd.Timestamp(k).tzinfo \
+            else pd.Timestamp(k).tz_localize("UTC").tz_convert(tz).strftime("%d.%m %H:%M")
+    head = ("WSTĘPNE TYPY (podgląd, bez składów)\nTo nie są zakłady. Właściwy typ przyjdzie ok. 90 min przed "
+            "meczem i może się różnić.")
+    m1 = [head, "", "Z przewagą przy obecnym kursie:"]
+    for c in chosen[:limit]:
+        m1.append(f"{godz(c['kickoff_utc'])} {c['league']} {c['home']} - {c['away']}\n  {c['market']} "
+                  f"{c['selection']} | kurs {fmt.odds(c['odds'])} (fair {fmt.odds(1 / c['p'])}) | "
+                  f"p {fmt.p(c['p'])} | przewaga {fmt.pct(c['edge'])}")
+    if not chosen:
+        m1.append("brak (albo nie ma jeszcze kursów na te mecze)")
+    m2 = ["Szanse według modelu (1 / X / 2):"]
+    if len(preds):
+        x = preds[preds["market"] == "1X2"].pivot_table(
+            index=["kickoff_utc", "league", "home", "away"], columns="selection", values="p_model").reset_index()
+        x = x.sort_values("kickoff_utc")
+        for _, d in x.head(limit).iterrows():
+            m2.append(f"{godz(d['kickoff_utc'])} {d['league']} {d['home']} - {d['away']}: "
+                      f"{fmt.p(d.get('1'))} / {fmt.p(d.get('X'))} / {fmt.p(d.get('2'))}")
+        if len(x) > limit:
+            m2.append(f"... i {len(x) - limit} kolejnych")
+    else:
+        m2.append("brak meczów w terminarzu na najbliższe 3 dni")
+    out = []
+    for m in ("\n".join(m1), "\n".join(m2)):
+        while len(m) > TG_LIMIT:
+            cut = m.rfind("\n", 0, TG_LIMIT)
+            cut = cut if cut > 0 else TG_LIMIT
+            out.append(m[:cut])
+            m = m[cut:].lstrip("\n")
+        out.append(m)
+    return out
+
+
 # ----------------------------------------------------------------- HTML
 CSS = """
 body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#101828;background:#fff;
