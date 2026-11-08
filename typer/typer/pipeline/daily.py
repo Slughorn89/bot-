@@ -257,6 +257,68 @@ def _params_for(v: dict):
     return replace(base, **v["params"])
 
 
+def betfair_close(engine: sa.Engine, now: datetime | None = None, window_min: int = 10, adapter=None) -> dict:
+    """Zamkniecie gieldy Betfair do CLV: snapshot OddsRelay /v2/odds/raw tylko dla lig, w ktorych jakis mecz
+    startuje w ciagu window_min minut i nie ma jeszcze zamkniecia z OddsRelay. Bez takich meczow nie ma
+    zadnego zapytania (zero tokenow). Archiwum OddsRelay nie ma gield, wiec to jedyne zrodlo zamkniecia Betfair.
+    Wiersze kind="close" trafiaja do odds_snapshots (source="oddsrelay"), skad bierze je settle.record_clv."""
+    from typer.entities.mapping import resolve_many
+    from typer.ingest.adapters.oddsrelay import OddsRelay, sport_key
+    now = now or datetime.now(timezone.utc)
+    ev = db.read_df(engine, "SELECT event_id, league, home, away, kickoff_utc FROM events WHERE status = 'scheduled'")
+    if ev.empty:
+        return dict(zapytania=0, zamkniecia=0)
+    ev["kickoff_utc"] = pd.to_datetime(ev["kickoff_utc"], utc=True)
+    have = set(db.read_df(engine, "SELECT DISTINCT event_id FROM odds_snapshots "
+                                  "WHERE source = 'oddsrelay' AND kind = 'close'")["event_id"])
+    ts = pd.Timestamp(now)
+    soon = ev[(ev["kickoff_utc"] > ts) & (ev["kickoff_utc"] <= ts + pd.Timedelta(minutes=window_min))
+              & ~ev["event_id"].isin(have)]
+    leagues = sorted(lg for lg in soon["league"].unique() if sport_key(lg))
+    if not leagues:
+        return dict(zapytania=0, zamkniecia=0)
+    ad = adapter or OddsRelay()
+    manual = db.read_df(engine, "SELECT league, raw_name, canonical FROM entity_map "
+                                "WHERE source = 'oddsrelay' AND status = 'manual'")
+    rows, calls, pending_total = [], 0, 0
+    for lg in leagues:
+        try:
+            recs = ad.records(leagues=[lg], mode="raw")
+            calls += 1
+        except SourceUnavailable as e:
+            alert(f"OddsRelay ({lg}, zamkniecie Betfair) niedostepne: {e}")
+            continue
+        recs = [r for r in recs if r.kind == "close"]
+        if not recs:
+            continue
+        evl = ev[ev["league"] == lg]
+        cands = sorted(set(evl["home"]) | set(evl["away"]))
+        man = dict(manual.loc[manual["league"] == lg, ["raw_name", "canonical"]].to_numpy())
+        mapping, pending = resolve_many([r.home for r in recs] + [r.away for r in recs], cands, man)
+        db.upsert(engine, db.entity_map,
+                  [dict(source="oddsrelay", league=lg, raw_name=k, canonical=v, score=1.0, status="auto")
+                   for k, v in mapping.items()] +
+                  [dict(source="oddsrelay", league=lg, raw_name=m.raw, canonical=m.canonical,
+                        score=m.score, status="pending") for m in pending],
+                  ["source", "league", "raw_name"], update=False)
+        pending_total += len(pending)
+        for r in recs:
+            h, a = mapping.get(r.home), mapping.get(r.away)
+            m = evl[(evl["home"] == h) & (evl["away"] == a)
+                    & ((evl["kickoff_utc"] - pd.Timestamp(r.kickoff_utc)).abs() <= pd.Timedelta(hours=6))]
+            if len(m) != 1:
+                continue
+            rows.append(dict(event_id=m["event_id"].iloc[0], source="oddsrelay", bookmaker=r.bookmaker,
+                             market=r.market, selection=r.selection, price=r.price, kind="close",
+                             snapshot_utc=r.available_at))
+    db.upsert(engine, db.odds_snapshots, rows,
+              ["event_id", "source", "bookmaker", "market", "selection", "snapshot_utc"], update=False)
+    if pending_total:
+        alert(f"{pending_total} nazw druzyn z OddsRelay czeka na reczne mapowanie (entity_map, status pending)")
+    return dict(zapytania=calls, zamkniecia=len(rows),
+                betfair=sum(r["bookmaker"] == "betfair_exchange" for r in rows), pending=pending_total)
+
+
 def predict(engine: sa.Engine, as_of=None, role: str | None = None, lead_minutes: int | None = None
             ) -> pd.DataFrame:
     """Predykcje dla terminarza: champion i challengerzy. Dopisywane, nigdy nadpisywane.

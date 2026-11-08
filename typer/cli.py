@@ -4,6 +4,7 @@
   python cli.py fetch    [--as-of RRRR-MM-DD]   historia + terminarz + kursy do bazy
   python cli.py snapshot                        kursy z The Odds API (typ / zamkniecie), w budzecie
   python cli.py lineups                         sklady i kontuzje z API-Football (tylko zbieranie)
+  python cli.py betfair-close                   zamkniecie Betfair z OddsRelay (cron co 5 min, zapytanie tylko przed meczem)
   python cli.py adapters                        rejestr adapterow warstwy danych (licencje, wlaczone)
   python cli.py ingest NAZWA [--param k=v]      adapter -> rekordy z available_at -> baza
   python cli.py budget                          zuzycie limitow API i szacunek kredytow
@@ -69,6 +70,12 @@ def cmd_ingest(a):
     recs = ad.records(**params)
     eng = _engine()
     print(dict(zapisane=store_records(eng, recs), audyt=store_audit(eng, ad.client.audit)))
+
+
+def cmd_betfair_close(a):
+    """Zamkniecie Betfair do CLV; zapytanie tylko, gdy mecz startuje w ciagu 10 min (cron co 5 min)."""
+    from typer.pipeline import daily
+    print(daily.betfair_close(_engine()))
 
 
 def cmd_lineups(a):
@@ -313,6 +320,7 @@ def main(argv=None):
     sub.add_parser("learn")
     sub.add_parser("snapshot", help="snapshot kursow z The Odds API (w chwili typu i zamkniecia)")
     sub.add_parser("lineups", help="sklady i kontuzje z API-Football (60-75 min przed meczem)")
+    sub.add_parser("betfair-close", help="zamkniecie Betfair z OddsRelay do CLV (tylko mecze w ciagu 10 min)")
     sub.add_parser("adapters", help="rejestr adapterow warstwy danych (modul 1)")
     p = sub.add_parser("ingest", help="pobierz przez adapter i zapisz rekordy (z available_at)")
     p.add_argument("name")
@@ -349,7 +357,7 @@ def main(argv=None):
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO if a.verbose else logging.WARNING,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    globals()[f"cmd_{a.cmd}"](a)
+    globals()[f"cmd_{a.cmd.replace('-', '_')}"](a)
 
 
 if __name__ == "__main__":
