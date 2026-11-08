@@ -98,3 +98,17 @@ def test_podglad_niczego_nie_zapisuje(patched, tmp_engine, synth):
     assert msgs[0].startswith("WSTĘPNE TYPY") and " / " in msgs[1]
     real = daily.predict(tmp_engine, as_of=d, role="champion")
     assert len(real) == len(preds)  # podglad nie zajal miejsca wlasciwej predykcji
+
+
+def test_typy_wstecz_bez_zapisu(patched, synth):
+    """cli.py history: symulacja na rozegranych meczach, wynik i bilans, bez bazy."""
+    from typer.report import render
+    daily, _ = patched
+    end = pd.Timestamp(max(synth["date"])) + pd.Timedelta(days=1)
+    h = daily.history(weeks=4, today=end, matches=synth)
+    assert h["mecze"] > 0
+    for t in h["typy"]:
+        assert pd.Timestamp(t["data"]) >= end - pd.Timedelta(days=28) and t["trafiony"] in (0, 1)
+        assert t["edge"] >= 0.05
+    msgs = render.render_history(h)
+    assert msgs[0].startswith("TYPY WSTECZ") and all(len(m) <= render.TG_LIMIT for m in msgs)
