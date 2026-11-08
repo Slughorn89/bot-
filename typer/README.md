@@ -26,7 +26,7 @@ Zbudowany według skilla *typer-sportowy*.
 | Sport i ligi | Piłka nożna: Premier League, Bundesliga, Serie A, La Liga, Ligue 1, Ekstraklasa |
 | Rynki | 1X2, O/U 2.5, BTTS (+ AH i inne linie O/U z tej samej macierzy) |
 | Źródła i budżet | Darmowe: football-data.co.uk (przez kopię na GitHubie, patrz niżej), The Odds API (darmowy plan) |
-| Wysyłka typów i raportów | JSON na webhook n8n (`N8N_WEBHOOK_URL`), który formatuje wiadomość na Telegram |
+| Wysyłka typów i raportów | Telegram Bot API (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`): raport o 7:30 i każdy nowy typ zaraz po `predict`; opcjonalnie JSON na webhook n8n (`N8N_WEBHOOK_URL`) |
 | Baza | PostgreSQL w produkcji (`DATABASE_URL`), SQLite domyślnie (prototyp i testy) |
 | Pieniądze | **Na razie tylko typowanie i paper trading** (`bets.paper = true`) |
 
@@ -374,7 +374,17 @@ Formaty liczb są w jednym miejscu: `typer/report/fmt.py`. Metryka z n < 100 dos
 * Dryf: progi detektora w `config/gates.yaml` (`drift.k`, `drift.h`); po kilku tygodniach na żywo policz fałszywe
   alarmy i w razie potrzeby podnieś `h`.
 
-### Webhook n8n
+### Telegram (bez n8n)
+
+1. W Telegramie napisz do `@BotFather`: `/newbot`, nazwa, nazwa użytkownika kończąca się na `bot`. Dostajesz token.
+2. Wpisz go do `.env`: `TELEGRAM_BOT_TOKEN=...` (tylko tam, nigdzie indziej).
+3. Otwórz swojego bota w Telegramie i naciśnij Start.
+4. `python cli.py telegram-setup`: znajduje `chat_id`, zapisuje go w `.env` i wysyła wiadomość testową.
+
+Potem `report --send` wysyła raport dzienny, a `predict` każdy nowy zakład papierowy jako osobną wiadomość
+(tryb `--as-of` nic nie wysyła). Błąd Telegrama nie zatrzymuje typowania: trafia do `live/alerts.json`.
+
+### Webhook n8n (opcjonalnie)
 
 `python cli.py report --send` wysyła POST z JSON-em na `N8N_WEBHOOK_URL`: dane raportu (`schema`, `typy`,
 `wczoraj`, `okna`, `segmenty`, `alarmy`, `wnioski`) plus gotowe widoki: `telegram` (lista wiadomości ≤ 4096 znaków),

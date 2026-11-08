@@ -172,7 +172,7 @@ def render_telegram(p: dict) -> list[str]:
                   f"fair {fmt.odds(t['kurs_fair'])} | kurs {fmt.odds(t['kurs'])} | przewaga {fmt.pct(t['przewaga'])} | "
                   f"stawka {fmt.stake(t['stawka'])}{moved}")
     if not sent:
-        m1.append("brak zakładów z przewagą powyżej progu")
+        m1.append("brak zakładów z przewagą powyżej progu (nowe typy przychodzą osobno, ok. 90 min przed meczem)")
     m2 = ["Wyniki"]
     w = p.get("wczoraj") or {}
     m2.append(f"Wczoraj: {w['typy']} typów, trafione {w['trafione']}, wynik {w['wynik_j']:+.2f} j"
@@ -197,6 +197,14 @@ def render_telegram(p: dict) -> list[str]:
             m = m[cut:].lstrip("\n")
         out.append(m)
     return out
+
+
+def nowy_typ(t: dict) -> str:
+    """Jedna wiadomosc Telegrama dla typu postawionego tuz przed meczem (ten sam uklad co w raporcie)."""
+    return (f"Nowy typ\n{t['godz']} {t['liga']} {t['mecz']}\n"
+            f"{t['rynek']} {t['selekcja']} | kurs {fmt.odds(t['kurs'])} (fair {fmt.odds(t['kurs_fair'])})\n"
+            f"p {fmt.p(t['p'])} | przewaga {fmt.pct(t['przewaga'])} | stawka {fmt.stake(t['stawka'])}\n"
+            "Zakład papierowy: sprawdź kurs u siebie przed graniem.")
 
 
 # ----------------------------------------------------------------- HTML

@@ -18,7 +18,7 @@ from typer import config
 from typer.learn import settle
 from typer.learn.champion import current
 from typer.pipeline.backtest import run_evaluate
-from typer.report import render
+from typer.report import render, telegram
 from typer.report.analysis import segment_significance, validate_preds
 from typer.store import db
 
@@ -172,8 +172,8 @@ def build(engine: sa.Engine, day=None) -> tuple[str, dict]:
 
 
 def send(text: str, payload: dict) -> str:
-    """Zapis lokalny (JSON, TXT, HTML) i POST na webhook n8n. n8n tylko wysyla gotowe wiadomosci
-    (pole telegram) i zalacznik HTML: zadnej logiki liczenia po stronie n8n."""
+    """Zapis lokalny (JSON, TXT, HTML), wysylka na Telegram (Bot API, gdy w .env jest TELEGRAM_BOT_TOKEN
+    i TELEGRAM_CHAT_ID) i opcjonalnie POST na webhook n8n. Zadnej logiki liczenia po stronie odbiorcow."""
     LIVE_DIR.mkdir(exist_ok=True)
     tg = render.render_telegram(payload)
     page = render.render_html_daily(payload)
@@ -182,9 +182,53 @@ def send(text: str, payload: dict) -> str:
     stem.with_suffix(".json").write_text(json.dumps(body, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
     stem.with_suffix(".txt").write_text(text, encoding="utf-8")
     stem.with_suffix(".html").write_text(page, encoding="utf-8")
+    done = [f"zapisano {stem}.json/.txt/.html"]
+    errors = []
+    if telegram.configured():
+        try:
+            done.append(f"Telegram: wyslano {telegram.send_messages(tg)} wiadomosci")
+        except telegram.TelegramError as e:
+            errors.append(f"Telegram: {e}")
     url = config.env("N8N_WEBHOOK_URL")
-    if not url:
-        return f"zapisano {stem}.json/.txt/.html (brak N8N_WEBHOOK_URL)"
-    r = requests.post(url, json=json.loads(json.dumps(body, default=str)), timeout=30)
-    r.raise_for_status()
-    return f"wyslano na webhook ({r.status_code}) i zapisano {stem}.json/.txt/.html"
+    if url:
+        r = requests.post(url, json=json.loads(json.dumps(body, default=str)), timeout=30)
+        r.raise_for_status()
+        done.append(f"wyslano na webhook ({r.status_code})")
+    if not url and not telegram.configured():
+        done.append("brak TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID i N8N_WEBHOOK_URL, nic nie wyslano")
+    if errors:  # raport zostaje na dysku, zadanie konczy sie bledem, wiec trafi do alarmow
+        raise RuntimeError("; ".join(done + errors))
+    return "; ".join(done)
+
+
+def bet_messages(engine: sa.Engine, bets: pd.DataFrame) -> list[str]:
+    """Wiadomosci "nowy typ" dla zakladow, ktore wlasnie postawil predict (ok. 90 min przed meczem)."""
+    if bets is None or bets.empty:
+        return []
+    ids = ",".join(str(int(i)) for i in bets["prediction_id"])
+    info = db.read_df(engine, f"""
+        SELECT p.id AS prediction_id, p.p_model, e.league, e.home, e.away, e.kickoff_utc
+        FROM predictions p JOIN events e ON e.event_id = p.event_id WHERE p.id IN ({ids})""")
+    b = bets.merge(info, on="prediction_id", how="left")
+    b["kickoff_utc"] = pd.to_datetime(b["kickoff_utc"], utc=True)
+    tz = config.sports()["football"]["timezone"]
+    out = []
+    for r in b.sort_values("kickoff_utc").itertuples(index=False):
+        godz = r.kickoff_utc.tz_convert(tz).strftime("%H:%M") if pd.notna(r.kickoff_utc) else "?"
+        out.append(render.nowy_typ(dict(godz=godz, liga=r.league, mecz=f"{r.home} - {r.away}", rynek=r.market,
+                                        selekcja=r.selection, p=float(r.p_model), kurs_fair=1 / float(r.p_model),
+                                        kurs=float(r.odds), przewaga=float(r.edge), stawka=float(r.stake_frac))))
+    return out
+
+
+def notify_bets(engine: sa.Engine, bets: pd.DataFrame) -> str:
+    """Nowe typy na Telegram. Blad wysylki nie psuje typowania: tylko alarm i komunikat."""
+    if not telegram.configured() or bets is None or bets.empty:
+        return ""
+    try:
+        n = telegram.send_messages(bet_messages(engine, bets))
+        return f"Telegram: wyslano {n} nowych typow"
+    except telegram.TelegramError as e:
+        from typer.pipeline.daily import alert
+        alert(f"nie wyslalem typow na Telegram: {e}")
+        return f"Telegram: blad ({e})"
