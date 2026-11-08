@@ -13,8 +13,10 @@ PY=/sciezka/do/bot-/typer/.venv/bin/python
 # co 5 minut: zamkniecie gieldy Betfair do CLV (OddsRelay). Zapytanie tylko, gdy jakis mecz startuje w ciagu
 # 10 min i nie ma jeszcze zamkniecia; inaczej zero tokenow. Archiwum OddsRelay nie ma gield, wiec to jedyne zrodlo.
 */5 * * * *  cd $T && scripts/run.sh betfair-close
-# 02:00 rozliczenie, oceny, dziennik bledow, raport dzienny na webhook n8n -> Telegram
-0 2 * * *    cd $T && scripts/run.sh settle && scripts/run.sh report --send
+# 02:00 rozliczenie, oceny, dziennik bledow
+0 2 * * *    cd $T && scripts/run.sh settle
+# 07:30 raport dzienny na Telegram (Bot API; opcjonalnie tez webhook n8n). Nowe typy ida od razu z predict.
+30 7 * * *   cd $T && scripts/run.sh report --send
 # poniedzialek 06:00 przeglad tygodniowy (evaluate.py od daty wdrozenia championa)
 0 6 * * 1    cd $T && scripts/run.sh learn && scripts/run.sh report --weekly
 # 1. dnia miesiaca 05:00: retrening challengera na walidacji (wynik do experiments.md recznie)

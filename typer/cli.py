@@ -11,7 +11,8 @@
   python cli.py predict  [--as-of ...]          predykcje (niezmienialne) + zaklady papierowe
   python cli.py settle   [--as-of ...]          wyniki, rozliczenie, dziennik bledow
   python cli.py learn                           przeglad tygodniowy (evaluate.py od daty wdrozenia)
-  python cli.py report   [--as-of ...] [--send] raport dzienny (+ webhook n8n)
+  python cli.py report   [--as-of ...] [--send] raport dzienny (Telegram, opcjonalnie webhook n8n)
+  python cli.py telegram-setup                 polacz z botem Telegrama (token w .env)
   python cli.py backtest [--layers X] [--holdout] [--compare]
   python cli.py tune                            strojenie ocen online na walidacji
   python cli.py goals [--half-life 480 --w-xg 0.2]   model goli: warianty, wybor per liga
@@ -107,6 +108,25 @@ def cmd_predict(a):
     bets = daily.place_bets(eng, preds) if len(preds) else preds
     per_role = preds.groupby("role").size().to_dict() if len(preds) else {}
     print(f"predykcje: {len(preds)} wierszy {per_role}, zaklady papierowe (tylko champion): {len(bets)}")
+    if len(bets) and not a.as_of:  # tryb odtworzeniowy (backtest dnia) nie spamuje Telegrama
+        from typer.report import daily as rep
+        msg = rep.notify_bets(eng, bets)
+        if msg:
+            print(msg)
+
+
+def cmd_telegram_setup(a):
+    from typer.report import telegram
+    print(telegram.setup())
+
+
+def cmd_telegram_test(a):
+    from typer.report import telegram
+    if not telegram.configured():
+        print("Brak TELEGRAM_BOT_TOKEN albo TELEGRAM_CHAT_ID w .env. Najpierw: python cli.py telegram-setup")
+        sys.exit(2)
+    telegram.send_messages(["Test typera: jesli to widzisz, wysylka dziala."])
+    print("wyslano wiadomosc testowa")
 
 
 def cmd_settle(a):
@@ -308,7 +328,7 @@ def main(argv=None):
         p = sub.add_parser(name)
         p.add_argument("--as-of", default=None, help="tryb odtworzeniowy: udawaj, ze dzis jest ten dzien")
         if name in ("report", "day"):
-            p.add_argument("--send", action="store_true", help="wyslij JSON na webhook n8n")
+            p.add_argument("--send", action="store_true", help="wyslij raport na Telegram (i webhook n8n, jesli ustawiony)")
         if name == "report":
             p.add_argument("--weekly", action="store_true", help="przeglad tygodniowy (sekcja 9.3)")
             p.add_argument("--from-json", default=None, help="wyrenderuj JSON z evaluate.py (np. backtest)")
@@ -318,6 +338,8 @@ def main(argv=None):
             p.add_argument("--lead-minutes", type=int, default=None,
                            help="typuj tylko mecze startujace w ciagu N minut (na zywo: 90)")
     sub.add_parser("learn")
+    sub.add_parser("telegram-setup", help="znajdz chat_id z wiadomosci do bota, zapisz w .env, wyslij test")
+    sub.add_parser("telegram-test", help="wyslij wiadomosc testowa na Telegram")
     sub.add_parser("snapshot", help="snapshot kursow z The Odds API (w chwili typu i zamkniecia)")
     sub.add_parser("lineups", help="sklady i kontuzje z API-Football (60-75 min przed meczem)")
     sub.add_parser("betfair-close", help="zamkniecie Betfair z OddsRelay do CLV (tylko mecze w ciagu 10 min)")
