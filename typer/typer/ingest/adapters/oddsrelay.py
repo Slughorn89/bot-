@@ -28,14 +28,14 @@ EXCHANGES = {"betfair_exchange", "matchbook", "smarkets"}
 
 
 def sport_key(league: str) -> str | None:
-    meta = config.leagues().get(league, {})
+    meta = config.leagues(extra=True).get(league, {})
     return meta.get("oddsrelay") or meta.get("odds_api")    # klucze sportow jak w The Odds API (do potwierdzenia)
 
 
 def _league_for(sport: str, ctx: dict) -> str | None:
     if ctx.get("league"):
         return ctx["league"]
-    for lg in config.leagues():
+    for lg in config.leagues(extra=True):
         if sport_key(lg) == sport:
             return lg
     return None

@@ -29,24 +29,30 @@ def load_matches(since: str | None = None, refresh: bool = False, ref: str | Non
     """extended=True: dodatkowo rozne, faule, kartki (schema.EXTRA_COLS), osobny plik cache.
     recent=True (cykl dzienny): plus mecze po koncu kopii xgabora z football-data.co.uk;
     refresh=True pobiera je od nowa (pliki zmieniaja sie po kazdej kolejce)."""
-    base = _load_base(since, ref, extended, refresh=refresh and (ref or config.sources()["xgabora"]["ref"]) == "main")
+    # cykl dzienny (recent) obejmuje tez ligi extra_leagues; backtest tylko ligi z walidacja
+    base = _load_base(since, ref, extended, refresh=refresh and (ref or config.sources()["xgabora"]["ref"]) == "main",
+                      extra=recent)
     if not recent:
         return base
     return add_recent(base, refresh=refresh, extended=extended)
 
 
-def _load_base(since, ref, extended, refresh: bool = False) -> pd.DataFrame:
+def _load_base(since, ref, extended, refresh: bool = False, extra: bool = False) -> pd.DataFrame:
     since = since or config.gates()["split"]["data_od"]
     ref = ref or config.sources()["xgabora"]["ref"]
-    key = (since, ref, PARSER_VERSION, str(config.load_yaml("aliases.yaml")), extended)
+    # lista lig w kluczu: dopisanie ligi w sports.yaml musi przebudowac cache (inaczej jej nie ma)
+    leagues = config.leagues(extra=extra)
+    key = (since, ref, PARSER_VERSION, str(config.load_yaml("aliases.yaml")), extended, tuple(sorted(leagues)))
     cache = CACHE_EXT if extended else CACHE
+    if extra and config.sports()["football"].get("extra_leagues"):
+        cache = cache.with_name(cache.stem + "_live.pkl")  # osobny plik: backtest i cykl dzienny sie nie nadpisuja
     if cache.exists() and not refresh:
         with open(cache, "rb") as f:
             cached = pickle.load(f)
         if cached.get("key") == key:
             return cached["df"]
     try:
-        df = xgabora.load(since=since, ref=ref, extended=extended)
+        df = xgabora.load(since=since, ref=ref, extended=extended, leagues=leagues)
     except SourceUnavailable as e:
         raise SourceUnavailable(f"brak danych historycznych: {e}") from e
     config.DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -70,7 +76,7 @@ def add_recent(base: pd.DataFrame, refresh: bool = False, extended: bool = False
     from typer.ingest import schema
     today = today or date.today()
     last = base.groupby("league")["date"].max().to_dict() if len(base) else {}
-    leagues = config.leagues()
+    leagues = config.leagues(extra=True)
     main_last = [last[lg] for lg, m in leagues.items() if lg in last and m.get("fduk", {}).get("kind") != "new"]
     first = min(main_last) if main_last else today
     seasons, y = [], int(_season_of(first)[:4])

@@ -35,7 +35,7 @@ def test_snapshot_do_bazy_z_mapowaniem(monkeypatch, tmp_engine, synth, tmp_path)
     r = fx.iloc[0]
     # nazwa ze zrodla rozni sie od kanonicznej (wielkosc liter i spacje) -> dopasowanie rozmyte
     raw = _raw(r["home"].upper().replace("-", " "), r["away"])
-    monkeypatch.setattr(daily.config, "leagues", lambda sport="football": {r["league"]: {"odds_api": "x"}})
+    monkeypatch.setattr(daily.config, "leagues", lambda sport="football", extra=False: {r["league"]: {"odds_api": "x"}})
     from typer.ingest import odds_api as oa
     monkeypatch.setattr(oa, "download", lambda *a, **k: raw)
     monkeypatch.setenv("ODDS_API_KEY", "test")

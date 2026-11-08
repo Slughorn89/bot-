@@ -33,8 +33,10 @@ def sports() -> dict:
     return load_yaml("sports.yaml")
 
 
-def leagues(sport: str = "football") -> dict:
-    return sports()[sport]["leagues"]
+def leagues(sport: str = "football", extra: bool = False) -> dict:
+    """extra=True: plus ligi tylko do cyklu dziennego (extra_leagues), bez backtestu."""
+    s = sports()[sport]
+    return {**s["leagues"], **(s.get("extra_leagues") or {})} if extra else s["leagues"]
 
 
 def sources() -> dict:
