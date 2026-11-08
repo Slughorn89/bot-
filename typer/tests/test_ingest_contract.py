@@ -40,7 +40,7 @@ def test_footballdata_uk_pole_zniklo():
 
 
 def test_odds_api_pole_zniklo_albo_zly_format():
-    raw = json.loads((FIX / "odds_api_sample.json").read_text())
+    raw = json.loads((FIX / "odds_api_sample.json").read_text(encoding="utf-8"))
     now = datetime(2018, 9, 8, 14, 55, tzinfo=timezone.utc)
     del raw[0]["home_team"]
     with pytest.raises(schema.ContractError, match="home_team"):

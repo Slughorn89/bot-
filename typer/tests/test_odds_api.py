@@ -11,7 +11,7 @@ FIX = Path(__file__).parent / "fixtures" / "odds_api_sample.json"
 
 
 def _raw(home, away):
-    return FIX.read_text().replace("HOME_PLACEHOLDER", home).replace("AWAY_PLACEHOLDER", away).encode()
+    return FIX.read_text(encoding="utf-8").replace("HOME_PLACEHOLDER", home).replace("AWAY_PLACEHOLDER", away).encode()
 
 
 def test_parser_snapshotu():

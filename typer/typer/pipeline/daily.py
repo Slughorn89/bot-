@@ -42,9 +42,9 @@ def model_cfg() -> dict:
 def alert(msg: str) -> None:
     """Nieudane pobranie ma wyslac alarm zamiast milczec."""
     LIVE_DIR.mkdir(exist_ok=True)
-    items = json.loads(ALERTS.read_text()) if ALERTS.exists() else []
+    items = json.loads(ALERTS.read_text(encoding="utf-8")) if ALERTS.exists() else []
     items.append(dict(ts=f"{datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC", msg=msg))
-    ALERTS.write_text(json.dumps(items[-50:], ensure_ascii=False, indent=1))
+    ALERTS.write_text(json.dumps(items[-50:], ensure_ascii=False, indent=1), encoding="utf-8")
     log.error("ALARM: %s", msg)
 
 

@@ -1,4 +1,5 @@
 """Testy narzedzia ewaluacji. Uruchom: pytest -q tests/test_evaluate.py"""
+import os
 import json
 import subprocess
 import sys
@@ -19,8 +20,9 @@ def run(df, tmp_path, *args):
     csv, js = tmp_path / "p.csv", tmp_path / "r.json"
     df.to_csv(csv, index=False)
     r = subprocess.run([sys.executable, str(ROOT / "tools/evaluate.py"), str(csv), "--json", str(js), *args],
-                       capture_output=True, text=True)
-    rep = json.loads(js.read_text()) if js.exists() else None
+                       capture_output=True, text=True, encoding="utf-8",
+                       env={**os.environ, "PYTHONUTF8": "1"})
+    rep = json.loads(js.read_text(encoding="utf-8")) if js.exists() else None
     return r.returncode, rep, r.stdout + r.stderr
 
 

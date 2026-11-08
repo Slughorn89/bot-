@@ -67,7 +67,7 @@ def coordinate_search(df: pd.DataFrame, start, end, base: Params | None = None, 
                     best, best_j, improved = cand, j, True
                     break
         if log_path:
-            with open(log_path, "w") as f:
+            with open(log_path, "w", encoding="utf-8") as f:
                 json.dump(history, f, indent=1, default=float)
         if not improved:
             steps = {k: v / 2 for k, v in steps.items()}

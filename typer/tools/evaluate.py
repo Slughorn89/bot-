@@ -416,7 +416,7 @@ def main():
                    ll_model=ev["ll_model"].mean(), ece=e, zaklady=bstats,
                    segmenty=segs, odchylenia=bias, dryf=alarms,
                    najwieksze_pomylki=misses.astype(str).to_dict("records"))
-        with open(a.json, "w") as f:
+        with open(a.json, "w", encoding="utf-8") as f:
             json.dump(rep, f, ensure_ascii=False, indent=2, default=float)
     sys.exit(0 if money else (1 if ready else 2))
 

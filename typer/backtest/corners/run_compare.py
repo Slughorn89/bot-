@@ -38,6 +38,6 @@ out["gamma"] = b.groupby(["league", "rok"])[["g_trail", "g_lead", "r", "sigma"]]
 out["kalibracja_sumy"] = {v: calibration_total(res, v).reset_index().to_dict(orient="records") for v in ("A", "B")}
 if shape:
     print(pd.DataFrame(out["porownania"]["B_shape-A"]).to_string(index=False))
-json.dump(out, open(f"backtest/corners/compare_{tag}.json", "w"), indent=1, default=str)
+json.dump(out, open(f"backtest/corners/compare_{tag}.json", "w", encoding="utf-8"), indent=1, default=str)
 print(json.dumps(out["srednie"], indent=1))
 print(pd.DataFrame(out["porownania"]["B-A"]).to_string(index=False))

@@ -102,5 +102,5 @@ if hold:
     res["wykresy"] += M.plots(m6_h, "holdout_m6", "m6")
 res["k_best"] = k_best
 res["sekundy"] = round(time.time() - t0)
-json.dump(res, open(OUT / "m6.json", "w"), indent=1, default=lambda o: o if not isinstance(o, (np.floating, np.integer)) else o.item())
+json.dump(res, open(OUT / "m6.json", "w", encoding="utf-8"), indent=1, default=lambda o: o if not isinstance(o, (np.floating, np.integer)) else o.item())
 log.info("koniec (%.0f s)", time.time() - t0)

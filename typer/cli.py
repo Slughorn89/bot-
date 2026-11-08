@@ -228,7 +228,7 @@ def cmd_analyze(a):
         code, txt = run_evaluate(csv, since=a.since, until=a.until, by=a.by, json_out=js, value_threshold=vt)
         if code == 3:
             sys.exit(txt)
-        data = json.loads(open(js).read())
+        data = json.loads(open(js, encoding="utf-8").read())
         print(render.render_cli_weekly(rep.from_evaluation(data, csv=csv), title="ANALIZA"))
         if a.html:
             open(a.html, "w", encoding="utf-8").write(render.render_html_evaluation(data, "Analiza"))

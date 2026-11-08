@@ -47,7 +47,7 @@ def _limit(source: str) -> tuple[int, float]:
 class Ledger:
     def __init__(self, path: Path | None = None):
         self.path = path or _ledger_path()
-        self.data = json.loads(self.path.read_text()) if self.path.exists() else {}
+        self.data = json.loads(self.path.read_text(encoding="utf-8")) if self.path.exists() else {}
 
     def used(self, source: str, now: datetime) -> int:
         d = self.data.get(source, {})
@@ -79,7 +79,7 @@ class Ledger:
         d["calls"] = (d.get("calls", []) + [dict(ts=f"{now:%Y-%m-%d %H:%M}", koszt=cost, uwaga=note)])[-200:]
         self.data[source] = d
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(self.data, ensure_ascii=False, indent=1))
+        self.path.write_text(json.dumps(self.data, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
 def odds_api_cost(markets: list[str], regions: list[str]) -> int:

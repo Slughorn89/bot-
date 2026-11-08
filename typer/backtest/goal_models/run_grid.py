@@ -18,5 +18,5 @@ for hl, wx in itertools.product([120, 240, 480, 960], [0.0, 0.2, 0.4]):
                         ll_btts=m["ll_btts"], J=m["ll_1x2"] + 0.5 * (m["ll_ou"] + m["ll_btts"])))
     logging.info("hl=%d wx=%.1f gotowe w %.0fs: %s", hl, wx, time.time() - t,
                  {r["variant"]: round(r["J"], 5) for r in res[-3:]})
-    json.dump(res, open("backtest/goal_models/grid.json", "w"), indent=1)
+    json.dump(res, open("backtest/goal_models/grid.json", "w", encoding="utf-8"), indent=1)
 print("KONIEC")

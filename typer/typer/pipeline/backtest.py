@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -150,7 +151,9 @@ def run_evaluate(csv: Path, *, since=None, until=None, value_threshold=None, by=
         cmd += ["--drift-k", str(dr["k"])]
     if "h" in dr:
         cmd += ["--drift-h", str(dr["h"])]
-    p = subprocess.run(cmd, capture_output=True, text=True)
+    # UTF-8 w obie strony: na Windowsie domyslne cp1250 nie zna czesci znakow z raportu evaluate.py
+    p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
+                       env={**os.environ, "PYTHONUTF8": "1"})
     # kod 3 = plik lamie kontrakt danych: zaden werdykt, tylko opis bledu (stderr)
     return p.returncode, p.stdout + (p.stderr if p.returncode not in (0, 1, 2) else "")
 
@@ -172,7 +175,7 @@ def run(layer_set: str = "online+cal", holdout: bool = False, force_holdout: boo
     frame = frame if frame is not None else build_frame(df)
     if holdout:
         if holdout_marker().exists() and not force_holdout:
-            raise SystemExit(f"Holdout juz uzyty ({holdout_marker().read_text().strip()}). Strojenie na nim "
+            raise SystemExit(f"Holdout juz uzyty ({holdout_marker().read_text(encoding='utf-8').strip()}). Strojenie na nim "
                              f"go spala: potrzebny nowy okres albo --force-holdout ze swiadomoscia skutkow.")
         start, end = sd["holdout_od"], None
     else:
@@ -190,10 +193,10 @@ def run(layer_set: str = "online+cal", holdout: bool = False, force_holdout: boo
     vt = config.gates().get("value_threshold", 0.05)
     code_p, rep_p = run_evaluate(p_csv, value_threshold=vt, json_out=BT_DIR / f"report_{tag}.json")
     code_m, rep_m = run_evaluate(m_csv, json_out=BT_DIR / f"report_market_{tag}.json")
-    (BT_DIR / f"report_{tag}.txt").write_text(rep_p)
-    (BT_DIR / f"report_market_{tag}.txt").write_text(rep_m)
+    (BT_DIR / f"report_{tag}.txt").write_text(rep_p, encoding="utf-8")
+    (BT_DIR / f"report_market_{tag}.txt").write_text(rep_m, encoding="utf-8")
     if holdout:
-        holdout_marker().write_text(f"{datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC, model {mv}\n")
+        holdout_marker().write_text(f"{datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC, model {mv}\n", encoding="utf-8")
     return dict(tag=tag, layer_set=layer_set, code_preds=code_p, code_market=code_m,
                 metrics=L.metrics(fr), report_preds=rep_p, report_market=rep_m,
                 preds_csv=str(p_csv), market_csv=str(m_csv))
