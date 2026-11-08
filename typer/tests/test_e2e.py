@@ -80,3 +80,21 @@ def test_evaluate_odroznia_model_od_szumu(synth, tmp_path):
     gates = {g["bramka"]: g["wynik"] for g in rep_json["bramki"]}
     assert gates["lepszy_od_baseline"] == "OK"
     assert gates["spojnosc_prawdopodobienstw"] == "OK"
+
+
+def test_podglad_niczego_nie_zapisuje(patched, tmp_engine, synth):
+    """cli.py preview: predykcje i kandydaci bez zapisu, wiec wlasciwy typ przed meczem nie jest blokowany."""
+    from typer.report import render
+    from typer.store import db
+    daily, _ = patched
+    d = sorted(d for d in synth["date"].unique() if pd.Timestamp(d) >= pd.Timestamp("2018-09-01"))[0]
+    st = daily.fetch(tmp_engine, as_of=d)
+    counts = lambda: [len(db.read_df(tmp_engine, f"SELECT * FROM {t}"))
+                      for t in ("predictions", "bets", "model_registry", "features")]
+    before = counts()
+    preds = daily.predict(tmp_engine, as_of=d, role="champion", dry=True)
+    assert len(preds) == st["fixtures"] * 7 and counts() == before
+    msgs = render.render_preview(preds, [], "Europe/Warsaw")
+    assert msgs[0].startswith("WSTĘPNE TYPY") and " / " in msgs[1]
+    real = daily.predict(tmp_engine, as_of=d, role="champion")
+    assert len(real) == len(preds)  # podglad nie zajal miejsca wlasciwej predykcji
