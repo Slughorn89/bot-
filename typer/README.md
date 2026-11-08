@@ -318,7 +318,7 @@ Wyniki (walidacja 2018/19 do 2024/25, `backtest/calibration/m6.json`, experiment
 * zamknięcia dnia (`/v2/historical/closing`): **tylko bukmacherzy**. Archiwum OddsRelay nie ma giełd
   (zapytanie z giełdą kończy się 403 `exchange_history_unavailable`), więc `closing()` nie wysyła `exchanges`;
 * zamknięcie giełdy Betfair (środek ceny „za” i „przeciw”) bierzemy ze snapshotu `/v2/odds/raw` z giełdą,
-  zrobionego najwyżej 10 minut przed startem (`python cli.py ingest oddsrelay` w tym oknie). Betfair liczy się
+  zrobionego najwyżej 10 minut przed startem (`python cli.py betfair-close`, cron co 5 min; zapytanie tylko, gdy mecz jest w oknie). Betfair liczy się
   jako ostre zamknięcie do CLV tam, gdzie nie ma Pinnacle;
 * przed każdym zapytaniem darmowa wycena (`quote=true`), a zużycie tokenów trafia do budżetu z nagłówka
   `x-tokens-remaining`;
