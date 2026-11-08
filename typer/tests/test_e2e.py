@@ -113,3 +113,23 @@ def test_typy_wstecz_bez_zapisu(patched, synth):
     assert len(h["lista"]) == h["mecze"]  # kazdy rozegrany mecz z faworytem modelu, nawet bez typow
     msgs = render.render_history(h)
     assert msgs[0].startswith("TYPY WSTECZ") and all(len(m) <= render.TG_LIMIT for m in msgs)
+
+
+def test_typy_na_kazdy_mecz_z_kursem(patched, tmp_engine, synth):
+    """cli.py tips: kazdy mecz z terminarza dostaje faworyta 1X2 i strone O/U z kursem; nic nie zapisuje."""
+    from typer.report import render
+    from typer.store import db
+    daily, _ = patched
+    d = sorted(d for d in synth["date"].unique() if pd.Timestamp(d) >= pd.Timestamp("2018-09-01"))[0]
+    st = daily.fetch(tmp_engine, as_of=d)
+    t = daily.tips(tmp_engine, hours=48, now=pd.Timestamp(d).tz_localize("UTC"), as_of=d)
+    assert len(t) == st["fixtures"] and len(db.read_df(tmp_engine, "SELECT * FROM predictions")) == 0
+    for x in t:
+        assert x["1x2"]["selection"] in ("1", "X", "2") and x["1x2"]["p"] >= 1 / 3 - 1e-9
+        assert x["ou"]["selection"] in ("over2.5", "under2.5") and x["ou"]["p"] >= 0.5 - 1e-9
+        if x["1x2"]["odds"]:
+            assert abs(x["1x2"]["edge"] - (x["1x2"]["p"] * x["1x2"]["odds"] - 1)) < 1e-9
+    msgs = render.render_tips(t, "Europe/Warsaw")
+    assert msgs[0].startswith("TYPY NA NAJBLIŻSZE") and "Najpewniejsze" in msgs[0]
+    assert all(len(m) <= render.TG_LIMIT for m in msgs)
+    assert "Brak meczów" in render.render_tips([], "Europe/Warsaw")[0]

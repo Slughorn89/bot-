@@ -14,6 +14,7 @@
   python cli.py report   [--as-of ...] [--send] raport dzienny (Telegram, opcjonalnie webhook n8n)
   python cli.py preview  [--send]              wstepne typy na 3 dni (bez zapisu, opcjonalnie Telegram)
   python cli.py history  [--weeks 3] [--send]  symulacja wstecz: typy na rozegrane mecze z wynikami
+  python cli.py tips     [--hours 72] [--send] typ na kazdy nadchodzacy mecz z kursem Bet365 (bez zapisu)
   python cli.py telegram-setup                 polacz z botem Telegrama (token w .env)
   python cli.py backtest [--layers X] [--holdout] [--compare]
   python cli.py tune                            strojenie ocen online na walidacji
@@ -144,6 +145,19 @@ def cmd_history(a):
         print(f"Telegram: wyslano {telegram.send_messages(msgs)} wiadomosci")
 
 
+def cmd_tips(a):
+    """Typ na kazdy nadchodzacy mecz z prawdziwym kursem Bet365 (nic nie zapisuje, bez tokenow OddsRelay)."""
+    from typer.pipeline import daily
+    from typer.report import render, telegram
+    msgs = render.render_tips(daily.tips(_engine(), hours=a.hours), config.sports()["football"]["timezone"])
+    print("\n\n".join(msgs))
+    if a.send:
+        if not telegram.configured():
+            print("Brak TELEGRAM_BOT_TOKEN albo TELEGRAM_CHAT_ID w .env. Najpierw: python cli.py telegram-setup")
+            sys.exit(2)
+        print(f"Telegram: wyslano {telegram.send_messages(msgs)} wiadomosci")
+
+
 def cmd_telegram_setup(a):
     from typer.report import telegram
     print(telegram.setup())
@@ -192,6 +206,16 @@ def cmd_report(a):
         open(a.html, "w", encoding="utf-8").write(render.render_html_daily(payload))
     if a.send:
         print(rep.send(text, payload))
+        if config.model_params().get("typy_w_raporcie", True):  # typy na najblizsze 24 h razem z raportem
+            from typer.pipeline import daily
+            from typer.report import telegram
+            try:  # blad typow nie moze zepsuc wyslanego juz raportu
+                tips = daily.tips(eng, hours=24)
+                if tips and telegram.configured():
+                    msgs = render.render_tips(tips, config.sports()["football"]["timezone"], title="TYPY NA DZIŚ")
+                    print(f"Telegram: typy, wyslano {telegram.send_messages(msgs)} wiadomosci")
+            except Exception as e:  # noqa: BLE001
+                daily.alert(f"typy do raportu: {e}")
 
 
 def cmd_day(a):
@@ -369,6 +393,9 @@ def main(argv=None):
     sub.add_parser("learn")
     p = sub.add_parser("preview", help="wstepne typy na 3 dni, bez zapisu do bazy (nie sa zakladami)")
     p.add_argument("--send", action="store_true", help="wyslij podglad na Telegram")
+    p = sub.add_parser("tips", help="typ na kazdy nadchodzacy mecz z kursem Bet365 (bez zapisu)")
+    p.add_argument("--hours", type=float, default=72, help="mecze w ciagu tylu godzin (domyslnie 72)")
+    p.add_argument("--send", action="store_true", help="wyslij na Telegram")
     p = sub.add_parser("history", help="symulacja: jak typer typowalby mecze z ostatnich tygodni (bez zapisu)")
     p.add_argument("--weeks", type=int, default=3)
     p.add_argument("--send", action="store_true", help="wyslij na Telegram")

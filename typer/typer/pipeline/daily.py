@@ -86,7 +86,7 @@ def fetch(engine: sa.Engine, as_of=None) -> dict:
         past, fx = hist, pd.DataFrame()
         try:
             from typer.ingest import footballdata_uk
-            fx = footballdata_uk.load_fixtures()
+            fx = footballdata_uk.load_fixtures(config.leagues(extra=True))
         except SourceUnavailable as e:
             alert(f"terminarz football-data.co.uk niedostepny: {e}. Alternatywa: The Odds API (ODDS_API_KEY)")
     stats = db.store_matches(engine, past if as_of else _recent_only(engine, past))
@@ -153,7 +153,7 @@ def snapshot_odds(engine: sa.Engine, now: datetime | None = None) -> dict:
     plans = plan_odds_snapshots(ev, now, done, ledger)
     manual = db.read_df(engine, "SELECT league, raw_name, canonical FROM entity_map "
                                 "WHERE source = 'the_odds_api' AND status = 'manual'")
-    leagues = config.leagues()
+    leagues = config.leagues(extra=True)
     rows, pending_total, calls = [], 0, 0
     for plan in plans:
         meta = leagues.get(plan.league, {})
@@ -492,6 +492,33 @@ def preview(engine: sa.Engine) -> tuple[pd.DataFrame, list[dict]]:
         chosen += select_and_stake(cands, Limits(), cfg["kelly_fraction"], cfg["value_threshold"],
                                    cfg["tax_rate"], bankroll=bank, peak=peak)
     return preds, sorted(chosen, key=lambda x: pd.Timestamp(x["kickoff_utc"]))
+
+
+def tips(engine: sa.Engine, hours: float = 72, now: datetime | None = None, as_of=None) -> list[dict]:
+    """Typ na kazdy nadchodzacy mecz (cli.py tips): najbardziej prawdopodobny wynik 1X2 i strona O/U 2.5
+    wedlug championa, z prawdziwym kursem Bet365 z terminarza football-data.co.uk. Nic nie zapisuje.
+    To NIE jest typ z przewaga: przy kursie podajemy przewage (zwykle ujemna = marza bukmachera)."""
+    now = pd.Timestamp(now or datetime.now(timezone.utc))
+    preds = predict(engine, role="champion", dry=True, as_of=as_of)
+    if preds.empty:
+        return []
+    ko = pd.to_datetime(preds["kickoff_utc"], utc=True)
+    preds = preds[(ko > now) & (ko <= now + pd.Timedelta(hours=hours))]
+    out = []
+    for eid, g in preds.groupby("event_id", sort=False):
+        r0 = g.iloc[0]
+        t = dict(event_id=eid, kickoff_utc=r0["kickoff_utc"], league=r0["league"], home=r0["home"], away=r0["away"])
+        for mkt, key in (("1X2", "1x2"), ("OU2.5", "ou")):
+            m = g[g["market"] == mkt]
+            if m.empty:
+                continue
+            b = m.loc[m["p_model"].idxmax()]
+            o = b["odds_taken"]
+            t[key] = dict(selection=b["selection"], p=float(b["p_model"]),
+                          odds=None if pd.isna(o) else float(o),
+                          edge=None if pd.isna(o) else float(b["p_model"] * o - 1))
+        out.append(t)
+    return sorted(out, key=lambda x: pd.Timestamp(x["kickoff_utc"]))
 
 
 def settle_day(engine: sa.Engine, as_of=None) -> dict:

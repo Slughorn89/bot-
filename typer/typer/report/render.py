@@ -245,6 +245,47 @@ def render_preview(preds, chosen: list[dict], tz: str, limit: int = 25) -> list[
     return out
 
 
+LEAGUE_NAMES = {"E0": "Anglia", "E1": "Anglia 2", "E2": "Anglia 3", "E3": "Anglia 4", "D1": "Niemcy",
+                "I1": "Włochy", "SP1": "Hiszpania", "SP2": "Hiszpania 2", "F1": "Francja", "POL": "Ekstraklasa",
+                "SC0": "Szkocja", "SC1": "Szkocja 2"}
+SEL_NAMES = {"1": "wygra gospodarz", "X": "remis", "2": "wygra gość",
+             "over2.5": "powyżej 2,5 gola", "under2.5": "poniżej 2,5 gola"}
+
+
+def render_tips(tips: list[dict], tz: str, title: str = "TYPY NA NAJBLIŻSZE MECZE", top: int = 5) -> list[str]:
+    """cli.py tips: najbardziej prawdopodobny wynik kazdego meczu z prawdziwym kursem Bet365."""
+    import pandas as pd
+
+    def godz(k):
+        k = pd.Timestamp(k)
+        return (k if k.tzinfo else k.tz_localize("UTC")).tz_convert(tz).strftime("%d.%m %H:%M")
+
+    def line(x):
+        if not x:
+            return "brak"
+        kurs = f"kurs {fmt.odds(x['odds'])} (Bet365)" if x.get("odds") else "brak kursu"
+        return f"{x['selection']} ({SEL_NAMES.get(x['selection'], x['selection'])}) {x['p']:.0%}, {kurs}"
+
+    head = [title,
+            "Typ = najbardziej prawdopodobny wynik według modelu, kurs prawdziwy z Bet365 (terminarz "
+            "football-data.co.uk). To nie są typy z przewagą: kurs bukmachera jest zwykle trochę niższy od "
+            "uczciwego, więc na dłuższą metę tracisz marżę. Graj tylko u legalnego bukmachera i za małe kwoty.", ""]
+    if not tips:
+        return ["\n".join(head + ["Brak meczów w terminarzu w tym okresie (albo terminarz jeszcze nie ma kursów)."])]
+    sure = sorted([t for t in tips if t.get("1x2") and t["1x2"].get("odds")], key=lambda t: -t["1x2"]["p"])[:top]
+    lines = []
+    if sure:
+        lines.append(f"Najpewniejsze według modelu:")
+        for t in sure:
+            lines.append(f"⭐ {godz(t['kickoff_utc'])} {t['home']} - {t['away']}: {line(t['1x2'])}")
+        lines.append("")
+    lines.append("Wszystkie mecze:")
+    for t in tips:
+        lines.append(f"{godz(t['kickoff_utc'])} {LEAGUE_NAMES.get(t['league'], t['league'])}: {t['home']} - {t['away']}\n"
+                     f"  1X2: {line(t.get('1x2'))}\n  Gole: {line(t.get('ou'))}")
+    return _split("\n".join(head + lines))
+
+
 def render_history(h: dict) -> list[str]:
     """Symulacja wstecz (cli.py history): bilans i lista typow z wynikami."""
     tips = h.get("typy", [])

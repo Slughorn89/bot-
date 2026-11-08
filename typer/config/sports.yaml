@@ -53,3 +53,48 @@ football:
       odds_timing: unknown
       has_shots: false
       fix_dates: swap_day_month   # blad w kopii xgabora, patrz typer/ingest/xgabora.py
+  # 2026-11-08: ligi tylko do cyklu dziennego (typy, cli.py tips/history), poza backtestem i referencja
+  # regresji: graja takze w przerwach reprezentacyjnych (sprawdzone na danych: 10-20.11.2025 graly
+  # E2, E3, SC1, SP2). Bez osobnej walidacji, typy tylko informacyjne.
+  extra_leagues:
+    E1:
+      name: Championship
+      country: ENG
+      odds_api: soccer_efl_champ
+      fduk: {kind: main, code: E1}
+      odds_timing: prematch
+      has_shots: true
+    E2:
+      name: League One
+      country: ENG
+      odds_api: soccer_england_league1
+      fduk: {kind: main, code: E2}
+      odds_timing: prematch
+      has_shots: true
+    E3:
+      name: League Two
+      country: ENG
+      odds_api: soccer_england_league2
+      fduk: {kind: main, code: E3}
+      odds_timing: prematch
+      has_shots: true
+    SC0:
+      name: Scottish Premiership
+      country: SCO
+      odds_api: soccer_spl
+      fduk: {kind: main, code: SC0}
+      odds_timing: prematch
+      has_shots: true
+    SC1:
+      name: Scottish Championship
+      country: SCO
+      fduk: {kind: main, code: SC1}
+      odds_timing: prematch
+      has_shots: true
+    SP2:
+      name: Segunda Division
+      country: ESP
+      odds_api: soccer_spain_segunda_division
+      fduk: {kind: main, code: SP2}
+      odds_timing: prematch
+      has_shots: true
