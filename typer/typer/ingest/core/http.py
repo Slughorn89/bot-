@@ -2,7 +2,8 @@
 ponawianie z wykladniczym opoznieniem (2, 4, 8, 16 s) z rozrzutem, 429 z Retry-After, audyt pobran.
 
 Zasady:
-  * bledy trwale (401/403/404) i odmowa proxy (polityka sieci) nie sa ponawiane,
+  * bledy trwale (4xx poza 408 i 429, w tym 402 = brak tokenow/limitu) i odmowa proxy (polityka sieci)
+    nie sa ponawiane; odpowiedz z bledem nigdy nie trafia do cache,
   * gdy zrodlo nie dziala, a jest stary cache, uzywamy go i to zapisujemy, nigdy nie zgadujemy danych,
   * fetched_at odpowiedzi z cache = chwila pierwotnego pobrania (mtime pliku), nie "teraz".
 """
@@ -27,6 +28,19 @@ log = logging.getLogger("typer.ingest.http")
 
 class SourceUnavailable(RuntimeError):
     """Zrodlo nie odpowiada albo odmawia dostepu. Zglaszamy, nie zgadujemy danych."""
+
+
+class QuotaExhausted(SourceUnavailable):
+    """HTTP 402: skonczyly sie tokeny albo limit planu. Ponawianie nic nie da, czekamy na reset."""
+
+
+def _error_code(r) -> str:
+    """Kod bledu z ciala JSON ({"error": {"code": ...}}), pusty, gdy go nie ma."""
+    try:
+        err = r.json().get("error") or {}
+        return str(err.get("code") or err.get("message") or "") if isinstance(err, dict) else str(err)
+    except (ValueError, AttributeError):
+        return ""
 
 
 @dataclass
@@ -101,11 +115,18 @@ class HttpClient:
             try:
                 r = self.session.request(method, url, params=params, headers=headers, json=json_body,
                                          timeout=self.timeout)
-                if r.status_code in (401, 403, 404):
-                    self._log(url, params, f"http {r.status_code}", None)
-                    raise SourceUnavailable(f"{self.source}: HTTP {r.status_code} dla {url}")
-                if r.status_code == 429 or r.status_code >= 500:
+                if r.status_code in (408, 429) or r.status_code >= 500:
                     raise requests.HTTPError(f"HTTP {r.status_code}", response=r)
+                if r.status_code >= 400:
+                    # bledy trwale: ponawianie nic nie da, a cialo bledu nie moze trafic do cache
+                    code = _error_code(r)
+                    self._log(url, params, f"http {r.status_code}", None, note=code)
+                    msg = f"{self.source}: HTTP {r.status_code}{' ' + code if code else ''} dla {url}"
+                    if r.status_code == 402:
+                        h = dict(r.headers or {})
+                        raise QuotaExhausted(f"{msg} (zostalo {h.get('X-Tokens-Remaining', '?')}, "
+                                             f"reset {h.get('X-Tokens-Reset', '?')})")
+                    raise SourceUnavailable(msg)
                 path.parent.mkdir(parents=True, exist_ok=True)
                 tmp = path.with_suffix(path.suffix + ".part")
                 tmp.write_bytes(r.content)
