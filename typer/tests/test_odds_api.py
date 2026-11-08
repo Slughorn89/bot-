@@ -38,8 +38,16 @@ def test_snapshot_do_bazy_z_mapowaniem(monkeypatch, tmp_engine, synth, tmp_path)
     monkeypatch.setattr(daily.config, "leagues", lambda sport="football": {r["league"]: {"odds_api": "x"}})
     from typer.ingest import odds_api as oa
     monkeypatch.setattr(oa, "download", lambda *a, **k: raw)
+    monkeypatch.setenv("ODDS_API_KEY", "test")
     out = daily.snapshot_odds(tmp_engine, now=datetime(2018, 9, 8, 14, 55, tzinfo=timezone.utc))
     assert out["snapshots"] == 8
     assert out["zapytania"] == 2  # planer: zamkniecie meczu 15:00 + typ raz na dzien
     co = db.read_df(tmp_engine, "SELECT * FROM odds_snapshots WHERE kind = 'close' AND source = 'the_odds_api'")
     assert set(co["event_id"]) == {r["event_id"]}
+
+
+def test_snapshot_bez_klucza_nic_nie_robi(monkeypatch, tmp_engine):
+    """Bez ODDS_API_KEY zadnych zapytan i alarmow co 15 min (kurs typu jest wtedy z fixtures.csv)."""
+    from typer.pipeline import daily
+    monkeypatch.delenv("ODDS_API_KEY", raising=False)
+    assert daily.snapshot_odds(tmp_engine)["zapytania"] == 0

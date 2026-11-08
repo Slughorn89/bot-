@@ -31,7 +31,7 @@ football_data_uk:
   licencja: darmowe do uzytku, z podaniem zrodla (football-data.co.uk)
   limit: brak oficjalnego; pobieraj rzadko (raz dziennie), z cache w raw/
   limit_na_minute: 20
-  dostepne_w_srodowisku: false   # host www.football-data.co.uk zablokowany przez polityke sieci sesji
+  dostepne_w_srodowisku: true    # 2026-11-08: dziala (www przekierowuje na football-data.co.uk); cykl dzienny bierze stad mecze po koncu kopii xgabora
   uwagi: Glowne zrodlo docelowe. Daje kursy zamkniecia, wiec odblokowuje bramke clv_dodatni.
 
 the_odds_api:

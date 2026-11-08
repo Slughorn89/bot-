@@ -18,7 +18,7 @@ import pandas as pd
 
 from typer import config
 from typer.ingest import schema
-from typer.ingest.base import fetch
+from typer.ingest.base import SourceUnavailable, fetch
 from typer.ingest.seasons import assign_seasons
 
 log = logging.getLogger("typer.ingest.fduk")
@@ -112,23 +112,26 @@ def parse(raw: bytes, league: str, *, kind: str = "main", allow_unplayed: bool =
     return schema.validate(out.reset_index(drop=True), allow_unplayed=allow_unplayed)
 
 
-def download_season(code: str, season: str) -> bytes:
+def download_season(code: str, season: str, max_age_hours: float | None = 24) -> bytes:
     url = config.sources()["football_data_uk"]["url_sezon"].format(season=season_code(season), code=code)
-    return fetch(url, SOURCE, f"{season_code(season)}_{code}.csv", max_age_hours=24)
+    return fetch(url, SOURCE, f"{season_code(season)}_{code}.csv", max_age_hours=max_age_hours)
 
 
-def load(seasons: list[str], leagues: dict | None = None) -> pd.DataFrame:
+def load(seasons: list[str], leagues: dict | None = None, max_age_hours: float | None = 24,
+         extended: bool = False) -> pd.DataFrame:
     leagues = leagues or config.leagues()
     src = config.sources()["football_data_uk"]
     frames = []
     for lg, meta in leagues.items():
         f = meta.get("fduk", {})
         if f.get("kind") == "new":
-            raw = fetch(src["url_nowe_ligi"].format(code=f["code"]), SOURCE, f"new_{f['code']}.csv")
-            frames.append(parse(raw, lg, kind="new"))
+            raw = fetch(src["url_nowe_ligi"].format(code=f["code"]), SOURCE, f"new_{f['code']}.csv",
+                        max_age_hours=max_age_hours)
+            frames.append(parse(raw, lg, kind="new", extended=extended))
         else:
             for s in seasons:
-                frames.append(parse(download_season(f["code"], s), lg, kind="main"))
+                frames.append(parse(download_season(f["code"], s, max_age_hours), lg, kind="main",
+                                    extended=extended))
     if not frames:
         return schema.empty_frame()
     from typer.entities.history import harmonize
@@ -146,9 +149,27 @@ def load_fixtures(leagues: dict | None = None) -> pd.DataFrame:
     df = pd.read_csv(io.BytesIO(raw), encoding="utf-8-sig")
     frames = []
     for lg, meta in leagues.items():
-        code = meta.get("fduk", {}).get("code")
-        part = df[df.get("Div", pd.Series(dtype=str)) == code]
+        f = meta.get("fduk", {})
+        if f.get("kind") == "new":
+            continue
+        part = df[df.get("Div", pd.Series(dtype=str)) == f.get("code")]
         if len(part):
             buf = part.to_csv(index=False).encode()
             frames.append(parse(buf, lg, kind="main", allow_unplayed=True))
-    return pd.concat(frames, ignore_index=True) if frames else schema.empty_frame()
+    # ligi "nowe" (Ekstraklasa) maja osobny terminarz; bez niego POL nigdy nie dostawala typow
+    if any(m.get("fduk", {}).get("kind") == "new" for m in leagues.values()):
+        try:
+            raw_new = fetch(src["url_terminarz_nowe"], SOURCE, "new_league_fixtures.csv", max_age_hours=3)
+            for lg, meta in leagues.items():
+                if meta.get("fduk", {}).get("kind") == "new":
+                    frames.append(parse(raw_new, lg, kind="new", allow_unplayed=True))
+        except (SourceUnavailable, schema.ContractError) as e:
+            log.warning("terminarz nowych lig niedostepny: %s", e)
+    frames = [f for f in frames if len(f)]
+    if not frames:
+        return schema.empty_frame()
+    from typer.entities.history import apply_aliases
+    out = apply_aliases(pd.concat(frames, ignore_index=True), config.load_yaml("aliases.yaml"))
+    out["event_id"] = [schema.make_event_id(l, d, h, a)
+                       for l, d, h, a in zip(out["league"], out["date"], out["home"], out["away"])]
+    return out

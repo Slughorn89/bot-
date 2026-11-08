@@ -251,8 +251,16 @@ def render_history(h: dict) -> list[str]:
     head = [f"TYPY WSTECZ {h['od']} .. {h['do']} (symulacja)",
             "Model widział tylko mecze sprzed dnia typu. Kursy przedmeczowe z football-data.co.uk, "
             "nie z chwili typu, więc wynik jest przybliżony.", ""]
+    games = h.get("lista", [])
+    if not h.get("mecze"):
+        return ["\n".join(head + ["Brak rozegranych meczów w tym okresie (albo brak dostępu do football-data.co.uk, "
+                                  "zobacz logs\\cron.log)."])]
     if not tips:
-        return ["\n".join(head + [f"Rozegrane mecze: {h.get('mecze', 0)}, brak typów z przewagą powyżej progu."])]
+        return _split("\n".join(head + [
+            f"Rozegrane mecze: {h['mecze']}, typy z przewagą co najmniej {fmt.pct(h.get('prog', 0.05))}: 0.",
+            "To normalne dla tego modelu: po połączeniu z kursem rynku jego szanse prawie pokrywają się z "
+            "bukmacherem, więc taka przewaga zdarza się rzadko (w backteście kilka razy na sezon).", ""]
+            + _games_lines(games)))
     n, hit = len(tips), sum(1 for t in tips if t["trafiony"] == 1)
     flat = sum((t["odds"] - 1) if t["trafiony"] == 1 else -1 for t in tips)
     kelly = sum(t["stake_frac"] * ((t["odds"] - 1) if t["trafiony"] == 1 else -1) for t in tips) * 100
@@ -266,7 +274,26 @@ def render_history(h: dict) -> list[str]:
         lines.append(f"{t['data'][8:10]}.{t['data'][5:7]} {t['league']} {t['home']} - {t['away']} "
                      f"{t['fthg']}:{t['ftag']}\n  {mark} {t['market']} {t['selection']} kurs {fmt.odds(t['odds'])} "
                      f"| p {fmt.p(t['p'])} | przewaga {fmt.pct(t['edge'])}")
-    m = "\n".join(head + lines)
+    return _split("\n".join(head + lines + [""] + _games_lines(games)))
+
+
+def _games_lines(games: list[dict], limit: int = 80) -> list[str]:
+    """Wszystkie mecze okresu: faworyt modelu w 1X2 i czy wygral (to nie sa zaklady)."""
+    if not games:
+        return []
+    hit = sum(g["trafiony"] for g in games)
+    out = [f"Faworyt modelu (1X2) wygrał w {hit} z {len(games)} meczów ({hit / len(games):.0%}). "
+           "To nie są zakłady, tylko pokazuje, jak model widział mecze:"]
+    for g in games[-limit:]:
+        p = {"1": g["p1"], "X": g["px"], "2": g["p2"]}[g["faworyt"]]
+        out.append(f"{g['data'][8:10]}.{g['data'][5:7]} {g['league']} {g['home']} - {g['away']} "
+                   f"{g['fthg']}:{g['ftag']} | {g['faworyt']} {p:.0%} {'✅' if g['trafiony'] else '❌'}")
+    if len(games) > limit:
+        out.append(f"(pokazane ostatnie {limit} z {len(games)})")
+    return out
+
+
+def _split(m: str) -> list[str]:
     out = []
     while len(m) > TG_LIMIT:
         cut = m.rfind("\n", 0, TG_LIMIT)

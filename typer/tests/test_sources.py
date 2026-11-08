@@ -101,6 +101,7 @@ def test_sklady_trafiaja_do_bazy_z_mapowaniem(monkeypatch, tmp_engine, synth, tm
     files = {"/fixtures": "apifootball_fixtures.json", "/injuries": "apifootball_injuries.json",
              "/fixtures/lineups": "apifootball_lineups.json"}
     monkeypatch.setattr(af, "download", lambda path, params, **k: sub(files[path]))
+    monkeypatch.setenv("API_FOOTBALL_KEY", "test")
     monkeypatch.setattr(daily.config, "sources", lambda: {"api_football": {"ligi": {r["league"]: 999}}})
     out = daily.collect_lineups(tmp_engine, now=NOW)
     assert out == {"mecze": 1, "wiersze": 6}
