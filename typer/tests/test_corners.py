@@ -116,7 +116,8 @@ def test_czas_20000_symulacji():
     t = time.perf_counter()
     for k in range(10):
         corner_distribution(s, "X", "Y", m, seed=k)
-    assert (time.perf_counter() - t) / 10 < 0.25
+    # 0.25 s na szybkim komputerze; 1 s zapasu na wolniejszy (Windows uzytkownika), nadal lapie regres x10
+    assert (time.perf_counter() - t) / 10 < 1.0
 
 
 # ---------------- rozklad laczny i rynki ----------------

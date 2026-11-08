@@ -22,7 +22,7 @@ from typer.learn import journal, settle
 from typer.learn.champion import current, register
 from typer.pipeline import layers as L
 from typer.pipeline.backtest import LAYER_SETS, params_from_config
-from typer.pipeline.data import load_matches
+from typer.pipeline.data import freshness, load_matches
 from typer.pipeline.engine import Engine
 from typer.store import db
 
@@ -48,6 +48,22 @@ def alert(msg: str) -> None:
     log.error("ALARM: %s", msg)
 
 
+def _in_season(today=None) -> bool:
+    """Ligi graja od sierpnia do maja; w czerwcu i lipcu brak nowych meczow to nie blad."""
+    m = (today or datetime.now(timezone.utc).date()).month
+    return m not in (6, 7)
+
+
+def _recent_only(engine: sa.Engine, df: pd.DataFrame, days: int = 120) -> pd.DataFrame:
+    """Pelna historia trafia do bazy raz (pierwszy fetch); potem tylko ostatnie `days` dni, bo starsze
+    mecze sie nie zmieniaja, a zapis 40 tys. meczow co noc trwa minuty na wolnym komputerze."""
+    n = db.read_df(engine, "SELECT COUNT(*) AS n FROM results")["n"].iloc[0]
+    if n < 1000:
+        return df
+    cut = datetime.now(timezone.utc).date() - timedelta(days=days)
+    return df[df["date"] >= cut]
+
+
 def _split_replay(df: pd.DataFrame, as_of) -> tuple[pd.DataFrame, pd.DataFrame]:
     d = pd.Timestamp(as_of).date()
     past = df[df["date"] < d]
@@ -59,7 +75,11 @@ def _split_replay(df: pd.DataFrame, as_of) -> tuple[pd.DataFrame, pd.DataFrame]:
 def fetch(engine: sa.Engine, as_of=None) -> dict:
     """Historia + terminarz do bazy. Zwraca liczby zapisanych rekordow."""
     db.init_db(engine)
-    hist = load_matches(refresh=as_of is None)
+    hist = load_matches(refresh=as_of is None, recent=True)
+    if not as_of:
+        stale = {lg: d for lg, (d, ago) in freshness(hist).items() if ago > 21}
+        if stale and _in_season():
+            alert(f"historia meczow nieaktualna (ostatni mecz: {stale}). Sprawdz dostep do football-data.co.uk")
     if as_of:
         past, fx = _split_replay(hist, as_of)
     else:
@@ -69,7 +89,7 @@ def fetch(engine: sa.Engine, as_of=None) -> dict:
             fx = footballdata_uk.load_fixtures()
         except SourceUnavailable as e:
             alert(f"terminarz football-data.co.uk niedostepny: {e}. Alternatywa: The Odds API (ODDS_API_KEY)")
-    stats = db.store_matches(engine, past)
+    stats = db.store_matches(engine, past if as_of else _recent_only(engine, past))
     if len(fx):
         db.store_matches(engine, fx)
     both = pd.concat([past, fx]) if len(fx) else past
@@ -113,6 +133,8 @@ def snapshot_odds(engine: sa.Engine, now: datetime | None = None) -> dict:
     from typer.ingest import odds_api
     from typer.ingest.budget import Ledger, plan_odds_snapshots
     now = now or datetime.now(timezone.utc)
+    if not config.env("ODDS_API_KEY"):  # zrodlo opcjonalne: bez klucza kurs typu jest z fixtures.csv
+        return dict(snapshots=0, pending=0, zapytania=0, uwaga="brak ODDS_API_KEY, pomijam")
     ev = db.read_df(engine, "SELECT event_id, league, home, away, kickoff_utc FROM events "
                             "WHERE status = 'scheduled'")
     if ev.empty:
@@ -183,6 +205,8 @@ def collect_lineups(engine: sa.Engine, now: datetime | None = None, lead_minutes
     from typer.entities.mapping import resolve_many
     from typer.ingest import api_football as af
     now = now or datetime.now(timezone.utc)
+    if not config.env("API_FOOTBALL_KEY"):  # zrodlo opcjonalne (sklady tylko zbieramy)
+        return dict(mecze=0, wiersze=0, uwaga="brak API_FOOTBALL_KEY, pomijam")
     src = config.sources().get("api_football", {})
     ids = src.get("ligi", {})
     ev = db.read_df(engine, "SELECT event_id, league, season, home, away, kickoff_utc FROM events "
@@ -335,9 +359,11 @@ def predict(engine: sa.Engine, as_of=None, role: str | None = None, lead_minutes
             register(engine, v["version"], v["role"], _params_for(v).to_dict(),
                      "pierwsze wdrozenie" if v["role"] == "champion" else v["changes"],
                      drift_reference_date=str(today))
-    hist = load_matches()
+    hist = load_matches(recent=True)
     past = hist[hist["date"] < today]
     fx = _fixtures_from_db(engine, today)
+    if not as_of and len(fx):  # na zywo nigdy nie typujemy meczu, ktory juz sie zaczal
+        fx = fx[pd.to_datetime(fx["kickoff_utc"], utc=True) > pd.Timestamp.now(tz="UTC")]
     if lead_minutes is not None and not as_of and len(fx):
         now_ts = pd.Timestamp.now(tz="UTC")
         ko = pd.to_datetime(fx["kickoff_utc"], utc=True)
@@ -451,6 +477,8 @@ def preview(engine: sa.Engine) -> tuple[pd.DataFrame, list[dict]]:
     """Wstepne typy na najblizsze 3 dni BEZ zapisu: (predykcje championa, kandydaci z przewaga).
     Nie ma tu jeszcze skladow ani kursu z chwili typu, wiec to tylko podglad."""
     preds = predict(engine, role="champion", dry=True)
+    if len(preds):  # mecze, ktore juz trwaja albo sie skonczyly, to nie podglad
+        preds = preds[pd.to_datetime(preds["kickoff_utc"], utc=True) > pd.Timestamp.now(tz="UTC")]
     if preds.empty:
         return preds, []
     cfg = model_cfg()
@@ -469,11 +497,11 @@ def preview(engine: sa.Engine) -> tuple[pd.DataFrame, list[dict]]:
 def settle_day(engine: sa.Engine, as_of=None) -> dict:
     """Wyniki do bazy (w trybie odtworzeniowym: wyniki meczow z dnia as_of), dziennik bledow."""
     if as_of:
-        hist = load_matches()
+        hist = load_matches(recent=True)
         day = hist[hist["date"] == pd.Timestamp(as_of).date()]
         db.store_matches(engine, day)
     else:
-        db.store_matches(engine, load_matches(refresh=True))
+        db.store_matches(engine, _recent_only(engine, load_matches(refresh=True, recent=True)))
     s = settle.settled(engine, role=None)
     n_j = journal.update_journal(engine, s[s["role"] == "champion"]) if len(s) else 0
     n_clv = settle.record_clv(engine)
@@ -487,7 +515,7 @@ def history(weeks: int = 3, today=None, matches: pd.DataFrame | None = None) -> 
     Nic nie trafia do bazy."""
     today = pd.Timestamp(today).date() if today else datetime.now(timezone.utc).date()
     start = today - timedelta(days=7 * weeks)
-    hist = matches if matches is not None else load_matches()
+    hist = matches if matches is not None else load_matches(recent=True)
     hist = hist[hist["date"] < today]
     v = variants()[0]
     eng = Engine(_params_for(v), cutoff_mode="day", collect_features=True)
@@ -495,14 +523,19 @@ def history(weeks: int = 3, today=None, matches: pd.DataFrame | None = None) -> 
     d = pd.to_datetime(frame["date"]).dt.date
     past, tgt = frame[d < start], frame[(d >= start) & frame["fthg"].notna()]
     if tgt.empty:
-        return dict(od=str(start), do=str(today), typy=[], mecze=0)
+        return dict(od=str(start), do=str(today), typy=[], mecze=0, lista=[])
     tgt = L.live_apply(past, tgt, LAYER_SETS[v["layers"]])
     cfg = model_cfg()
-    tips = []
+    tips, games = [], []
     for day, g in tgt.groupby(pd.to_datetime(tgt["date"]).dt.date):
         cands = []
         for r in g.itertuples(index=False):
             p1 = np.array([r.p_h, r.p_d, r.p_a]) / (r.p_h + r.p_d + r.p_a)
+            res = "1" if r.fthg > r.ftag else ("X" if r.fthg == r.ftag else "2")
+            pick = "1X2"[int(np.argmax(p1))]
+            games.append(dict(data=str(day), league=r.league, home=r.home, away=r.away, fthg=int(r.fthg),
+                              ftag=int(r.ftag), p1=float(p1[0]), px=float(p1[1]), p2=float(p1[2]),
+                              faworyt=pick, trafiony=int(pick == res)))
             for mkt, sel, p, o in (("1X2", "1", p1[0], r.odds_h), ("1X2", "X", p1[1], r.odds_d),
                                    ("1X2", "2", p1[2], r.odds_a), ("OU2.5", "over2.5", r.p_over, r.odds_o25),
                                    ("OU2.5", "under2.5", 1 - r.p_over, r.odds_u25)):
@@ -513,4 +546,5 @@ def history(weeks: int = 3, today=None, matches: pd.DataFrame | None = None) -> 
         for c in select_and_stake(cands, Limits(), cfg["kelly_fraction"], cfg["value_threshold"], cfg["tax_rate"]):
             c["trafiony"] = settle.outcome(c["market"], c["selection"], c["fthg"], c["ftag"])
             tips.append(c)
-    return dict(od=str(start), do=str(today - timedelta(days=1)), typy=tips, mecze=int(tgt["event_id"].nunique()))
+    return dict(od=str(start), do=str(today - timedelta(days=1)), typy=tips, mecze=int(tgt["event_id"].nunique()),
+                lista=games, prog=cfg["value_threshold"])

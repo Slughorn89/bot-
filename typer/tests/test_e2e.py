@@ -110,5 +110,6 @@ def test_typy_wstecz_bez_zapisu(patched, synth):
     for t in h["typy"]:
         assert pd.Timestamp(t["data"]) >= end - pd.Timedelta(days=28) and t["trafiony"] in (0, 1)
         assert t["edge"] >= 0.05
+    assert len(h["lista"]) == h["mecze"]  # kazdy rozegrany mecz z faworytem modelu, nawet bez typow
     msgs = render.render_history(h)
     assert msgs[0].startswith("TYPY WSTECZ") and all(len(m) <= render.TG_LIMIT for m in msgs)
