@@ -74,3 +74,49 @@ def test_brak_klucza(monkeypatch):
     monkeypatch.delenv("ODDSRELAY_KEY", raising=False)
     with pytest.raises(SourceUnavailable, match="ODDSRELAY_KEY"):
         api.raw_odds("soccer_epl")
+
+
+def test_gielda_na_zywo_tuz_przed_startem_to_zamkniecie():
+    """Archiwum nie ma gield, wiec zamkniecie Betfair bierzemy ze snapshotu raw <= 10 min przed startem."""
+    raw = {"meta": {"feed_type": "raw"}, "data": [
+        {"id": "e1", "sport_key": "soccer_epl", "commence_time": "2026-10-16T19:45:00Z",
+         "home_team": "Arsenal", "away_team": "Chelsea", "bookmakers": [
+             {"key": "bet365", "markets": [{"key": "h2h", "outcomes": [
+                 {"name": "Arsenal", "price": 2.1}, {"name": "Draw", "price": 3.5}, {"name": "Chelsea", "price": 3.4}]}]},
+             {"key": "betfair_exchange", "markets": [{"key": "h2h", "outcomes": [
+                 {"name": "Arsenal", "back": [{"price": 2.16, "available": 900}, {"price": 2.14}],
+                  "lay": [{"price": 2.18, "available": 500}]},
+                 {"name": "Draw", "back_price": 3.55, "lay_price": 3.65},
+                 {"name": "Chelsea", "back": [{"price": 3.7}]}]}]}]}]}
+    a = OddsRelay()
+    recs = a.parse(RawPayload("raw.json", json.dumps(raw).encode(),
+                              datetime(2026, 10, 16, 19, 37, tzinfo=timezone.utc), dict(league="E0")))
+    bf = {r.selection: r for r in recs if r.bookmaker == "betfair_exchange"}
+    assert set(bf) == {"1", "X"}                                  # Chelsea bez lay: nie zgadujemy
+    assert abs(bf["1"].price - exchange_mid(2.16, 2.18)) < 1e-12
+    assert abs(bf["X"].price - exchange_mid(3.55, 3.65)) < 1e-12
+    assert all(r.kind == "close" for r in recs)
+
+
+def test_zamkniecia_z_archiwum_bez_gield_a_raw_z_gielda(monkeypatch, tmp_path):
+    from typer.ingest import oddsrelay as api
+    from typer.ingest.budget import Ledger
+    seen = []
+
+    def fake_fetch(url, source, name, *, params=None, headers=None, max_age_hours=None, meta=None, **kw):
+        if params.get("quote") == "true":
+            return json.dumps({"cost": 10}).encode()
+        seen.append((url, dict(params)))
+        if meta is not None:
+            meta.update(cache=False, headers={})
+        return json.dumps({"meta": {"next_cursor": None}, "data": []}).encode()
+
+    monkeypatch.setattr(api, "fetch", fake_fetch)
+    monkeypatch.setenv("ODDSRELAY_KEY", "k")
+    led = Ledger(tmp_path / "b.json")
+    now = datetime(2026, 10, 18, 12, tzinfo=timezone.utc)
+    api.closing(datetime(2026, 10, 17).date(), "soccer_epl", now=now, ledger=led)
+    api.raw_odds("soccer_epl", now=now, ledger=led)
+    (u1, p1), (u2, p2) = seen
+    assert u1.endswith("/v2/historical/closing") and "exchanges" not in p1   # inaczej 403 dla calego zapytania
+    assert u2.endswith("/v2/odds/raw") and p2["exchanges"] == "betfair_exchange"
