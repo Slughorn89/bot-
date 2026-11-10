@@ -8,6 +8,7 @@ zywe zrodla terminarza sa niedostepne. To nie jest paper trading na zywo.
 from __future__ import annotations
 
 import json
+import os
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -39,12 +40,28 @@ def model_cfg() -> dict:
                 bet_markets=m.get("bet_markets", ["1X2", "OU2.5"]))
 
 
+def read_alerts(path=None) -> list:
+    """Lista alarmow; uszkodzony plik (np. po rownoczesnym zapisie) nie moze wywalic raportu."""
+    path = path or ALERTS
+    if not path.exists():
+        return []
+    try:
+        items = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (ValueError, OSError):
+        log.warning("uszkodzony %s, zaczynam liste alarmow od nowa", path)
+        return []
+    return items if isinstance(items, list) else []
+
+
 def alert(msg: str) -> None:
     """Nieudane pobranie ma wyslac alarm zamiast milczec."""
     LIVE_DIR.mkdir(exist_ok=True)
-    items = json.loads(ALERTS.read_text(encoding="utf-8")) if ALERTS.exists() else []
+    items = read_alerts(ALERTS)
     items.append(dict(ts=f"{datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC", msg=msg))
-    ALERTS.write_text(json.dumps(items[-50:], ensure_ascii=False, indent=1), encoding="utf-8")
+    # zapis przez plik tymczasowy: dwa zadania naraz nie zostawia polowy JSON-a
+    tmp = ALERTS.with_name(f"{ALERTS.name}.{os.getpid()}.tmp")
+    tmp.write_text(json.dumps(items[-50:], ensure_ascii=False, indent=1), encoding="utf-8")
+    os.replace(tmp, ALERTS)
     log.error("ALARM: %s", msg)
 
 

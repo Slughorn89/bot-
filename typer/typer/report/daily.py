@@ -115,10 +115,10 @@ def build_payload(engine: sa.Engine, day=None) -> dict:
         if days == 90:
             p["segmenty"] = rep.get("segmenty", [])
     inne = []
-    alerts_file = LIVE_DIR / "alerts.json"
-    if alerts_file.exists():
-        for a in json.loads(alerts_file.read_text(encoding="utf-8"))[-5:]:
-            inne.append(dict(typ="źródło danych", segment="", od=a["ts"], info=a["msg"]))
+    from typer.pipeline.daily import read_alerts
+    for a in read_alerts(LIVE_DIR / "alerts.json")[-5:]:
+        if isinstance(a, dict):
+            inne.append(dict(typ="źródło danych", segment="", od=a.get("ts", ""), info=a.get("msg", "")))
     p["alarmy"] = render.alarmy(rep_ref.get("dryf", {}) if rep_ref else {}, inne)
     j = db.read_df(engine, "SELECT * FROM error_journal ORDER BY id DESC LIMIT 20")
     p["wnioski"] = []
