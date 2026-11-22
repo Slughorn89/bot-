@@ -64,6 +64,7 @@ def test_koszt_sprawdzany_przed_zapytaniem_i_budzet(monkeypatch, tmp_path):
     assert calls == ["true", None]                               # najpierw darmowa wycena
     assert led.used("oddsrelay", now) == 50000 - 38800
     led.data["oddsrelay"]["used"] = 44900                         # zostaje mniej niz koszt (z rezerwa 10%)
+    led.path.write_text(json.dumps(led.data))                    # ksiega czytana z pliku przy kazdym odczycie
     with pytest.raises(Exception, match="budzet OddsRelay"):
         api.raw_odds("soccer_epl", now=now, ledger=led)
 
@@ -87,3 +88,16 @@ def test_odds_api_bookmaker_list_costs_like_one_region(monkeypatch):
     cfg["the_odds_api"]["bukmacherzy"] = [f"b{i}" for i in range(11)]
     assert len(odds_api.query_scope()[1]) == 2                # 11 bukmacherow = 2 jednostki
     assert odds_api.query_scope("eu,uk") == ({"regions": "eu,uk"}, ["eu", "uk"])   # jawny region wygrywa
+
+
+def test_ledger_two_instances_do_not_overwrite_each_other(tmp_path):
+    from datetime import datetime, timezone
+
+    from typer.ingest.budget import Ledger
+    now = datetime(2026, 11, 22, 12, tzinfo=timezone.utc)
+    a, b = Ledger(tmp_path / "b.json"), Ledger(tmp_path / "b.json")   # dwa procesy, kazdy ze swoja kopia
+    a.record("the_odds_api", 1, now, {"x-requests-used": "1"})
+    b.record("thestatsapi", 1, now, {"x-monthly-quota-limit": "50000", "x-monthly-quota-remaining": "49990"})
+    c = Ledger(tmp_path / "b.json")
+    assert c.used("the_odds_api", now) == 1 and c.used("thestatsapi", now) == 10
+    assert b.used("the_odds_api", now) == 1                  # stara kopia w pamieci widzi zapis innego procesu

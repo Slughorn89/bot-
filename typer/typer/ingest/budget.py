@@ -8,6 +8,8 @@ liczymy koszt sami. Zapytanie, ktore przekroczyloby budzet (z rezerwa), jest odr
 from __future__ import annotations
 
 import json
+import os
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -45,11 +47,32 @@ def _limit(source: str) -> tuple[int, float]:
 
 
 class Ledger:
+    """Ksiega wspoldzielona przez procesy (np. pobieranie w tle i cykl dzienny): kazdy odczyt czyta plik od nowa,
+    a zapis to odczyt-zmiana-zapis pod blokada pliku, wiec proces nie nadpisuje zuzycia zapisanego przez inny."""
+
     def __init__(self, path: Path | None = None):
         self.path = path or _ledger_path()
-        self.data = json.loads(self.path.read_text()) if self.path.exists() else {}
+        self.data = self._load()
+
+    def _load(self) -> dict:
+        try:
+            return json.loads(self.path.read_text()) if self.path.exists() else {}
+        except json.JSONDecodeError:          # plik w trakcie zapisu innym sposobem: lepiej pusto niz wyjatek
+            return {}
+
+    @contextmanager
+    def _locked(self):
+        import fcntl
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.path.with_suffix(".lock"), "w") as lf:
+            fcntl.flock(lf, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lf, fcntl.LOCK_UN)
 
     def used(self, source: str, now: datetime) -> int:
+        self.data = self._load()
         d = self.data.get(source, {})
         return int(d.get("used", 0)) if d.get("period") == _period(source, now) else 0
 
@@ -61,6 +84,11 @@ class Ledger:
         return cost <= self.remaining(source, now)
 
     def record(self, source: str, cost: int, now: datetime, headers: dict | None = None, note: str = "") -> None:
+        with self._locked():
+            self.data = self._load()
+            self._record(source, cost, now, headers, note)
+
+    def _record(self, source, cost, now, headers, note) -> None:
         per = _period(source, now)
         d = self.data.get(source, {})
         if d.get("period") != per:
@@ -80,8 +108,9 @@ class Ledger:
             d["used"] = int(d.get("used", 0)) + int(cost)
         d["calls"] = (d.get("calls", []) + [dict(ts=f"{now:%Y-%m-%d %H:%M}", koszt=cost, uwaga=note)])[-200:]
         self.data[source] = d
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(self.data, ensure_ascii=False, indent=1))
+        tmp = self.path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(self.data, ensure_ascii=False, indent=1))
+        os.replace(tmp, self.path)              # atomowo: czytajacy nigdy nie widzi polowy pliku
 
 
 def odds_api_cost(markets: list[str], regions: list[str]) -> int:
