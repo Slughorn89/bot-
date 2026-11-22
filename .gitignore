@@ -9,3 +9,6 @@ __pycache__/
 .venv/
 venv/
 .DS_Store
+
+# ScrapeCreators skill helper output (raw scraped data, may contain personal data)
+scrapecreators-data/
