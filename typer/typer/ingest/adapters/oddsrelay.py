@@ -27,7 +27,7 @@ EXCHANGES = {"betfair_exchange", "matchbook", "smarkets"}
 
 def sport_key(league: str) -> str | None:
     meta = config.leagues().get(league, {})
-    return meta.get("oddsrelay") or meta.get("odds_api")    # klucze sportow jak w The Odds API (do potwierdzenia)
+    return meta.get("oddsrelay") or meta.get("odds_api")    # klucze OddsRelay z /v2/sports (config/sports.yaml)
 
 
 def _league_for(sport: str, ctx: dict) -> str | None:

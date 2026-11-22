@@ -346,6 +346,11 @@ do przybliżenia ze strzałów.
 
 `python cli.py ingest oddsrelay --param mode=closing` pobiera zamknięcia (domyślnie `mode=raw`, snapshot).
 
+Stan na 2026-11-22: klucz działa (lista sportów i wyceny przechodzą), ale konto ma **0 tokenów** do 19.12.2026,
+a jedno zapytanie o kursy bet365 dla ligi kosztuje 12 tokenów. Klucze lig z `/v2/sports` są w `config/sports.yaml`
+(pole `oddsrelay`); który z kilku duplikatów bet365 faktycznie wypełnia, sprawdzimy po doładowaniu tokenów.
+Ekstraklasa: wycena 0 tokenów i 0 meczów, czyli bet365 w regionie UK jej nie wystawia.
+
 ### Budżet zapytań (sekcja 5 v2)
 
 | Źródło | Limit (plan darmowy, wg skilla, listopad 2026) | Jak go pilnujemy |

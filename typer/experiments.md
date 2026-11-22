@@ -92,6 +92,6 @@ Kursów na rożne nie mamy, więc nie ma porównania z rynkiem ani CLV. **Werdyk
 8. Kursy na rożne: TheStatsAPI ma zamknięcia Bet365 (wpis 31); Pinnacle tylko dla nowszych meczów. Pobrać więcej sezonów i lig (limit 50 000 zapytań/mies.).
 9. CLV z kursu wziętego u ostrego bukmachera (Pinnacle sprzed meczu, kolumny PS* w football-data) zamiast Bet365: oddziela informację modelu od marży miękkiego bukmachera.
 10. Naprawione przy module 6: `settle.closing_odds` brał miękki kurs, gdy brakowało Pinnacle, i mieszał bukmacherów w jednym rynku. Teraz tylko ostre zamknięcie i jeden bukmacher na rynek.
-11. OddsRelay: po podłączeniu klucza sprawdzić klucze sportów (`/v2/sports`) i jakość zamknięcia Betfair względem Pinnacle (log loss na wspólnych meczach). Słaby punkt z planu, pewność 0,75.
+11. OddsRelay: klucz podłączony 2026-11-22, klucze sportów zapisane (`config/sports.yaml`), naprawiony parametr `sports=` w `raw_odds`. Konto ma 0 tokenów do 19.12: jakość zamknięcia Betfair względem Pinnacle (log loss na wspólnych meczach) sprawdzimy po doładowaniu. Pewność 0,75.
 12. TheStatsAPI: składy (oficjalne XI) i xG z prawdziwych danych zamiast proxy ze strzałów do modelu goli (backlog 1 i 3); kontuzje i zawieszenia.
 13. ~~Dzienne dociąganie xG~~: zrobione (`features/real_xg.refresh`, wołane w `settle` na żywo i przez `cli.py xg`). Pierwszy przebieg 2026-11-22: 36 meczów z 7 dni, wszystkie z xG, 40 zapytań. Mecze młodsze niż 6 h po starcie czekają do następnego dnia; mecz bez xG jest pytany ponownie.

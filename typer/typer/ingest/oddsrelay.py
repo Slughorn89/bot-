@@ -58,7 +58,7 @@ def raw_odds(sport_key: str, *, bookmakers: str | None = None, markets: str = "h
              now: datetime | None = None, ledger=None) -> bytes:
     now = now or datetime.now(timezone.utc)
     bk = bookmakers or ",".join(_cfg().get("bukmacherzy_typ", ["bet365"]))
-    params = dict(region=_cfg().get("region", "uk"), sport=sport_key, bookmakers=bk, markets=markets,
+    params = dict(region=_cfg().get("region", "uk"), sports=sport_key, bookmakers=bk, markets=markets,
                   oddsFormat="decimal", dateFormat="iso", inPlay="exclude", limit=250)
     return _get("/v2/odds/raw", params, f"raw_{sport_key}_{now:%Y%m%dT%H%M}.json", max_age_hours=0.2,
                 now=now, ledger=ledger, note=f"raw {sport_key} {bk} {markets}")

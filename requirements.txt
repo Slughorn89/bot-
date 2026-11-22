@@ -1,7 +1,0 @@
-ccxt
-pandas
-numpy
-python-dotenv
-requests
-colorlog
-flask
