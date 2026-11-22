@@ -45,6 +45,12 @@ the_odds_api:
   rezerwa: 0.1             # 10% zapasu na powtorki i reczne zapytania
   limit_na_minute: 30
   regiony: [eu]
+  # Zamiast regionu konkretni bukmacherzy (do 10 = koszt jednego regionu). betclic_fr: Betclic ma licencje w
+  # Polsce, kurs francuski to przyblizenie polskiego (ta sama firma; w PL dochodzi 12% podatku od stawki).
+  # pinnacle i betfair_ex_eu: ostre zamkniecia do CLV.
+  bukmacherzy: [betclic_fr, pinnacle, betfair_ex_eu, unibet_eu, williamhill, marathonbet, betsson, nordicbet,
+                sport888, onexbet]
+  bukmacher_zakladu: betclic_fr     # kurs "wziety" zakladu papierowego; inni tylko do porownan i zamkniec
   rynki_zamkniecie: [h2h, totals]   # zamkniecie ma priorytet: bez niego nie ma CLV
   rynki_typ: [h2h, totals]          # przy braku budzetu planer zostawia samo h2h, potem nic
   szacunek: >-

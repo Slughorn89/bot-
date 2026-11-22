@@ -89,8 +89,13 @@ def _fixtures_from_db(engine: sa.Engine, day) -> pd.DataFrame:
         return ev
     ev["kickoff_utc"] = pd.to_datetime(ev["kickoff_utc"], utc=True)
     ev = ev[(ev["kickoff_utc"] >= d0) & (ev["kickoff_utc"] < d0 + timedelta(days=3))]
-    od = db.read_df(engine, "SELECT event_id, market, selection, price, snapshot_utc FROM odds_snapshots "
-                            "WHERE kind IN ('prematch', 'taken')")
+    od = db.read_df(engine, "SELECT event_id, source, bookmaker, market, selection, price, snapshot_utc "
+                            "FROM odds_snapshots WHERE kind IN ('prematch', 'taken')")
+    # kurs zakladu tylko od jednego bukmachera (sources.yaml: the_odds_api.bukmacher_zakladu), bez mieszania
+    # bukmacherow miedzy selekcjami jednego rynku; snapshoty innych zrodel (np. prematch z football-data) bez zmian
+    book = config.sources().get("the_odds_api", {}).get("bukmacher_zakladu")
+    if book and len(od):
+        od = od[(od["source"] != "the_odds_api") | (od["bookmaker"] == book)]
     od = od.sort_values("snapshot_utc").drop_duplicates(["event_id", "market", "selection"], keep="last")
     colmap = {("1X2", "1"): "odds_h", ("1X2", "X"): "odds_d", ("1X2", "2"): "odds_a",
               ("OU2.5", "over2.5"): "odds_o25", ("OU2.5", "under2.5"): "odds_u25"}

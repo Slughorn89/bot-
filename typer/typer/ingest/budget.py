@@ -96,7 +96,8 @@ def plan_odds_snapshots(events: pd.DataFrame, now: datetime, done: set[tuple], l
     Przy kurczacym sie budzecie najpierw odpada totals w 'taken', potem caly 'taken'; 'close' ma priorytet,
     bo bez zamkniecia nie ma CLV."""
     s = config.sources().get("the_odds_api", {})
-    regions = s.get("regiony", ["eu"])
+    from typer.ingest.odds_api import query_scope
+    regions = query_scope()[1]          # jednostki kosztu: regiony albo paczki po 10 bukmacherow
     m_close = s.get("rynki_zamkniecie", ["h2h", "totals"])
     m_taken = s.get("rynki_typ", ["h2h", "totals"])
     if events.empty:

@@ -74,3 +74,16 @@ def test_brak_klucza(monkeypatch):
     monkeypatch.delenv("ODDSRELAY_KEY", raising=False)
     with pytest.raises(SourceUnavailable, match="ODDSRELAY_KEY"):
         api.raw_odds("soccer_epl")
+
+
+def test_odds_api_bookmaker_list_costs_like_one_region(monkeypatch):
+    from typer import config
+    from typer.ingest import odds_api
+    base = config.sources()
+    cfg = dict(base, the_odds_api=dict(base["the_odds_api"], bukmacherzy=["betclic_fr", "pinnacle"]))
+    monkeypatch.setattr(config, "sources", lambda: cfg)
+    scope, units = odds_api.query_scope()
+    assert scope == {"bookmakers": "betclic_fr,pinnacle"} and len(units) == 1
+    cfg["the_odds_api"]["bukmacherzy"] = [f"b{i}" for i in range(11)]
+    assert len(odds_api.query_scope()[1]) == 2                # 11 bukmacherow = 2 jednostki
+    assert odds_api.query_scope("eu,uk") == ({"regions": "eu,uk"}, ["eu", "uk"])   # jawny region wygrywa

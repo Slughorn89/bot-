@@ -20,7 +20,18 @@ SOURCE = "the_odds_api"
 CLOSE_WINDOW_MIN = 10  # snapshot w ciagu 10 min przed startem traktujemy jako zamkniecie
 
 
-def download(sport_key: str, *, regions: str = "eu", markets: str = "h2h,totals",
+def query_scope(regions: str | None = None) -> tuple[dict, list]:
+    """Parametr zakresu zapytania i jednostki kosztu. Lista `bukmacherzy` w sources.yaml ma pierwszenstwo przed
+    regionami: kazde rozpoczete 10 bukmacherow kosztuje jak jeden region (dokumentacja The Odds API v4)."""
+    cfg = config.sources()["the_odds_api"]
+    books = cfg.get("bukmacherzy") or []
+    if books and regions is None:
+        return dict(bookmakers=",".join(books)), [None] * (-(-len(books) // 10))
+    regions = regions or ",".join(cfg.get("regiony", ["eu"]))
+    return dict(regions=regions), regions.split(",")
+
+
+def download(sport_key: str, *, regions: str | None = None, markets: str = "h2h,totals",
              now: datetime | None = None, ledger=None, meta_out: dict | None = None) -> bytes:
     """Jedno zapytanie = (liczba rynkow x liczba regionow) kredytow. Przed wywolaniem sprawdzamy budzet,
     po wywolaniu zapisujemy zuzycie z naglowkow x-requests-used / x-requests-remaining."""
@@ -30,12 +41,13 @@ def download(sport_key: str, *, regions: str = "eu", markets: str = "h2h,totals"
         raise SourceUnavailable("brak ODDS_API_KEY w .env")
     now = now or datetime.now(timezone.utc)
     ledger = ledger or Ledger()
-    cost = odds_api_cost(markets.split(","), regions.split(","))
+    scope, units = query_scope(regions)
+    cost = odds_api_cost(markets.split(","), units)
     if not ledger.can_spend(SOURCE, cost, now):
         raise SourceUnavailable(f"budzet The Odds API wyczerpany ({ledger.used(SOURCE, now)} kredytow w tym "
                                 f"miesiacu, koszt zapytania {cost})")
     url = config.sources()["the_odds_api"]["url"].format(sport=sport_key)
-    params = dict(apiKey=key, regions=regions, markets=markets, oddsFormat="decimal", dateFormat="iso")
+    params = dict(apiKey=key, **scope, markets=markets, oddsFormat="decimal", dateFormat="iso")
     meta: dict = {}
     # kazdy snapshot to osobny plik w raw/: to jest nasza historia kursow
     raw = fetch(url, SOURCE, f"{sport_key}_{now:%Y%m%dT%H%M}.json", params=params, max_age_hours=0.2, meta=meta)

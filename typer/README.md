@@ -332,6 +332,16 @@ dociąga `settle` na żywo (ostatnie 7 dni, tylko gdy któryś wariant ma `real_
 `python cli.py xg [--days 7]`; to ok. 1 zapytanie na mecz. Bez klucza albo budżetu idzie alert, a silnik wraca
 do przybliżenia ze strzałów.
 
+### Kursy Betclic (The Odds API)
+
+Betclic ma licencję w Polsce, ale nie ma publicznego API, a regulamin strony nie pozwala na automatyczne
+pobieranie, więc nie scrapujemy. Kursy bierzemy legalnie z The Odds API: bukmacher `betclic_fr` (Betclic
+Francja; ta sama firma, kurs polski bywa niższy przez 12% podatku od stawki). Zapytania idą po liście
+bukmacherów (`sources.yaml: the_odds_api.bukmacherzy`, do 10 = koszt jednego regionu): Betclic, Pinnacle i giełda
+Betfair do zamknięć oraz kilku bukmacherów do porównań. Kurs zakładu papierowego tylko z Betclic
+(`bukmacher_zakladu`), bez mieszania bukmacherów w jednym rynku. Klucz: `ODDS_API_KEY` w `.env` (darmowy plan
+500 kredytów/mies., rejestracja mailem na the-odds-api.com).
+
 ### OddsRelay (kursy UK i giełdy)
 
 `typer/ingest/oddsrelay.py` i adapter `oddsrelay`:
