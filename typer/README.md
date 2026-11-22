@@ -328,7 +328,9 @@ Prawdziwe xG: `typer/features/real_xg.py` dołącza xG z lokalnej kopii do mecz�
 xG meczu wchodzi tylko do aktualizacji ocen po meczu, więc nie ma wycieku. Challenger `op-v1-xg` (w_xg 0,4)
 typuje z nim w cieniu: na 5 ligach, na których wagi nie dobierano, J −0,0028 (CI95 −0,0044 do −0,0012),
 wpisy 32 i 33. Test: `python backtest/statsapi/xg_real.py [--holdout] [LIGA ...]`. Ograniczenie: xG nowych meczów
-trzeba dociągać (backlog 13), bez tego silnik wraca do przybliżenia ze strzałów.
+dociąga `settle` na żywo (ostatnie 7 dni, tylko gdy któryś wariant ma `real_xg: true`) albo ręcznie
+`python cli.py xg [--days 7]`; to ok. 1 zapytanie na mecz. Bez klucza albo budżetu idzie alert, a silnik wraca
+do przybliżenia ze strzałów.
 
 ### OddsRelay (kursy UK i giełdy)
 

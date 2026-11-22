@@ -390,7 +390,22 @@ def settle_day(engine: sa.Engine, as_of=None) -> dict:
         db.store_matches(engine, day)
     else:
         db.store_matches(engine, load_matches(refresh=True))
+    n_xg = refresh_real_xg() if not as_of else []
     s = settle.settled(engine, role=None)
     n_j = journal.update_journal(engine, s[s["role"] == "champion"]) if len(s) else 0
     n_clv = settle.record_clv(engine)
-    return dict(settled=int(s["event_id"].nunique()) if len(s) else 0, journal=n_j, clv=n_clv)
+    return dict(settled=int(s["event_id"].nunique()) if len(s) else 0, journal=n_j, clv=n_clv, xg=n_xg)
+
+
+def refresh_real_xg(days: int = 7) -> list[dict]:
+    """xG ostatnich meczow z TheStatsAPI, tylko gdy ktorys wariant go uzywa (real_xg: true).
+    Brak klucza albo budzetu = alert i dalej bez xG (silnik wraca do przyblizenia ze strzalow)."""
+    if not any(v.get("real_xg") for v in variants()):
+        return []
+    out = []
+    for lg in (config.sources().get("thestatsapi", {}).get("ligi") or {}):
+        try:
+            out.append(real_xg.refresh(lg, days))
+        except SourceUnavailable as e:
+            alert(f"TheStatsAPI xG ({lg}) niedostepne: {e}")
+    return out

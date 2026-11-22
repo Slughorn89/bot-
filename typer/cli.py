@@ -7,6 +7,7 @@
   python cli.py adapters                        rejestr adapterow warstwy danych (licencje, wlaczone)
   python cli.py ingest NAZWA [--param k=v]      adapter -> rekordy z available_at -> baza
   python cli.py budget                          zuzycie limitow API i szacunek kredytow
+  python cli.py xg [--days 7]                   prawdziwe xG ostatnich meczow z TheStatsAPI (dla op-v1-xg)
   python cli.py predict  [--as-of ...]          predykcje (niezmienialne) + zaklady papierowe
   python cli.py settle   [--as-of ...]          wyniki, rozliczenie, dziennik bledow
   python cli.py learn                           przeglad tygodniowy (evaluate.py od daty wdrozenia)
@@ -83,7 +84,7 @@ def cmd_budget(a):
     from typer.pipeline.data import load_matches
     now = datetime.now(timezone.utc)
     led = Ledger()
-    for src in ("the_odds_api", "api_football"):
+    for src in ("the_odds_api", "api_football", "thestatsapi"):
         print(f"{src}: zuzyte {led.used(src, now)}, zostalo (z rezerwa) {led.remaining(src, now)}, "
               f"reset {next_reset(src, now):%Y-%m-%d}")
     h = history_estimate(load_matches(), a.season)
@@ -91,6 +92,13 @@ def cmd_budget(a):
         print(f"\nSzacunek The Odds API dla planu snapshotow na sezonie {a.season}:")
         print(h.to_string())
         print(f"srednio {h['kredyty'].mean():.0f}, maks {h['kredyty'].max()} kredytow/miesiac (limit 500)")
+
+
+def cmd_xg(a):
+    """xG ostatnich meczow z TheStatsAPI do lokalnej kopii (to samo robi settle na zywo)."""
+    from typer.pipeline.daily import refresh_real_xg
+    for r in refresh_real_xg(a.days):
+        print(r)
 
 
 def cmd_predict(a):
@@ -317,6 +325,8 @@ def main(argv=None):
     p = sub.add_parser("ingest", help="pobierz przez adapter i zapisz rekordy (z available_at)")
     p.add_argument("name")
     p.add_argument("--param", action="append", help='parametr adaptera, np. --param tour=m --param \'kinds=["matches"]\'')
+    p = sub.add_parser("xg", help="prawdziwe xG ostatnich meczow (TheStatsAPI)")
+    p.add_argument("--days", type=int, default=7)
     p = sub.add_parser("budget", help="zuzycie i szacunek budzetu zapytan API")
     p.add_argument("--season", default="2025-26")
     p = sub.add_parser("backtest")

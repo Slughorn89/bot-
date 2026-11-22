@@ -64,14 +64,15 @@ def matches(competition_id: str, season_id: str | None = None, *, date_from: str
         page += 1
 
 
-def match_bundle(match_id: str, parts=PARTS, ledger=None) -> bytes:
-    """Mecz rozegrany: paczka (mecz, przebieg, statystyki, kursy, sklady). Brak czesci (404) = pole puste."""
+def match_bundle(match_id: str, parts=PARTS, ledger=None, max_age_hours=None) -> bytes:
+    """Mecz rozegrany: paczka (mecz, przebieg, statystyki, kursy, sklady). Brak czesci (404) = pole puste.
+    max_age_hours: wiek kopii w cache, po ktorym pytamy ponownie (None = kopia na zawsze)."""
     out = {"match_id": match_id}
     for p in parts:
         name = p.strip("/") or "match"
         try:
-            out[name] = get(f"/football/matches/{match_id}{p}", None, f"{match_id}_{name}.json", ledger=ledger
-                            ).get("data")
+            out[name] = get(f"/football/matches/{match_id}{p}", None, f"{match_id}_{name}.json", ledger=ledger,
+                            max_age_hours=max_age_hours).get("data")
         except SourceUnavailable as e:
             if "404" not in str(e):
                 raise

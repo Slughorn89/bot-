@@ -94,4 +94,4 @@ Kursów na rożne nie mamy, więc nie ma porównania z rynkiem ani CLV. **Werdyk
 10. Naprawione przy module 6: `settle.closing_odds` brał miękki kurs, gdy brakowało Pinnacle, i mieszał bukmacherów w jednym rynku. Teraz tylko ostre zamknięcie i jeden bukmacher na rynek.
 11. OddsRelay: po podłączeniu klucza sprawdzić klucze sportów (`/v2/sports`) i jakość zamknięcia Betfair względem Pinnacle (log loss na wspólnych meczach). Słaby punkt z planu, pewność 0,75.
 12. TheStatsAPI: składy (oficjalne XI) i xG z prawdziwych danych zamiast proxy ze strzałów do modelu goli (backlog 1 i 3); kontuzje i zawieszenia.
-13. Dzienne dociąganie xG z TheStatsAPI dla meczów z ostatnich dni (dziś tylko kopia z backfillu do 2026-09): bez tego challenger `op-v1-xg` stopniowo wraca do przybliżenia ze strzałów. Ok. 10 zapytań na kolejkę ligi.
+13. ~~Dzienne dociąganie xG~~: zrobione (`features/real_xg.refresh`, wołane w `settle` na żywo i przez `cli.py xg`). Pierwszy przebieg 2026-11-22: 36 meczów z 7 dni, wszystkie z xG, 40 zapytań. Mecze młodsze niż 6 h po starcie czekają do następnego dnia; mecz bez xG jest pytany ponownie.
