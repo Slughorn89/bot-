@@ -42,10 +42,13 @@ MAIN_MAP = {
     # tryb extended
     "hc": ["HC"], "ac": ["AC"], "hf": ["HF"], "af": ["AF"], "hy": ["HY"], "ay": ["AY"], "referee": ["Referee"],
 }
-# nowe ligi (np. POL): tylko kursy zamkniecia
+# nowe ligi (np. POL): tylko kursy ZAMKNIECIA. Ostre zamkniecie: Pinnacle, a gdy puste (od 2026/27) gielda
+# Betfair. Srednia rynku na zamknieciu tylko jako benchmark. Kursu "wzietego" (odds_*) tu nie ma i nie wolno
+# go udawac zamknieciem: zawyzyloby to backtest.
 NEW_MAP = {
     "home": ["Home"], "away": ["Away"], "fthg": ["HG"], "ftag": ["AG"],
-    "close_h": ["PSCH", "PH"], "close_d": ["PSCD", "PD"], "close_a": ["PSCA", "PA"],
+    "close_h": ["PSCH", "BFECH"], "close_d": ["PSCD", "BFECD"], "close_a": ["PSCA", "BFECA"],
+    "bench_h": ["AvgCH"], "bench_d": ["AvgCD"], "bench_a": ["AvgCA"],
 }
 
 
@@ -56,10 +59,12 @@ def season_code(season: str) -> str:
 
 
 def _pick(df: pd.DataFrame, cands: list[str]) -> pd.Series:
+    """Pierwszy niepusty kandydat w kazdym wierszu (kolumna bywa w pliku, ale pusta w nowszych sezonach)."""
+    out = pd.Series(np.nan, index=df.index, dtype=object)
     for c in cands:
         if c in df.columns:
-            return df[c]
-    return pd.Series(np.nan, index=df.index)
+            out = out.where(out.notna(), df[c])
+    return out.infer_objects()
 
 
 def _parse_dates(df: pd.DataFrame) -> tuple[pd.Series, pd.Series, pd.Series]:

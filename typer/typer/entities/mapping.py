@@ -55,6 +55,9 @@ ALIASES = {
     "mks korona kielce": "Korona Kielce", "miedz legnica": "Legnica", "puszcza niepolomice": "Puszcza",
     "zaglebie lubin": "Zaglebie", "lks lodz": "LKS Lodz", "coventry city": "Coventry", "hull city": "Hull",
     "rodez af": "Rodez", "usl dunkerque": "Dunkerque",
+    "deportivo la coruna": "La Coruna", "racing de santander": "Santander", "real oviedo": "Oviedo",
+    "sc paderborn 07": "Paderborn", "bruk-bet termalica nieciecza": "Termalica B-B.",
+    "termalica nieciecza": "Termalica B-B.", "mzks arka gdynia": "Arka Gdynia",
 }
 
 
