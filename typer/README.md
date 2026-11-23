@@ -332,6 +332,13 @@ dociąga `settle` na żywo (ostatnie 7 dni, tylko gdy któryś wariant ma `real_
 `python cli.py xg [--days 7]`; to ok. 1 zapytanie na mecz. Bez klucza albo budżetu idzie alert, a silnik wraca
 do przybliżenia ze strzałów.
 
+### Telegram (raport dzienny)
+
+`python cli.py report --send` wysyła raport bezpośrednio przez Telegram Bot API: typy z przewagą powyżej progu
+oraz prognozy wszystkich meczów dnia (najbardziej prawdopodobny wynik, kurs, przewaga, powyżej 2,5, obie
+strzelą). W `.env`: `TELEGRAM_BOT_TOKEN` (od @BotFather) i `TELEGRAM_CHAT_ID`. Webhook n8n
+(`N8N_WEBHOOK_URL`) działa dalej, niezależnie.
+
 ### Kursy Betclic (The Odds API)
 
 Betclic ma licencję w Polsce, ale nie ma publicznego API, a regulamin strony nie pozwala na automatyczne

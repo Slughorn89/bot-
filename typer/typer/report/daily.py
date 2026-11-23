@@ -79,6 +79,48 @@ def _tips(engine: sa.Engine, day, threshold: float) -> list[dict]:
     return out
 
 
+def _forecasts(engine: sa.Engine, day) -> list[dict]:
+    """Prognozy championa na mecze dnia (tez bez zakladu): najbardziej prawdopodobny wynik 1X2, powyzej 2.5,
+    obie strzela, kurs i przewaga. To informacja, nie rekomendacja stawki."""
+    pr = db.read_df(engine, """
+        SELECT p.event_id, p.market, p.selection, p.p_model, p.odds_taken, e.league, e.home, e.away, e.kickoff_utc
+        FROM predictions p JOIN events e ON e.event_id = p.event_id WHERE p.role = 'champion'""")
+    if pr.empty:
+        return []
+    pr["kickoff_utc"] = pd.to_datetime(pr["kickoff_utc"], utc=True)
+    pr = pr[pr["kickoff_utc"].dt.date == day]
+    tz = config.sports()["football"]["timezone"]
+    names = {"1": "wygrana gospodarzy", "X": "remis", "2": "wygrana gości"}
+    out = []
+    for eid, g in pr.sort_values("kickoff_utc").groupby("event_id", sort=False):
+        r, x = g.iloc[0], g[g["market"] == "1X2"]
+        if x.empty:
+            continue
+        top = x.loc[x["p_model"].idxmax()]
+        ov = g[(g["market"] == "OU2.5") & (g["selection"] == "over2.5")]
+        bt = g[(g["market"] == "BTTS") & (g["selection"] == "yes")]
+        o = top["odds_taken"]
+        out.append(dict(godz=r["kickoff_utc"].tz_convert(tz).strftime("%H:%M"), liga=r["league"],
+                        mecz=f"{r['home']} - {r['away']}", typ=names[top["selection"]], p=float(top["p_model"]),
+                        kurs=None if pd.isna(o) else float(o),
+                        przewaga=None if pd.isna(o) else float(top["p_model"]) * float(o) - 1,
+                        p_over=float(ov["p_model"].iloc[0]) if len(ov) else None,
+                        p_btts=float(bt["p_model"].iloc[0]) if len(bt) else None))
+    return out
+
+
+def send_telegram(messages: list[str]) -> str:
+    """Bezposrednio przez Telegram Bot API (TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID w .env), czysty tekst."""
+    token, chat = config.env("TELEGRAM_BOT_TOKEN"), config.env("TELEGRAM_CHAT_ID")
+    if not token or not chat:
+        return "brak TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID"
+    for m in messages:
+        r = requests.post(f"https://api.telegram.org/bot{token}/sendMessage",
+                          json=dict(chat_id=chat, text=m[:4000], disable_web_page_preview=True), timeout=30)
+        r.raise_for_status()
+    return f"Telegram: wyslano {len(messages)} wiadomosci"
+
+
 def _yesterday(engine: sa.Engine, day) -> dict:
     s = settle.settled(engine, role="champion")
     bets = db.read_df(engine, "SELECT b.*, e.kickoff_utc FROM bets b JOIN events e ON e.event_id = b.event_id")
@@ -107,6 +149,7 @@ def build_payload(engine: sa.Engine, day=None) -> dict:
     failed = [b["bramka"] for b in (rep_ref or {}).get("bramki", []) if b.get("twarda") and b["wynik"] == "BLAD"]
     p["stan_modelu"] = dict(werdykt=stan.get("werdykt"), n=stan.get("n"), od=ref, niezaliczone=failed)
     p["typy"] = _tips(engine, day, m.get("value_threshold", 0.05))
+    p["prognozy"] = _forecasts(engine, day)
     p["wczoraj"] = _yesterday(engine, day)
     p["okna"] = {}
     for days in (30, 90):
@@ -182,9 +225,10 @@ def send(text: str, payload: dict) -> str:
     stem.with_suffix(".json").write_text(json.dumps(body, ensure_ascii=False, indent=1, default=str))
     stem.with_suffix(".txt").write_text(text)
     stem.with_suffix(".html").write_text(page)
+    sent = send_telegram(tg) if config.env("TELEGRAM_BOT_TOKEN") else None
     url = config.env("N8N_WEBHOOK_URL")
     if not url:
-        return f"zapisano {stem}.json/.txt/.html (brak N8N_WEBHOOK_URL)"
+        return f"zapisano {stem}.json/.txt/.html" + (f"; {sent}" if sent else " (brak N8N_WEBHOOK_URL i Telegrama)")
     r = requests.post(url, json=json.loads(json.dumps(body, default=str)), timeout=30)
     r.raise_for_status()
     return f"wyslano na webhook ({r.status_code}) i zapisano {stem}.json/.txt/.html"

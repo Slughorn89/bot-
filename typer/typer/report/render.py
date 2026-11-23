@@ -173,6 +173,17 @@ def render_telegram(p: dict) -> list[str]:
                   f"stawka {fmt.stake(t['stawka'])}{moved}")
     if not sent:
         m1.append("brak zakładów z przewagą powyżej progu")
+    if p.get("prognozy"):
+        m1 += ["", "Prognozy meczów (informacja, nie zakład)"]
+        for f in p["prognozy"]:
+            k = f" | kurs {fmt.odds(f['kurs'])}, przewaga {fmt.pct(f['przewaga'])}" if f.get("kurs") else ""
+            extra = []
+            if f.get("p_over") is not None:
+                extra.append(f"pow. 2,5: {fmt.p(f['p_over'])}")
+            if f.get("p_btts") is not None:
+                extra.append(f"obie strzelą: {fmt.p(f['p_btts'])}")
+            m1.append(f"{f['godz']} {f['liga']} {f['mecz']}\n  {f['typ']} {fmt.p(f['p'])}{k}"
+                      + (f"\n  {', '.join(extra)}" if extra else ""))
     m2 = ["Wyniki"]
     w = p.get("wczoraj") or {}
     m2.append(f"Wczoraj: {w['typy']} typów, trafione {w['trafione']}, wynik {w['wynik_j']:+.2f} j"
