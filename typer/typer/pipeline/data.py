@@ -19,7 +19,7 @@ log = logging.getLogger("typer.data")
 CACHE = config.DATA_DIR / "matches.pkl"
 CACHE_EXT = config.DATA_DIR / "matches_ext.pkl"
 # zmiana parsera (np. naprawa nazw) = nowy klucz cache, zeby nie czytac starych, blednych danych
-PARSER_VERSION = 3   # 3: Ekstraklasa po 2024-10 z football-data.co.uk (nowe ligi)
+PARSER_VERSION = 5   # 3: Ekstraklasa po 2024-10 z football-data.co.uk; 4: biezacy sezon lig glownych
 
 
 def load_matches(since: str | None = None, refresh: bool = False, ref: str | None = None,
@@ -46,22 +46,29 @@ def load_matches(since: str | None = None, refresh: bool = False, ref: str | Non
 
 
 def extend_new_leagues(df: pd.DataFrame, extended: bool = False) -> pd.DataFrame:
-    """Kopia xgabora konczy sie dla czesci lig wczesniej (Ekstraklasa: 2024-10). Dla lig z plikiem "nowe ligi"
-    football-data.co.uk (sports.yaml: fduk.kind = new) dokladamy mecze PO ostatniej dacie z kopii; starszych nie
-    ruszamy (te same mecze, inne kursy). Te pliki maja tylko zamkniecia: odds_* zostaja puste (bez wycieku).
+    """Kopia xgabora jest zamrozona (ref w sources.yaml): Ekstraklasa konczy sie 2024-10, ligi glowne 2026-09.
+    Z football-data.co.uk dokladamy mecze PO ostatniej dacie z kopii (starszych nie ruszamy: te same mecze, inne
+    kursy): ligi glowne z pliku biezacego sezonu (Bet365 sprzed meczu jako kurs "wziety", jak w kopii),
+    Ekstraklasa z pliku "nowe ligi" (tylko zamkniecia: odds_* puste, bez wycieku).
     Zrodlo niedostepne = ostrzezenie i dane bez uzupelnienia (nie zgadujemy)."""
     from typer.ingest import footballdata_uk as fduk
     from typer.ingest import schema
     src = config.sources()["football_data_uk"]
     parts = [df]
+    today = pd.Timestamp.now(tz="UTC")
+    cur = f"{today.year if today.month >= 7 else today.year - 1}"
+    cur = f"{cur}-{(int(cur) + 1) % 100:02d}"                    # np. 2026-27
     for lg, meta in config.leagues().items():
         f = meta.get("fduk", {})
-        if f.get("kind") != "new":
+        if not f.get("code"):
             continue
         try:
-            raw = fduk.fetch(src["url_nowe_ligi"].format(code=f["code"]), fduk.SOURCE, f"new_{f['code']}.csv",
-                             max_age_hours=24)
-            new = fduk.parse(raw, lg, kind="new", extended=extended)
+            if f.get("kind") == "new":
+                raw = fduk.fetch(src["url_nowe_ligi"].format(code=f["code"]), fduk.SOURCE,
+                                 f"new_{f['code']}.csv", max_age_hours=24)
+                new = fduk.parse(raw, lg, kind="new", extended=extended)
+            else:                    # glowne ligi: plik biezacego sezonu (kursy Bet365 sprzed meczu)
+                new = fduk.parse(fduk.download_season(f["code"], cur), lg, kind="main", extended=extended)
         except (SourceUnavailable, schema.ContractError) as e:
             log.warning("%s: brak uzupelnienia z football-data.co.uk (%s)", lg, e)
             continue

@@ -36,8 +36,9 @@ MAIN_MAP = {
     "max_h": ["MaxH", "BbMxH"], "max_d": ["MaxD", "BbMxD"], "max_a": ["MaxA", "BbMxA"],
     "max_o25": ["Max>2.5", "BbMx>2.5"], "max_u25": ["Max<2.5", "BbMx<2.5"],
     # zamkniecie: Pinnacle
-    "close_h": ["PSCH"], "close_d": ["PSCD"], "close_a": ["PSCA"],
-    "close_o25": ["PC>2.5"], "close_u25": ["PC<2.5"],
+    # zamkniecie: Pinnacle, a gdy brak (od 2026/27 plik nie ma Pinnacle) gielda Betfair
+    "close_h": ["PSCH", "BFECH"], "close_d": ["PSCD", "BFECD"], "close_a": ["PSCA", "BFECA"],
+    "close_o25": ["PC>2.5", "BFEC>2.5"], "close_u25": ["PC<2.5", "BFEC<2.5"],
     "ah_line": ["AHh", "BbAHh"], "ah_h": ["B365AHH"], "ah_a": ["B365AHA"],
     # tryb extended
     "hc": ["HC"], "ac": ["AC"], "hf": ["HF"], "af": ["AF"], "hy": ["HY"], "ay": ["AY"], "referee": ["Referee"],
