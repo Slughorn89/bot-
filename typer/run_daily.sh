@@ -18,4 +18,5 @@ step fetch    $PY cli.py fetch    || { fail fetch; exit 1; }
 step snapshot $PY cli.py snapshot || fail snapshot
 step predict  $PY cli.py predict  || { fail predict; exit 1; }
 if [ -n "$DRY" ]; then step report $PY cli.py report || fail report; else step report $PY cli.py report --send || fail report; fi
+[ "$(date -u +%u)" = "1" ] && { step learn $PY cli.py learn $([ -z "$DRY" ] && echo --send) || fail learn; }   # poniedzialek: przeglad tygodniowy
 echo "== koniec $(date -u +%T)" >> "$LOG"

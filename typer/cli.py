@@ -155,26 +155,40 @@ def cmd_day(a):
 
 
 def cmd_learn(a):
-    """Przeglad tygodniowy: evaluate.py na predykcjach na zywo od daty wdrozenia championa."""
+    """Przeglad tygodniowy: evaluate.py na predykcjach na zywo od daty wdrozenia championa i porownanie
+    championa z KAZDYM challengerem (sparowany bootstrap, regula awansu). --send: podsumowanie na Telegram."""
     from typer.learn import settle
     from typer.learn.champion import compare, current
     from typer.pipeline.backtest import run_evaluate
+    from typer.store import db
     eng = _engine()
     champ = current(eng)
     if not champ:
-        sys.exit("brak championa w model_registry (uruchom najpierw predict)")
+        print("brak championa w model_registry (uruchom najpierw predict)")
+        return
     since = champ["drift_reference_date"]
     path = config.ROOT / "live" / "preds.csv"
     path.parent.mkdir(exist_ok=True)
     df = settle.export_preds(eng, path, role="champion", since=since)
+    lines = [f"TYPER przeglad tygodniowy (champion {champ['version']}, od {since})"]
     if df.empty:
-        sys.exit("brak rozliczonych predykcji od daty wdrozenia")
-    code, rep = run_evaluate(path, since=since, json_out=config.ROOT / "live" / "weekly.json")
-    print(rep)
-    chal = current(eng, "challenger")
-    if chal:
+        lines.append("brak rozliczonych predykcji od daty wdrozenia: za wczesnie na wnioski")
+    else:
+        code, rep = run_evaluate(path, since=since, json_out=config.ROOT / "live" / "weekly.json")
+        print(rep)
+        lines.append(f"rozliczone predykcje championa: {df['event_id'].nunique()} meczow")
         s = settle.settled(eng, role=None, since=since)
-        print("challenger vs champion:", compare(s, champ["version"], chal["version"]))
+        chals = db.read_df(eng, "SELECT version FROM model_registry WHERE role = 'challenger'")
+        for v in chals["version"] if len(chals) else []:
+            c = compare(s, champ["version"], v)
+            verdict = "AWANS MOZLIWY" if c["awans"] else "czeka"
+            lines.append(f"{v}: n {c['n']}, roznica log loss {c['roznica']:+.4f}, "
+                         f"CI90 {c['ci90'][0]:+.4f}..{c['ci90'][1]:+.4f} -> {verdict}")
+    msg = "\n".join(lines)
+    print(msg)
+    if getattr(a, "send", False):
+        from typer.report.daily import send_telegram
+        print(send_telegram([msg]))
 
 
 def cmd_backtest(a):
@@ -318,7 +332,8 @@ def main(argv=None):
         if name == "predict":
             p.add_argument("--lead-minutes", type=int, default=None,
                            help="typuj tylko mecze startujace w ciagu N minut (na zywo: 90)")
-    sub.add_parser("learn")
+    p = sub.add_parser("learn")
+    p.add_argument("--send", action="store_true", help="podsumowanie na Telegram")
     sub.add_parser("snapshot", help="snapshot kursow z The Odds API (w chwili typu i zamkniecia)")
     sub.add_parser("lineups", help="sklady i kontuzje z API-Football (60-75 min przed meczem)")
     sub.add_parser("adapters", help="rejestr adapterow warstwy danych (modul 1)")
