@@ -195,6 +195,7 @@ class TradingBot:
         interval = interval_seconds or min(self.cfg.POLL_SECONDS, tf)
 
         self.running = True
+        trade_log.update_status(poll_seconds=interval)  # panel uses it to detect a silent bot
         if self.whales:
             self.whales.start()
         log.info(f"Bot started. Polling every {interval}s (strategy acts once per closed {self.timeframe} candle).")

@@ -1,0 +1,372 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-24T02:09:56+00:00",
+  "title": "Design System: Trading Bot",
+  "extensions": {
+    "colorMeta": {
+      "chart-night": {
+        "role": "neutral",
+        "displayName": "Noc wykresu",
+        "canonical": "#131722",
+        "oklch": "oklch(20.6% 0.023 268.9)",
+        "tonalRamp": [
+          "#0a0b0e",
+          "#23252b",
+          "#3e424c",
+          "#5c616f",
+          "#7d8291",
+          "#a0a5b1",
+          "#c6c9d1",
+          "#edeef2"
+        ]
+      },
+      "panel-slate": {
+        "role": "neutral",
+        "displayName": "Łupek panelu",
+        "canonical": "#1e222d",
+        "oklch": "oklch(25.3% 0.022 269.2)",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#23252a",
+          "#3e424b",
+          "#5c616e",
+          "#7d8290",
+          "#a1a5b0",
+          "#c6c9d0",
+          "#edeef2"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Linia",
+        "canonical": "#2a2e39",
+        "oklch": "oklch(30.2% 0.021 269.4)",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#23252a",
+          "#3e424b",
+          "#5c616d",
+          "#7d828f",
+          "#a1a5af",
+          "#c6c9d0",
+          "#edeef2"
+        ]
+      },
+      "hairline-strong": {
+        "role": "neutral",
+        "displayName": "Linia mocna",
+        "canonical": "#363a45",
+        "oklch": "oklch(34.9% 0.020 269.6)",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#23252a",
+          "#3f424a",
+          "#5d616d",
+          "#7d828f",
+          "#a1a5af",
+          "#c6c9d0",
+          "#edeef2"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Atrament",
+        "canonical": "#d1d4dc",
+        "oklch": "oklch(87.0% 0.011 269.5)",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#242528",
+          "#404247",
+          "#5e6168",
+          "#7f8289",
+          "#a3a5ab",
+          "#c7c9cd",
+          "#eeeef0"
+        ]
+      },
+      "ink-strong": {
+        "role": "neutral",
+        "displayName": "Atrament mocny",
+        "canonical": "#f0f3fa",
+        "oklch": "oklch(96.4% 0.010 267.4)",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#242527",
+          "#404246",
+          "#5f6167",
+          "#808288",
+          "#a3a5aa",
+          "#c8c9cc",
+          "#eeeef0"
+        ]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Atrament wyciszony",
+        "canonical": "#9598a1",
+        "oklch": "oklch(68.0% 0.014 271.2)",
+        "tonalRamp": [
+          "#0b0b0d",
+          "#242528",
+          "#404248",
+          "#5e6169",
+          "#7f828b",
+          "#a2a5ac",
+          "#c7c9ce",
+          "#edeef1"
+        ]
+      },
+      "gain-teal": {
+        "role": "primary",
+        "displayName": "Turkus zysku",
+        "canonical": "#26a69a",
+        "oklch": "oklch(65.6% 0.107 185.3)",
+        "tonalRamp": [
+          "#000f0d",
+          "#002d28",
+          "#004f48",
+          "#00746a",
+          "#00978b",
+          "#63b6ac",
+          "#a4d5ce",
+          "#dcf5f1"
+        ]
+      },
+      "loss-coral": {
+        "role": "primary",
+        "displayName": "Koral straty",
+        "canonical": "#ef5350",
+        "oklch": "oklch(65.4% 0.193 25.1)",
+        "tonalRamp": [
+          "#1b0303",
+          "#49090b",
+          "#7f0712",
+          "#b51020",
+          "#de4342",
+          "#f47c74",
+          "#ffb2aa",
+          "#ffe3de"
+        ]
+      },
+      "loss-coral-soft": {
+        "role": "primary",
+        "displayName": "Jasny koral",
+        "canonical": "#ffb3b1",
+        "oklch": "oklch(83.8% 0.089 20.8)",
+        "tonalRamp": [
+          "#130707",
+          "#371c1c",
+          "#623232",
+          "#8d4b4b",
+          "#b26c6b",
+          "#cd9493",
+          "#e4bfbd",
+          "#fde9e8"
+        ]
+      },
+      "signal-blue": {
+        "role": "secondary",
+        "displayName": "Niebieski sygnałowy",
+        "canonical": "#5b8cff",
+        "oklch": "oklch(66.2% 0.179 264.6)",
+        "tonalRamp": [
+          "#030a1e",
+          "#0f214e",
+          "#1c3a8a",
+          "#2c57c5",
+          "#4b7bec",
+          "#7aa2fb",
+          "#adc9ff",
+          "#e0efff"
+        ]
+      },
+      "entry-blue": {
+        "role": "secondary",
+        "displayName": "Niebieski wejścia",
+        "canonical": "#2962ff",
+        "oklch": "oklch(56.2% 0.240 264.4)",
+        "tonalRamp": [
+          "#020824",
+          "#071d5c",
+          "#0c31a2",
+          "#164ae6",
+          "#3571ff",
+          "#699fff",
+          "#a3c8ff",
+          "#dbefff"
+        ]
+      },
+      "caution-amber": {
+        "role": "tertiary",
+        "displayName": "Bursztyn ostrożności",
+        "canonical": "#ffb547",
+        "oklch": "oklch(82.4% 0.149 73.3)",
+        "tonalRamp": [
+          "#140800",
+          "#391e00",
+          "#653400",
+          "#924f00",
+          "#b67100",
+          "#d0994c",
+          "#e6c395",
+          "#feebd4"
+        ]
+      },
+      "live-red": {
+        "role": "tertiary",
+        "displayName": "Czerwień trybu LIVE",
+        "canonical": "#c62828",
+        "oklch": "oklch(53.9% 0.194 26.7)",
+        "tonalRamp": [
+          "#1b0302",
+          "#490909",
+          "#7f060d",
+          "#b60f19",
+          "#df433d",
+          "#f47c71",
+          "#ffb2a8",
+          "#ffe3dd"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "title": {
+        "displayName": "Title",
+        "purpose": "Nazwa w nagłówku i dwie wiodące wartości pozycji."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Wiersze etykieta i wartość, treść list."
+      },
+      "meta": {
+        "displayName": "Meta",
+        "purpose": "Metadane, notatki, puls bota, etykiety trybu."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Tylko nagłówki sekcji panelu bocznego."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "beat",
+        "value": "600ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Jedno uderzenie kropki pulsu po udanym odświeżeniu; brak przy prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "stack",
+        "value": "900px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Etykieta w nagłówku",
+      "kind": "chip",
+      "refersTo": "tag",
+      "description": "Para, strategia, tryb PAPER i stan pozycji w nagłówku.",
+      "html": "<span class=\"ds-tag\">BTC/USDT · 1h</span> <span class=\"ds-tag ds-tag-up\">LONG</span> <span class=\"ds-tag ds-tag-quiet\">tryb nieznany</span>",
+      "css": ".ds-tag{font: 13px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-variant-numeric: tabular-nums;display:inline-flex;align-items:center;height:24px;padding:0 10px;border:1px solid #363a45;border-radius:999px;font-size:12px;font-weight:650;letter-spacing:.04em;color:#d1d4dc;background:#1e222d}.ds-tag-up{color:#26a69a;border-color:rgba(38,166,154,.55)}.ds-tag-quiet{color:#9598a1;border-style:dashed}"
+    },
+    {
+      "name": "Etykieta LIVE",
+      "kind": "chip",
+      "refersTo": "tag-live",
+      "description": "Jedyny element w pełnej czerwieni obok paska LIVE.",
+      "html": "<span class=\"ds-tag-live\">LIVE</span>",
+      "css": ".ds-tag-live{font: 13px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-variant-numeric: tabular-nums;display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:650;letter-spacing:.04em;color:#fff;background:#c62828}"
+    },
+    {
+      "name": "Pasek LIVE",
+      "kind": "custom",
+      "refersTo": "live-band",
+      "description": "Pełna szerokość nad nagłówkiem, tylko w trybie LIVE.",
+      "html": "<div class=\"ds-live-band\">Tryb LIVE: bot składa prawdziwe zlecenia na giełdzie.</div>",
+      "css": ".ds-live-band{font: 13px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-variant-numeric: tabular-nums;padding:6px 20px;background:#c62828;color:#fff;font-weight:700;font-size:12px;letter-spacing:.02em}"
+    },
+    {
+      "name": "Puls bota",
+      "kind": "custom",
+      "refersTo": "heartbeat",
+      "description": "Kropka i wiek ostatniego ticka; turkus, bursztyn albo koral.",
+      "html": "<p class=\"ds-beat\"><span class=\"ds-dot\"></span>Bot działa · tick 12 s temu</p><p class=\"ds-beat ds-beat-warn\"><span class=\"ds-dot\"></span>Bot milczy: ostatni tick 15 min temu</p>",
+      "css": ".ds-beat{font: 13px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-variant-numeric: tabular-nums;margin:0 0 6px;display:flex;align-items:center;gap:8px;font-size:12px;color:#9598a1;background:#1e222d;padding:6px 10px}.ds-dot{width:8px;height:8px;border-radius:50%;background:#26a69a}.ds-beat-warn{color:#ffb547}.ds-beat-warn .ds-dot{background:#ffb547}"
+    },
+    {
+      "name": "Baner stanu",
+      "kind": "custom",
+      "refersTo": "banner",
+      "description": "Utrata połączenia albo bot zatrzymany; mówi co, od kiedy i co sprawdzić.",
+      "html": "<p class=\"ds-banner\">Brak połączenia z serwerem panelu od 01:59:37. Pokazuję ostatnie znane dane, mogą być nieaktualne.</p>",
+      "css": ".ds-banner{font: 13px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-variant-numeric: tabular-nums;margin:0;padding:8px 20px;font-size:12px;background:rgba(239,83,80,.12);color:#ffb3b1;border-bottom:1px solid #2a2e39}"
+    },
+    {
+      "name": "Wiersz statystyki",
+      "kind": "custom",
+      "refersTo": "stat",
+      "description": "Etykieta wyciszona, wartość mocna, znak zawsze jawny.",
+      "html": "<dl class=\"ds-stats\"><div class=\"ds-stat\"><dt>Wynik otwarty</dt><dd class=\"ds-pos\">+3,15% <small>+162,71 USDT</small></dd></div><div class=\"ds-stat\"><dt>Wejście</dt><dd>73 844,94</dd></div><div class=\"ds-stat\"><dt>Take profit</dt><dd class=\"ds-na\">nie ustawiony</dd></div></dl>",
+      "css": ".ds-stats{font: 13px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-variant-numeric: tabular-nums;margin:0;background:#1e222d;padding:8px 16px;width:320px;color:#d1d4dc}.ds-stat{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:4px 0}.ds-stat dt{color:#9598a1}.ds-stat dd{margin:0;font-weight:600;color:#f0f3fa}.ds-stat small{font-size:12px;font-weight:500;color:#9598a1}.ds-pos{color:#26a69a!important}.ds-na{color:#9598a1!important;font-weight:400!important}"
+    },
+    {
+      "name": "Element listy",
+      "kind": "card",
+      "refersTo": "list-item",
+      "description": "Sygnał, transakcja albo zdarzenie wieloryba.",
+      "html": "<div class=\"ds-item\"><div class=\"ds-row\"><span class=\"ds-title\">Otwarty short BTC</span><span class=\"ds-neg\">−8,1 mln USD</span></div><div class=\"ds-meta\">Hyperliquid 0x7a3f…c21e · 11 min temu</div></div>",
+      "css": ".ds-item{font: 13px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-variant-numeric: tabular-nums;width:316px;padding:8px 10px;background:#131722;border:1px solid #2a2e39;border-radius:6px;font-size:12px;color:#d1d4dc}.ds-row{display:flex;justify-content:space-between;gap:10px}.ds-title{color:#f0f3fa;font-weight:600}.ds-neg{color:#ef5350}.ds-meta{margin-top:3px;font-size:12px;color:#9598a1}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Uczciwy przyrząd",
+    "overview": "Panel ma działać jak przyrząd na desce rozdzielczej, a nie jak witryna. Odpowiada najpierw na cztery pytania: czy bot żyje, czy handluje prawdziwymi pieniędzmi, czy ma pozycję i jak ona stoi. Dopiero potem pokazuje kontekst. Świat wizualny celowo stoi blisko konwencji terminali giełdowych (ciemne tło wykresu, turkus i koral dla wzrostu i spadku), bo operator zna je z innych narzędzi i nie musi się uczyć nowego języka.\n\nCharakter nadają szczegóły, nie ozdoby: pasek trybu LIVE na całą szerokość, puls bota z wiekiem ostatniego ticka, wyciszenie danych, które mogą być nieaktualne, i słowo „brak danych” zamiast cyfry, której nikt nie zmierzył. Gęstość jest wysoka, ale każda wartość ma etykietę i znak.",
+    "keyCharacteristics": [
+      "Ciemny, płaski, tonalny układ z cienkimi liniami zamiast cieni.",
+      "Jeden krój systemowy, cyfry tabelaryczne, mała skala typograficzna.",
+      "Kolor tylko dla znaczenia: zysk, strata, ostrzeżenie, tryb LIVE, informacja.",
+      "Każdy stan ma słowo i znak, kolor tylko je wzmacnia."
+    ],
+    "rules": [
+      {
+        "name": "Zasada jednej czerwieni",
+        "section": "colors",
+        "body": "Czerwień LIVE oznacza tylko prawdziwe pieniądze. Błędy używają korala, nigdy jej."
+      },
+      {
+        "name": "Zasada spokojnego PAPER",
+        "section": "colors",
+        "body": "Tryb symulacji ma neutralną etykietę z obrysem. Kolor jest zarezerwowany dla stanów, które wymagają uwagi."
+      },
+      {
+        "name": "Zasada stojących cyfr",
+        "section": "typography",
+        "body": "Wszystkie liczby mają tabular-nums, żeby odświeżanie co 5 s nie trzęsło kolumną."
+      },
+      {
+        "name": "Zasada braku danych",
+        "section": "typography",
+        "body": "Brak wartości to słowo „brak danych” albo „nie dotyczy” w kolorze wyciszonym, nigdy zero ani myślnik."
+      },
+      {
+        "name": "Zasada płaskiego przyrządu",
+        "section": "elevation",
+        "body": "Żadnych cieni, poświat ani szkła. Stan zmienia kolor, słowo i jasność."
+      }
+    ],
+    "dos": [
+      "Do pokazuj tryb słowem w nagłówku i w tytule karty przeglądarki (`LIVE · BTC/USDT 76 169,31 · Trading Bot`).",
+      "Do używaj tokenów z `:root` w `static/dashboard.html` zamiast wpisywać kolory na sztywno.",
+      "Do zostawiaj ostatnie znane dane po utracie połączenia, ale przyciemnione i z banerem.",
+      "Do sprawdzaj kontrast tekstu: minimum 4,5:1 na obu podłożach."
+    ],
+    "donts": [
+      "Don't ustawiaj domyślnie PAPER ani FLAT, zanim przyjdą dane. Nieznany tryb to „tryb nieznany”.",
+      "Don't wstawiaj emoji ani znaków Unicode jako ikon.",
+      "Don't używaj paska po jednej stronie elementu do oznaczania kupna i sprzedaży; znak niesie słowo i kolor tekstu.",
+      "Don't wstawiaj surowych danych z API przez `innerHTML` bez `esc()`."
+    ]
+  }
+}

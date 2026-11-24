@@ -57,6 +57,15 @@ Zdarzenia widać w panelu dashboardu. Szukanie "pozycji za miliony" na zewnętrz
 * Stop w trybie LIVE jest sprawdzany co kilkadziesiąt sekund po stronie bota (nie jako zlecenie na giełdzie) – przy gwałtownym ruchu fill może być gorszy niż w backteście.
 * `python main.py` – konsola, `python dashboard.py` – wykres (lightweight-charts) + panel wielorybów.
 
+### Panel: jak czytać stan
+
+* **Tryb LIVE** to czerwony pasek na całą szerokość i słowo `LIVE` w tytule karty przeglądarki. PAPER ma spokojną etykietę.
+  Zanim przyjdą dane, panel pisze „tryb nieznany”, a nie PAPER.
+* **Puls bota** (prawy górny róg) pokazuje wiek ostatniego ticka. Bursztyn: bot milczy dłużej niż ~3 interwały.
+  Koral: brak połączenia z serwerem panelu albo wątek bota nie działa. Wtedy dane są przyciemnione, a baner mówi, od kiedy.
+* „brak danych” znaczy, że wartości nikt nie zmierzył. To nie jest zero.
+* Zasady wyglądu panelu: [`DESIGN.md`](DESIGN.md). Kontekst produktu dla narzędzi projektowych: [`PRODUCT.md`](PRODUCT.md).
+
 ## Testy
 
 ```bash

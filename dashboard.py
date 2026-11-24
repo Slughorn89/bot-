@@ -9,7 +9,6 @@ Usage:
 """
 
 import argparse
-import os
 import threading
 from typing import Optional
 
@@ -23,6 +22,8 @@ from trade_log import trade_log
 log = get_logger("Dashboard")
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
+
+MAX_CANDLES = 1000  # most exchanges cap a single OHLCV request around here
 
 _bot_thread: Optional[threading.Thread] = None
 _shared_exchange: Optional[ExchangeClient] = None
@@ -59,8 +60,9 @@ def start_bot_thread():
 
 @app.route("/")
 def index():
-    here = os.path.dirname(__file__)
-    return open(os.path.join(here, "static", "dashboard.html"), encoding="utf-8").read()
+    resp = app.send_static_file("dashboard.html")
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
 
 
 @app.route("/api/candles")
@@ -68,7 +70,11 @@ def api_candles():
     cfg = Config()
     pair = request.args.get("pair", cfg.TRADING_PAIR)
     timeframe = request.args.get("timeframe", cfg.TIMEFRAME)
-    limit = int(request.args.get("limit", 200))
+    try:
+        limit = int(request.args.get("limit", 200))
+    except ValueError:
+        return jsonify({"error": "limit must be an integer"}), 400
+    limit = max(1, min(limit, MAX_CANDLES))
 
     try:
         df = _get_exchange().fetch_ohlcv(pair, timeframe, limit)
