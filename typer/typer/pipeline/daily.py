@@ -299,7 +299,9 @@ def predict(engine: sa.Engine, as_of=None, role: str | None = None, lead_minutes
         now_ts = pd.Timestamp.now(tz="UTC")
         ko = pd.to_datetime(fx["kickoff_utc"], utc=True)
         fx = fx[(ko > now_ts) & (ko <= now_ts + pd.Timedelta(minutes=lead_minutes))]
-    elif as_of and len(fx):
+    elif len(fx):
+        # tylko mecze dnia: predykcje sa niezmienialne, wiec typ na jutro zrobiony dzis zamrozilby stary kurs
+        # (albo jego brak) i nie wykorzystal kursow z dnia meczu
         fx = fx[fx["date"] == today]
     if fx.empty:
         log.info("brak meczow w terminarzu")
