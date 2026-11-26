@@ -10,6 +10,7 @@ import json
 import logging
 from datetime import datetime, timezone
 
+import numpy as np
 import pandas as pd
 
 from typer import config
@@ -102,3 +103,49 @@ def best_price(snap: pd.DataFrame, bookmakers: list[str] | None = None) -> pd.Da
     s = snap if not bookmakers else snap[snap["bookmaker"].isin(bookmakers)]
     idx = s.groupby(["source_event_id", "market", "selection"])["price"].idxmax()
     return s.loc[idx].reset_index(drop=True)
+
+
+def load_events(known_teams: dict[str, list[str]], days: int = 4, now: datetime | None = None) -> pd.DataFrame:
+    """Terminarz zapasowy z The Odds API (/events: nie zuzywa kredytow). Mecze bez kursow (kursy daje
+    snapshot w budzecie). known_teams: liga -> kanoniczne nazwy druzyn; niedopasowane nazwy pomijamy
+    (nie zgadujemy). Format jak schema.COLUMNS, wynik pusty."""
+    from typer.entities.mapping import resolve_many
+    from typer.ingest import schema
+    from typer.ingest.seasons import assign_seasons
+    key = config.env("ODDS_API_KEY")
+    if not key:
+        raise SourceUnavailable("brak ODDS_API_KEY w .env")
+    now = now or datetime.now(timezone.utc)
+    base = config.sources()["the_odds_api"]["url"].rsplit("/odds", 1)[0] + "/events"
+    rows = []
+    for lg, meta in config.leagues().items():
+        sport = meta.get("odds_api")
+        if not sport or lg not in known_teams:
+            continue
+        params = dict(apiKey=key, commenceTimeFrom=f"{now:%Y-%m-%dT00:00:00Z}",
+                      commenceTimeTo=f"{(now + pd.Timedelta(days=days)):%Y-%m-%dT00:00:00Z}")
+        raw = fetch(base.format(sport=sport), SOURCE, f"events_{sport}_{now:%Y%m%d}.json", params=params,
+                    max_age_hours=3)
+        evs = json.loads(raw)
+        if not evs:
+            continue
+        mp, pending = resolve_many(sorted({e["home_team"] for e in evs} | {e["away_team"] for e in evs}),
+                                   known_teams[lg])
+        if pending:
+            log.warning("%s: terminarz The Odds API, niedopasowane nazwy: %s", lg, [m.raw for m in pending])
+        for e in evs:
+            h, a = mp.get(e["home_team"]), mp.get(e["away_team"])
+            if h and a:
+                ko = pd.Timestamp(e["commence_time"]).tz_convert("UTC")
+                rows.append(dict(league=lg, home=h, away=a, kickoff_utc=ko, date=ko.date(), time_known=True))
+    if not rows:
+        return schema.empty_frame()
+    df = pd.DataFrame(rows)
+    df["sport"], df["source"] = "football", f"{SOURCE}_events"
+    for c in schema.COLUMNS:
+        if c not in df.columns:
+            df[c] = np.nan
+    df["season"] = assign_seasons(pd.to_datetime(df["date"]))
+    df["event_id"] = [schema.make_event_id(l, d, h, a)
+                      for l, d, h, a in zip(df["league"], df["date"], df["home"], df["away"])]
+    return schema.validate(df[schema.COLUMNS].drop_duplicates("event_id"), allow_unplayed=True)

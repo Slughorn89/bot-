@@ -21,3 +21,16 @@ def test_taken_odds_only_from_configured_bookmaker(tmp_engine):
     fx = daily._fixtures_from_db(tmp_engine, "2026-11-23")
     r = fx.iloc[0]
     assert (r["odds_h"], r["odds_d"], r["odds_a"]) == (2.0, 3.4, 3.9)   # Betclic, choc Marathon jest nowszy
+
+
+def test_odds_api_events_fallback_maps_names_and_skips_unknown(monkeypatch):
+    import json as _json
+    from typer.ingest import odds_api
+    monkeypatch.setenv("ODDS_API_KEY", "test")
+    evs = [dict(id="1", commence_time="2026-11-27T20:00:00Z", home_team="Nottingham Forest", away_team="Chelsea"),
+           dict(id="2", commence_time="2026-11-28T15:00:00Z", home_team="Nieznany FC", away_team="Chelsea")]
+    monkeypatch.setattr(odds_api, "fetch", lambda url, *a, **k: _json.dumps(evs if "soccer_epl" in url else []).encode())
+    df = odds_api.load_events({"E0": ["Nott'm Forest", "Chelsea", "Arsenal"]},
+                              now=datetime(2026, 11, 26, 11, tzinfo=timezone.utc))
+    assert list(zip(df["home"], df["away"])) == [("Nott'm Forest", "Chelsea")]   # nieznana nazwa pominieta
+    assert df["fthg"].isna().all() and df["odds_h"].isna().all()

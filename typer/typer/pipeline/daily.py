@@ -69,7 +69,20 @@ def fetch(engine: sa.Engine, as_of=None) -> dict:
             from typer.ingest import footballdata_uk
             fx = footballdata_uk.load_fixtures()
         except SourceUnavailable as e:
-            alert(f"terminarz football-data.co.uk niedostepny: {e}. Alternatywa: The Odds API (ODDS_API_KEY)")
+            alert(f"terminarz football-data.co.uk niedostepny: {e}. Uzywam The Odds API /events")
+        # football-data publikuje terminarz weekendu zwykle dopiero w piatek: brakujace mecze z The Odds API
+        try:
+            from typer.ingest import odds_api
+            recent = past[pd.to_datetime(past["date"]) >= pd.Timestamp.now() - pd.Timedelta(days=400)]
+            teams = {lg: sorted(set(g["home"]) | set(g["away"])) for lg, g in recent.groupby("league")}
+            ev = odds_api.load_events(teams)
+            if len(fx):
+                have = set(zip(fx["league"], fx["home"], fx["away"]))
+                ev = ev[[(l, h, a) not in have for l, h, a in zip(ev["league"], ev["home"], ev["away"])]]
+            if len(ev):
+                fx = pd.concat([fx, ev], ignore_index=True) if len(fx) else ev
+        except SourceUnavailable as e:
+            alert(f"terminarz zapasowy The Odds API niedostepny: {e}")
     stats = db.store_matches(engine, past)
     if len(fx):
         db.store_matches(engine, fx)
