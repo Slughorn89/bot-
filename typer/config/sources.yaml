@@ -50,6 +50,7 @@ the_odds_api:
   # pinnacle i betfair_ex_eu: ostre zamkniecia do CLV.
   bukmacherzy: [betclic_fr, pinnacle, betfair_ex_eu, unibet_eu, williamhill, marathonbet, betsson, nordicbet,
                 sport888, onexbet]
+  typ_rano: [POL]                   # brak kursu sprzed meczu w football-data: snapshot do typu rano (ok. 25 kr./mies.)
   bukmacher_zakladu: betclic_fr     # kurs "wziety" zakladu papierowego; inni tylko do porownan i zamkniec
   rynki_zamkniecie: [h2h, totals]   # zamkniecie ma priorytet: bez niego nie ma CLV
   rynki_typ: [h2h, totals]          # przy braku budzetu planer zostawia samo h2h, potem nic

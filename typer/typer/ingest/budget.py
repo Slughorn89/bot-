@@ -144,7 +144,10 @@ def plan_odds_snapshots(events: pd.DataFrame, now: datetime, done: set[tuple], l
         if len(day):
             first = day["ko"].min()
             key = (lg, "taken", str(now_ts.date()))
-            if key not in done and now_ts >= first - pd.Timedelta(minutes=lead_minutes + 15) and now_ts < first:
+            # ligi bez kursu przedmeczowego w football-data (typ_rano, np. POL): snapshot do typu juz rano w dniu
+            # meczu, bo poranny cykl typuje wszystkie mecze dnia i bez tego typ nie mialby kursu
+            early = lg in (s.get("typ_rano") or [])
+            if key not in done and now_ts < first and (early or now_ts >= first - pd.Timedelta(minutes=lead_minutes + 15)):
                 plans.append(Plan(lg, "taken", m_taken, odds_api_cost(m_taken, regions),
                                   [str(x) for x in sorted(day["ko"].unique())]))
     # budzet: zamkniecia najpierw, potem typ (z degradacja rynkow)

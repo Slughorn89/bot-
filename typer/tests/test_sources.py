@@ -108,3 +108,16 @@ def test_sklady_trafiaja_do_bazy_z_mapowaniem(monkeypatch, tmp_engine, synth, tm
     assert set(lu["team"]) == {r["home"], r["away"]}  # nazwy zmapowane na kanoniczne
     assert {"nieobecny", "zawieszenie", "start", "lawka"} == set(lu["status"])
     assert daily.collect_lineups(tmp_engine, now=NOW) == {"mecze": 0, "wiersze": 0}  # nie dublujemy
+
+
+def test_planer_typ_rano_dla_ligi_bez_kursu_przedmeczowego(tmp_path, monkeypatch):
+    from typer import config
+    led = budget.Ledger(tmp_path / "b.json")
+    ev = _events(["2018-09-08 17:30"])
+    morning = datetime(2018, 9, 8, 9, 0, tzinfo=timezone.utc)
+    assert budget.plan_odds_snapshots(ev, morning, set(), led) == []          # zwykla liga: za wczesnie
+    base = config.sources()
+    cfg = dict(base, the_odds_api=dict(base["the_odds_api"], typ_rano=["E0"]))
+    monkeypatch.setattr(config, "sources", lambda: cfg)
+    plans = budget.plan_odds_snapshots(ev, morning, set(), led)
+    assert [p.kind for p in plans] == ["taken"]                                # typ_rano: kurs juz rano
