@@ -34,3 +34,20 @@ def test_odds_api_events_fallback_maps_names_and_skips_unknown(monkeypatch):
                               now=datetime(2026, 11, 26, 11, tzinfo=timezone.utc))
     assert list(zip(df["home"], df["away"])) == [("Nott'm Forest", "Chelsea")]   # nieznana nazwa pominieta
     assert df["fthg"].isna().all() and df["odds_h"].isna().all()
+
+
+def test_live_results_settle_scheduled_event(tmp_engine, tmp_path, monkeypatch):
+    import pickle
+    from typer import config
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path)
+    ko = datetime(2026, 11, 27, 20, tzinfo=timezone.utc)
+    db.upsert(tmp_engine, db.events, [dict(event_id="e1", sport="football", league="E0", season="2026-27",
+                                           kickoff_utc=ko, home="Nott'm Forest", away="Chelsea", status="scheduled")],
+              ["event_id"], update=False)
+    rec = [dict(_type="MatchResult", home="Nottingham Forest", away="Chelsea", kickoff_utc=ko.isoformat(),
+                fthg=1, ftag=2, hthg=0, htag=1, source_key="m1:result")]
+    pickle.dump(rec, open(tmp_path / "thestatsapi_E0_live.pkl", "wb"))
+    assert daily.store_live_results(tmp_engine) == 1
+    r = db.read_df(tmp_engine, "SELECT fthg, ftag FROM results WHERE event_id = 'e1'")
+    assert (int(r.fthg[0]), int(r.ftag[0])) == (1, 2)
+    assert db.read_df(tmp_engine, "SELECT status FROM events WHERE event_id = 'e1'").status[0] == "finished"

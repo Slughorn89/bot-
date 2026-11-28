@@ -411,10 +411,53 @@ def settle_day(engine: sa.Engine, as_of=None) -> dict:
     else:
         db.store_matches(engine, load_matches(refresh=True))
     n_xg = refresh_real_xg() if not as_of else []
+    n_live = store_live_results(engine) if not as_of else 0
     s = settle.settled(engine, role=None)
     n_j = journal.update_journal(engine, s[s["role"] == "champion"]) if len(s) else 0
     n_clv = settle.record_clv(engine)
-    return dict(settled=int(s["event_id"].nunique()) if len(s) else 0, journal=n_j, clv=n_clv, xg=n_xg)
+    return dict(settled=int(s["event_id"].nunique()) if len(s) else 0, journal=n_j, clv=n_clv, xg=n_xg, wyniki_thestatsapi=n_live)
+
+
+def store_live_results(engine: sa.Engine) -> int:
+    """Wyniki rozegranych meczow z kopii TheStatsAPI (dociaganej codziennie z xG) do bazy, zeby rozliczac typy
+    nastepnego dnia, a nie po kilku dniach, gdy football-data zaktualizuje plik. Dopasowanie: liga, nazwy po
+    mapowaniu, start w ciagu 6 h. Niepewne nazwy pomijamy (nie zgadujemy). Wynik dostepny po meczu
+    (available_at = start + POST_MATCH_LAG w store_matches), wiec do predykcji tego meczu nie trafia."""
+    import pickle
+    from typer.entities.mapping import resolve_many
+    ev = db.read_df(engine, "SELECT * FROM events WHERE status = 'scheduled'")
+    if ev.empty:
+        return 0
+    ev["kickoff_utc"] = pd.to_datetime(ev["kickoff_utc"], utc=True)
+    ev = ev[ev["kickoff_utc"] < pd.Timestamp.now(tz="UTC") - pd.Timedelta(hours=2)]
+    rows = []
+    for lg, g in ev.groupby("league"):
+        path = config.DATA_DIR / f"thestatsapi_{lg}_live.pkl"
+        if not path.exists():
+            continue
+        rec = pd.DataFrame([r for r in pickle.load(open(path, "rb")) if r.get("_type") == "MatchResult"])
+        if rec.empty:
+            continue
+        mp, _ = resolve_many(sorted(set(rec["home"]) | set(rec["away"])), sorted(set(g["home"]) | set(g["away"])))
+        rec["h"], rec["a"] = rec["home"].map(mp), rec["away"].map(mp)
+        rec["ko"] = pd.to_datetime(rec["kickoff_utc"], utc=True)
+        j = g.merge(rec.dropna(subset=["h", "a"]), left_on=["home", "away"], right_on=["h", "a"],
+                    suffixes=("", "_r"))
+        j = j[(j["kickoff_utc"] - j["ko"]).abs() <= pd.Timedelta(hours=6)]
+        for r in j.itertuples(index=False):
+            rows.append(dict(event_id=r.event_id, sport=r.sport, league=lg, season=r.season,
+                             kickoff_utc=r.kickoff_utc, time_known=True, date=r.kickoff_utc.date(),
+                             home=r.home, away=r.away, source="thestatsapi", fthg=r.fthg, ftag=r.ftag,
+                             hthg=r.hthg, htag=r.htag, hr=np.nan, ar=np.nan))
+    if not rows:
+        return 0
+    from typer.ingest.schema import COLUMNS
+    df = pd.DataFrame(rows)
+    for c in COLUMNS:
+        if c not in df.columns:
+            df[c] = np.nan
+    db.store_matches(engine, df[COLUMNS])
+    return len(df)
 
 
 def refresh_real_xg(days: int = 7) -> list[dict]:

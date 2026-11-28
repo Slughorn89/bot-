@@ -58,7 +58,7 @@ ALIASES = {
     "deportivo la coruna": "La Coruna", "racing de santander": "Santander", "real oviedo": "Oviedo",
     "sc paderborn 07": "Paderborn", "bruk-bet termalica nieciecza": "Termalica B-B.",
     "termalica nieciecza": "Termalica B-B.", "mzks arka gdynia": "Arka Gdynia",
-    "wisla krakow": "Wisla", "ca osasuna": "Osasuna", "real racing club de santander": "Santander",
+    "wisla krakow": "Wisla", "cracovia krakow": "Cracovia", "ks cracovia": "Cracovia", "ca osasuna": "Osasuna", "real racing club de santander": "Santander",
 }
 
 
